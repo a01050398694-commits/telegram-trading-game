@@ -2,8 +2,9 @@ import express, { type Express, type Request, type Response, type NextFunction }
 import type { Bot } from 'grammy';
 import { env } from './env.js';
 import crypto from 'node:crypto';
-import type { TradingEngine } from './engine/trading.js';
-import type { RankingEngine } from './engine/ranking.js';
+import { type TradingEngine } from './engine/trading.js';
+import { type RankingEngine } from './engine/ranking.js';
+import { checkIsPremium } from './services/premiumCache.js';
 import type { PriceCache } from './priceCache.js';
 
 // 결제 식별자 — Stars invoice 의 payload 필드.
@@ -99,6 +100,7 @@ async function resolveUser(
 // -------------------------------------------------------------------------
 export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): Express {
   const app = express();
+  const yesterdayPnlCache = new Map<string, { value: number; date: string }>();
 
   app.use(cors);
   app.use(express.json());
@@ -133,6 +135,46 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
         engine.getOpenPosition(resolved),
         engine.getLatestVerification(resolved),
       ]);
+
+      const telegramUserId = await engine.getTelegramUserId(resolved);
+      let isPremium = false;
+      let rank = 0;
+      let yesterdayPnl = 0;
+
+      if (telegramUserId) {
+        // 1. isPremium
+        isPremium = await checkIsPremium(bot, telegramUserId);
+
+        // 2. rank (오늘 랭킹)
+        const top100 = rankingEngine.getTop100();
+        const foundIndex = top100.findIndex(r => r.telegramUserId === telegramUserId);
+        rank = foundIndex >= 0 ? foundIndex + 1 : 0;
+
+        // 3. yesterdayPnl (DB 스냅샷 조회 + 메모리 캐시)
+        const kstOffset = 9 * 60 * 60 * 1000;
+        const nowKst = new Date(Date.now() + kstOffset);
+        // "어제"의 날짜 문자열 (YYYY-MM-DD)
+        nowKst.setUTCDate(nowKst.getUTCDate() - 1);
+        const yDateStr = nowKst.toISOString().split('T')[0];
+
+        const cachedPnl = yesterdayPnlCache.get(resolved);
+        if (cachedPnl && cachedPnl.date === yDateStr) {
+          yesterdayPnl = cachedPnl.value;
+        } else {
+          try {
+            const { data } = await engine['db'] // engine.db is private, wait, maybe just use supabase directly?
+              .from('ranking_snapshots')
+              .select('daily_pnl')
+              .eq('user_id', resolved)
+              .eq('date', yDateStr)
+              .maybeSingle();
+            yesterdayPnl = data ? Number(data.daily_pnl) : 0;
+            yesterdayPnlCache.set(resolved, { value: yesterdayPnl, date: yDateStr });
+          } catch (err) {
+            console.error('[server] failed to fetch yesterdayPnl', err);
+          }
+        }
+      }
       res.json({
         userId: resolved,
         balance: wallet?.balance ?? 0,
@@ -164,6 +206,9 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
         // Stage 9: VIP 플래그는 MVP 에서 "approved 인증 1건 이상" 으로 정의.
         // 추후 Stars 결제/수동 지급 등으로 확장 가능.
         isVIP: verification?.status === 'approved',
+        isPremium,
+        rank,
+        yesterdayPnl,
       });
     } catch (err) {
       console.error('[server] /user/status:', err);

@@ -58,4 +58,5 @@ export const env = {
   MARKET_SYMBOLS: list('MARKET_SYMBOLS', 'btcusdt,ethusdt,solusdt'),
   
   VIP_CHAT_ID: optional('VIP_CHAT_ID', ''),
+  PREMIUM_CHAT_ID: optional('PREMIUM_CHAT_ID', ''),
 } as const;

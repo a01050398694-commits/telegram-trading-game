@@ -60,6 +60,7 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
       {/* ── INVITEMEMBER UPGRADE BUTTON ─────────────────────────
           Stage 12 — 하이브리드 결제 연동.
           구독/평생 멤버십 결제는 미니앱 밖의 InviteMember 봇으로 보낸다. */}
+      {(!status || !status.isPremium) && (
       <button
         type="button"
         onClick={() => {
@@ -91,7 +92,9 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
             →
           </span>
         </div>
+        </div>
       </button>
+      )}
 
       {/* ── EXCHANGE UID VERIFICATION (ACCORDION) ─────────────
           Stage 8.10 — 단일 CTA 버튼. 클릭 시 결제 모달.
@@ -151,6 +154,21 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
         </div>
       </div>
 
+      <div className="relative">
+        {(!status || !status.isPremium) && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-3xl bg-slate-950/40 backdrop-blur-[6px]">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-900 shadow-[0_0_30px_rgba(250,204,21,0.2)] mb-4">
+              <span className="text-3xl">🔒</span>
+            </div>
+            <div className="font-mono text-[14px] font-bold text-white uppercase tracking-widest">
+              Premium Only
+            </div>
+            <div className="mt-2 text-[11px] text-slate-300">
+              Upgrade to access educational library
+            </div>
+          </div>
+        )}
+
       {/* ── EDUCATION LIBRARY ─────────────────────────── */}
       <div>
         <div className="flex items-center gap-3 pb-3">
@@ -194,6 +212,7 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
             );
           })}
         </div>
+      </div>
       </div>
 
       {/* Stage 8.9 — 물리 스페이서. */}

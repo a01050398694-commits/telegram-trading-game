@@ -32,6 +32,9 @@ export type UserStatus = {
   position: ServerPosition | null;
   verification: ServerVerification | null;
   isVIP: boolean;
+  isPremium: boolean;
+  rank: number;
+  yesterdayPnl: number;
 };
 
 export type OpenTradeInput = {
