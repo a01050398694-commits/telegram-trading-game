@@ -3,7 +3,7 @@ services:
     name: telegram-trading-bot
     env: node
     plan: free
-    buildCommand: npm ci && npm run build -w bot
+    buildCommand: npm ci --include=dev && npm run build -w bot
     startCommand: npm run start:bot
     healthCheckPath: /health
     envVars:
