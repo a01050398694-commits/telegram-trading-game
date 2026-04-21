@@ -43,7 +43,8 @@ function list(name: string, fallback: string): string[] {
 export const env = {
   BOT_TOKEN: required('TELEGRAM_BOT_TOKEN'),
   WEBAPP_URL: optional('TELEGRAM_WEBAPP_URL', 'http://localhost:5173'),
-  SERVER_PORT: Number(optional('BOT_SERVER_PORT', '3000')),
+  // Render/Heroku 등 PaaS 는 $PORT 를 주입하므로 우선 채택, 로컬은 BOT_SERVER_PORT fallback.
+  SERVER_PORT: Number(process.env.PORT ?? optional('BOT_SERVER_PORT', '3000')),
   NODE_ENV: optional('NODE_ENV', 'development'),
 
   // Supabase — bot은 service_role 우선 사용(RLS 우회), anon은 fallback.
