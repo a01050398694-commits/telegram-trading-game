@@ -38,7 +38,16 @@ export function createBot(engine: TradingEngine): Bot {
   // /getid — 유틸리티: 현재 채팅방의 ID를 반환 (비공개 채널/그룹 세팅용)
   // -------------------------------------------------------------------------
   bot.command('getid', async (ctx) => {
-    await ctx.reply(`이 방의 ID는 다음과 같습니다:\n\`${ctx.chat.id}\``, { parse_mode: 'Markdown' });
+    await ctx.reply(`방 ID: ${ctx.chat.id}`);
+  });
+
+  // 모든 텍스트 메시지에 반응해서 ID를 알려주는 임시 감청 코드
+  bot.on('message:text', async (ctx) => {
+    if (ctx.chat.type === 'supergroup' || ctx.chat.type === 'group' || ctx.chat.type === 'channel') {
+      try {
+        await ctx.reply(`(자동감지) 이 방의 ID는: ${ctx.chat.id} 입니다.`);
+      } catch (e) {}
+    }
   });
 
   // -------------------------------------------------------------------------
