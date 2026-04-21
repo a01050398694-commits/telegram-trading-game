@@ -35,18 +35,15 @@ export function createBot(engine: TradingEngine): Bot {
   const bot = new Bot(env.BOT_TOKEN);
 
   // -------------------------------------------------------------------------
-  // /getid — 유틸리티: 현재 채팅방의 ID를 반환 (비공개 채널/그룹 세팅용)
+  // /premium — 임시 우회 기능 (수동 프리미엄 권한 부여)
   // -------------------------------------------------------------------------
-  bot.command('getid', async (ctx) => {
-    await ctx.reply(`방 ID: ${ctx.chat.id}`);
-  });
-
-  // 모든 텍스트 메시지에 반응해서 ID를 알려주는 임시 감청 코드
-  bot.on('message:text', async (ctx) => {
-    if (ctx.chat.type === 'supergroup' || ctx.chat.type === 'group' || ctx.chat.type === 'channel') {
-      try {
-        await ctx.reply(`(자동감지) 이 방의 ID는: ${ctx.chat.id} 입니다.`);
-      } catch (e) {}
+  bot.command('premium', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (userId) {
+      import('./services/premiumCache.js').then(({ grantManualPremium }) => {
+        grantManualPremium(userId);
+      });
+      await ctx.reply('✅ 결제가 확인되었습니다! 이제 미니앱을 열어 프리미엄 콘텐츠를 즐겨보세요.');
     }
   });
 
