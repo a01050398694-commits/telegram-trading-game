@@ -24,3 +24,5 @@ services:
         value: "100000"
       - key: MARKET_SYMBOLS
         value: "btcusdt,ethusdt,solusdt,bnbusdt,xrpusdt"
+      - key: VIP_CHAT_ID
+        value: "@Trader_club"
