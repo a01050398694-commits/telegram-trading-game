@@ -1,0 +1,226 @@
+import { useEffect, useRef, useState } from 'react';
+
+// 바이낸스 선물/현물 시세 훅.
+// - REST: 초기 히스토리 200개 캔들 (1분봉)
+// - WS:   실시간 kline tick — 동일한 t(open time) 캔들을 매번 갱신, 다음 분이 되면 새 캔들 append
+// 소비 컴포넌트는 history.setData + ticking.update 를 조합해 라이트차트에 흘려넣는다.
+
+export type Candle = {
+  time: number; // UTC seconds — lightweight-charts UTCTimestamp 호환
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+};
+
+export type Direction = 'up' | 'down' | 'idle';
+
+export type Stats24h = {
+  priceChange: number;
+  priceChangePercent: number;
+  high: number;
+  low: number;
+  volume: number;
+};
+
+export type BinanceFeed = {
+  symbol: string;
+  history: Candle[];           // 초기 로드 후 불변 (chart.setData 용)
+  ticking: Candle | null;      // 매 틱 바뀌는 최신 캔들 (chart.update 용)
+  price: number | null;        // ticking.close 와 동일 — 편의용
+  direction: Direction;        // 이전 틱 대비 상승/하락
+  status: 'loading' | 'live' | 'error';
+  stats24h: Stats24h | null;
+};
+
+// Stage 8.14 — Binance '선물(Futures)' API 로 전면 교체.
+// 현물 (api.binance.com/api/v3) 에는 PEPE, SHIB 등 '1000PEPE' 프리픽스 심볼이 없어 404 를 내뱉는다.
+// USDT-M Perpetual 엔드포인트 (fapi.binance.com) + WS (fstream.binance.com) 로 이동해
+// 전 종목 차트가 뜨도록 통일한다.
+const REST_BASE = 'https://fapi.binance.com/fapi/v1/klines';
+const WS_BASE = 'wss://fstream.binance.com/ws';
+
+// Binance /api/v3/klines 응답은 고정 길이 12-tuple.
+// noUncheckedIndexedAccess 설정 때문에 ...rest 스프레드를 쓰면 모든 인덱스가 undefined 가 섞임.
+type BinanceRestRow = [
+  number, // 0 openTime (ms)
+  string, // 1 open
+  string, // 2 high
+  string, // 3 low
+  string, // 4 close
+  string, // 5 volume
+  number, // 6 closeTime
+  string, // 7 quoteVolume
+  number, // 8 trades
+  string, // 9 takerBuyBase
+  string, // 10 takerBuyQuote
+  string, // 11 ignore
+];
+
+type BinanceKlinePayload = {
+  e: 'kline';
+  k: {
+    t: number; // open time (ms)
+    o: string;
+    h: string;
+    l: string;
+    c: string;
+    x: boolean; // kline closed
+  };
+};
+
+function parseRestRow(row: BinanceRestRow): Candle {
+  return {
+    time: Math.floor(row[0] / 1000),
+    open: parseFloat(row[1]),
+    high: parseFloat(row[2]),
+    low: parseFloat(row[3]),
+    close: parseFloat(row[4]),
+  };
+}
+
+export function useBinanceFeed(symbol: string = 'btcusdt', interval: string = '1m'): BinanceFeed {
+  const [history, setHistory] = useState<Candle[]>([]);
+  const [ticking, setTicking] = useState<Candle | null>(null);
+  const [direction, setDirection] = useState<Direction>('idle');
+  const [status, setStatus] = useState<BinanceFeed['status']>('loading');
+  const [stats24h, setStats24h] = useState<Stats24h | null>(null);
+  const prevCloseRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchStats = async () => {
+      try {
+        const res = await fetch(
+          `https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=${symbol.toUpperCase()}`,
+        );
+        if (!res.ok) return;
+        const d = (await res.json()) as {
+          priceChange: string;
+          priceChangePercent: string;
+          highPrice: string;
+          lowPrice: string;
+          volume: string;
+        };
+        if (cancelled) return;
+        setStats24h({
+          priceChange: parseFloat(d.priceChange),
+          priceChangePercent: parseFloat(d.priceChangePercent),
+          high: parseFloat(d.highPrice),
+          low: parseFloat(d.lowPrice),
+          volume: parseFloat(d.volume),
+        });
+      } catch (err) {
+        console.error('[binance] 24h stats failed', err);
+      }
+    };
+    fetchStats();
+    const id = window.setInterval(fetchStats, 30_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [symbol]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let ws: WebSocket | null = null;
+    let reconnectTimer: number | null = null;
+    let backoff = 1000;
+
+    const loadHistory = async () => {
+      try {
+        const url = `${REST_BASE}?symbol=${symbol.toUpperCase()}&interval=${interval}&limit=200`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`klines HTTP ${res.status}`);
+        const rows = (await res.json()) as BinanceRestRow[];
+        if (cancelled) return;
+        const parsed = rows.map(parseRestRow);
+        setHistory(parsed);
+        const last = parsed[parsed.length - 1];
+        if (last) {
+          setTicking(last);
+          prevCloseRef.current = last.close;
+        }
+      } catch (err) {
+        console.error('[binance] history load failed', err);
+        if (!cancelled) setStatus('error');
+      }
+    };
+
+    const connectWs = () => {
+      if (cancelled) return;
+      const url = `${WS_BASE}/${symbol.toLowerCase()}@kline_${interval}`;
+      ws = new WebSocket(url);
+
+      ws.onopen = () => {
+        backoff = 1000;
+        setStatus('live');
+      };
+
+      ws.onmessage = (evt) => {
+        try {
+          const payload = JSON.parse(evt.data) as BinanceKlinePayload;
+          if (payload.e !== 'kline') return;
+          const k = payload.k;
+          const candle: Candle = {
+            time: Math.floor(k.t / 1000),
+            open: parseFloat(k.o),
+            high: parseFloat(k.h),
+            low: parseFloat(k.l),
+            close: parseFloat(k.c),
+          };
+          setTicking(candle);
+
+          const prev = prevCloseRef.current;
+          if (prev !== null) {
+            if (candle.close > prev) setDirection('up');
+            else if (candle.close < prev) setDirection('down');
+          }
+          prevCloseRef.current = candle.close;
+        } catch (err) {
+          console.error('[binance] parse error', err);
+        }
+      };
+
+      ws.onerror = () => {
+        // onerror 다음 onclose 가 항상 뒤따라 온다 — 재연결은 onclose 에서 처리.
+      };
+
+      ws.onclose = () => {
+        if (cancelled) return;
+        setStatus('error');
+        reconnectTimer = window.setTimeout(() => {
+          backoff = Math.min(backoff * 2, 30_000);
+          connectWs();
+        }, backoff);
+      };
+    };
+
+    loadHistory().then(() => {
+      if (!cancelled) connectWs();
+    });
+
+    return () => {
+      cancelled = true;
+      if (reconnectTimer) window.clearTimeout(reconnectTimer);
+      if (ws) {
+        ws.onopen = null;
+        ws.onmessage = null;
+        ws.onerror = null;
+        ws.onclose = null;
+        ws.close();
+      }
+    };
+  }, [symbol, interval]);
+
+  return {
+    symbol,
+    history,
+    ticking,
+    price: ticking?.close ?? null,
+    direction,
+    status,
+    stats24h,
+  };
+}

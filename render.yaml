@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: telegram-trading-bot
+    env: node
+    buildCommand: npm ci && npm run build -w bot
+    startCommand: npm run start:bot
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: BOT_SERVER_PORT
+        value: 10000

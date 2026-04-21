@@ -1,0 +1,103 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  /* Stage 8.12 — Android URL 바 때문에 100vh 가 실제 가시 영역보다 큼.
+     100dvh 는 동적 뷰포트 높이로 브라우저가 URL 바 show/hide 에 맞춰 자동 재계산한다.
+     --tg-viewport-height 는 Telegram WebApp API 가 제공하는 정확한 값 (useTelegram 훅에서 주입).
+     1차로 Telegram 값을 쓰고, 그게 없으면 dvh 로 폴백 → 결국 BottomNav 가 공중에 뜨지 않음. */
+  height: var(--tg-viewport-height, 100dvh);
+  margin: 0;
+  /* Stage 8.6 — 핀치줌 차단 뼈대. manipulation 은 pan/tap 만 허용, pinch-zoom 제거.
+     iOS Safari + Android Chrome + Telegram WebView 모두 이 property 지원. */
+  touch-action: manipulation;
+}
+
+body {
+  /* Telegram 헤더/배경과 정확히 일치시켜 웹뷰 경계 띠 제거. */
+  background: #020617; /* slate-950 */
+  color: #f8fafc;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  /* 텔레그램 WebApp 내부에서 네이티브 앱처럼 느껴지도록 텍스트 선택/하이라이트 제거 */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  /* iOS 스크롤 바운스 방지 — 차트 영역 스와이프가 뷰포트 전체를 움직이는 사고 차단. */
+  overscroll-behavior-y: none;
+  overflow: hidden;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* iOS 노치 / 하단 홈바 / Android 네비게이션 바 대응. */
+/* main 에 .safe-area 클래스를 붙이면 기존 p-2 위에 추가 inset 만큼 패딩이 얹힘. */
+.safe-area {
+  padding-top: calc(0.5rem + env(safe-area-inset-top));
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+  padding-left: calc(0.5rem + env(safe-area-inset-left));
+  padding-right: calc(0.5rem + env(safe-area-inset-right));
+}
+
+/* Stage 7.8 — Glassmorphism 2.0 필름 그레인.
+   SVG turbulence 를 base64 data URL 로 주입해 CSS 블러만으로는 얻을 수 없는
+   "물리적 간유리" 질감을 만든다. ::after 레이어로 올려 mix-blend-mode overlay 로 합성. */
+.grain {
+  position: relative;
+  isolation: isolate;
+}
+.grain::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.35;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.6 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  background-size: 160px 160px;
+  z-index: 0;
+}
+.grain > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Stage 7.8 — 대각 specular 하이라이트. 럭셔리 카드 상단 좌측에서 우하단으로 흐르는
+   빛 반사 선. 카드 위에 덧대 "frosted glass panel" 느낌. */
+.glass-specular::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.18) 0%,
+    rgba(255, 255, 255, 0) 45%,
+    rgba(255, 255, 255, 0) 55%,
+    rgba(255, 255, 255, 0.06) 100%
+  );
+  border-radius: inherit;
+  z-index: 0;
+}
+.glass-specular > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Stage 8.14 — Tailwind v4 에는 scrollbar-hide 유틸이 없다.
+   Portfolio 히어로의 가로 스크롤 컨테이너가 스크롤바를 숨기고 손가락 드래그만 허용하도록 수동 정의. */
+.scrollbar-hide {
+  -ms-overflow-style: none; /* IE, Edge legacy */
+  scrollbar-width: none;     /* Firefox */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;             /* WebKit (Android Chrome, iOS Safari, Telegram WebView) */
+}

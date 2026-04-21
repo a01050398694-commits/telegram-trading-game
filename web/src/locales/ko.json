@@ -1,0 +1,141 @@
+{
+  "common": {
+    "change": "변경",
+    "close": "닫기",
+    "save": "저장",
+    "cancel": "취소",
+    "loading": "불러오는 중…",
+    "submit": "제출",
+    "continue": "계속"
+  },
+  "header": {
+    "perpetual": "Perpetual · 1분",
+    "connecting": "연결 중…",
+    "live": "실시간",
+    "reconnecting": "재연결 중…",
+    "dev": "DEV · 브라우저",
+    "high": "고",
+    "low": "저",
+    "volume": "거래량"
+  },
+  "nav": {
+    "trade": "거래",
+    "portfolio": "포트폴리오",
+    "elite": "애널리스트",
+    "academy": "아카데미"
+  },
+  "trade": {
+    "long": "Long",
+    "short": "Short",
+    "leverage": "레버리지",
+    "size": "사이즈",
+    "entry": "진입가",
+    "liq": "청산가",
+    "pnl": "미실현 손익",
+    "balanceLocked": "증거금 잠김",
+    "open": "포지션 오픈",
+    "closePosition": "포지션 종료"
+  },
+  "liquidation": {
+    "title": "리스크 관리 리셋 필요",
+    "body": "모의 증거금이 소진되었습니다. 실제 자금 손실은 없으며, 학습 과정의 일부입니다. 연습 잔고를 리셋하여 계속 학습하세요",
+    "resetCta": "연습 잔고 리셋",
+    "resetCostSuffix": "Stars"
+  },
+  "portfolio": {
+    "totalEquity": "총 자산",
+    "status": "상태",
+    "active": "🟢 활성",
+    "liquidated": "🔴 리셋 필요",
+    "realized": "실현 손익 (20건)",
+    "openPosition": "오픈 포지션",
+    "noOpen": "현재 오픈 포지션 없음",
+    "history": "거래 내역",
+    "empty": "거래 기록이 없습니다",
+    "referralTitle": "친구 초대하고 $10,000 받기",
+    "referralSub": "링크 복사하기",
+    "referralCopied": "🎁 초대 링크를 복사했어요!"
+  },
+  "elite": {
+    "heroTitle": "엘리트 애널리스트 클럽",
+    "heroSubtitle": "상위 10명의 모의 트레이더는 매일 저녁 비공개 애널리스트 채팅방에 초대됩니다",
+    "heroSubtitleLine1": "상위 10명의 모의 트레이더는 매일 저녁",
+    "heroSubtitleLine2": "비공개 애널리스트 채팅방에 초대됩니다",
+    "countdown": "채팅 오픈까지",
+    "openNow": "채팅 진행 중 — 지금 입장",
+    "leaderboard": "오늘의 Top 10"
+  },
+  "academy": {
+    "heroTitle": "아카데미 멤버십",
+    "heroSubtitle": "진지한 학습자를 위한 체계적 트레이딩 교육, 도박이 아닌 순수 연습 환경",
+    "planFree": "Free",
+    "planPremium": "Academy",
+    "planLifetime": "Lifetime",
+    "priceFree": "$0",
+    "pricePremium": "$29.99",
+    "priceLifetime": "$7.99",
+    "subtitleFree": "데모",
+    "subtitlePremium": "/월",
+    "subtitleLifetime": "/월 평생",
+    "bestValue": "ELITE LIFETIME PASS",
+    "features": {
+      "multiChart": "멀티 코인 차트",
+      "dailySeed": "최초 1회 $100K 연습 시드",
+      "eliteChat": "엘리트 애널리스트 클럽 입장",
+      "tournament": "글로벌 모의 트레이딩 토너먼트",
+      "resetDiscount": "리스크 리셋 30% 할인",
+      "lifetimeDiscount": "평생 아카데미 할인"
+    },
+    "verify": {
+      "title": "거래소 UID 인증",
+      "hint": "공식 제휴 거래소 가입 후 UID를 인증하면, 평생 아카데미 혜택을 무료로 받으실 수 있습니다",
+      "uid": "거래소 UID",
+      "exchange": "거래소",
+      "submit": "심사 제출",
+      "pending": "제출 내역을 심사 중입니다",
+      "approvedTitle": "인증 완료",
+      "approvedHint": "평생 아카데미 혜택이 활성화되었습니다.",
+      "errSelectExchange": "거래소를 선택해 주세요.",
+      "errUidShort": "UID는 최소 3자 이상이어야 합니다.",
+      "errNoTelegram": "텔레그램 앱에서 열어야 인증 제출이 가능합니다."
+    },
+    "hub": {
+      "upgradeCta": "엘리트 평생 패스 업그레이드",
+      "upgradeSub": "월 $7.99 · 평생 고정 · UID 인증 시 무료",
+      "library": "교육 라이브러리",
+      "comingSoon": "곧 공개 예정",
+      "lessons": {
+        "beginner": {
+          "title": "비기너 가이드",
+          "desc": "Perpetual 선물 기초: Long/Short, 증거금, 청산 메커니즘"
+        },
+        "leverage": {
+          "title": "레버리지 & 마진 101",
+          "desc": "적정 레버리지 계산법과 margin locking 원리"
+        },
+        "risk": {
+          "title": "리스크 관리",
+          "desc": "포지션 사이징, Stop-loss, 최대 손실 허용 규칙"
+        },
+        "psych": {
+          "title": "트레이딩 심리",
+          "desc": "FOMO·복수매매 회피, 규율 기반 의사결정"
+        }
+      }
+    }
+  },
+  "settings": {
+    "title": "설정",
+    "language": "언어",
+    "english": "English",
+    "korean": "한국어",
+    "disclaimer": "본 서비스는 교육용 모의 트레이딩 시뮬레이터입니다. 실제 금전 거래가 없습니다"
+  },
+  "coinSelector": {
+    "title": "마켓 선택",
+    "placeholder": "BTC, ETH, PEPE 검색...",
+    "footer": "Perpetual Futures",
+    "active": "선택됨",
+    "empty": "검색 결과 없음"
+  }
+}

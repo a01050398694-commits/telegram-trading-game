@@ -1,0 +1,26 @@
+{
+  "name": "telegram-trading-game",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Telegram real-time virtual trading competition game",
+  "workspaces": [
+    "web",
+    "bot"
+  ],
+  "scripts": {
+    "dev": "concurrently -n web,bot -c cyan,magenta \"npm run dev -w web\" \"npm run dev -w bot\"",
+    "dev:web": "npm run dev -w web",
+    "dev:bot": "npm run dev -w bot",
+    "tunnel": "npx --yes cloudflared tunnel --url http://localhost:5173 --no-autoupdate",
+    "build": "npm run build -w web && npm run build -w bot",
+    "typecheck": "npm run typecheck -w web && npm run typecheck -w bot",
+    "start:bot": "npm run start -w bot"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

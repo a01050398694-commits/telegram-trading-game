@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(timeout 10 npx vite build)",
+      "Bash(npx tsc *)",
+      "Bash(npx tsx *)",
+      "Bash(taskkill //F //IM node.exe)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173/)",
+      "Bash(curl *)",
+      "Bash(kill %1)",
+      "Bash(tasklist //FI \"IMAGENAME eq node.exe\")",
+      "Bash(tasklist //FI \"IMAGENAME eq cloudflared.exe\")",
+      "Bash(netstat -ano)",
+      "Bash(ps -W)",
+      "mcp__claude_ai_Supabase__list_projects",
+      "mcp__claude_ai_Supabase__list_tables"
+    ]
+  }
+}

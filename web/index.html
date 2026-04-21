@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Stage 8.6 — 핀치줌 원천 차단. user-scalable=no + maximum-scale=1.0 둘 다 명시.
+         viewport-fit=cover 유지(iOS 노치 대응). iOS Safari 는 이 meta 를 무시할 수 있어
+         main.tsx 의 gesturestart preventDefault 와 index.css 의 touch-action: manipulation
+         으로 3중 방어. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f172a" />
+    <title>Trading Game</title>
+    <!-- Telegram Web App SDK: 텔레그램 클라이언트 내부에서 열릴 때 window.Telegram.WebApp 제공 -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  </head>
+  <body class="bg-slate-900 text-slate-100">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
