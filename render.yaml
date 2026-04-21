@@ -2,10 +2,25 @@ services:
   - type: web
     name: telegram-trading-bot
     env: node
+    plan: free
     buildCommand: npm ci && npm run build -w bot
     startCommand: npm run start:bot
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
-      - key: BOT_SERVER_PORT
-        value: 10000
+      # Render 는 $PORT 를 자동 주입한다. bot/src/env.ts 가 우선 채택.
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_WEBAPP_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: DAILY_ALLOWANCE
+        value: "100000"
+      - key: MARKET_SYMBOLS
+        value: "btcusdt,ethusdt,solusdt,bnbusdt,xrpusdt"
