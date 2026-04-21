@@ -86,3 +86,22 @@ export interface PositionInsert {
   entry_price: number;
   liquidation_price: number | null;
 }
+
+export interface RankingSnapshotRow {
+  id: string;
+  date: string;
+  rank: number;
+  user_id: string;
+  equity: number;
+  daily_pnl: number;
+  daily_pnl_pct: number;
+  created_at: string;
+}
+
+export interface ReferralMissionRow {
+  user_id: string;
+  invited_count: number;
+  reward_3_claimed: boolean;
+  reward_10_claimed: boolean;
+  updated_at: string;
+}

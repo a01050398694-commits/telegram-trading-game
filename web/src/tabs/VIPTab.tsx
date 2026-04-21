@@ -14,7 +14,7 @@ type LeaderboardRow = {
   isYou?: boolean;
 };
 
-import { getTodayRankings, type RankingEntry } from '../lib/api';
+import { getTodayRankings, type RankingEntry, type UserStatus } from '../lib/api';
 
 // 채팅 창 KST 체크 + 다음 오픈까지 남은 시간.
 function chatWindowInfo(now: Date = new Date()): {
@@ -56,7 +56,7 @@ function medal(rank: number): string {
   return `${rank}`;
 }
 
-export function VIPTab() {
+export function VIPTab({ status }: { status?: UserStatus | null }) {
   const { t } = useTranslation();
   const [info, setInfo] = useState(() => chatWindowInfo());
   const [rankings, setRankings] = useState<RankingEntry[]>([]);
@@ -98,6 +98,9 @@ export function VIPTab() {
   const top3 = finalRows[2];
   const podiumList = [top2, top1, top3].filter(Boolean) as LeaderboardRow[];
 
+  const isTop10 = myId ? rankings.slice(0, 10).some(r => r.telegramUserId === myId) : false;
+  const canChat = info.open && (isTop10 || status?.isVIP);
+
   return (
     // Stage 8.4 — 하단 BottomNav 에 Top 10 리스트가 잘리는 문제. pb-40 로 충분한 여백 확보.
     <div className="relative flex h-full flex-col gap-3 overflow-y-auto pb-[150px]">
@@ -133,34 +136,37 @@ export function VIPTab() {
           전용 카드로 분리해서 화면 중앙에 거대하게 박아 무시 불가능하게 만든다. */}
       <button
         type="button"
-        disabled={!info.open}
         onClick={() => {
-          if (info.open && window.Telegram?.WebApp) {
-            window.Telegram.WebApp.openTelegramLink('https://t.me/antigravity_elite_club_demo');
+          if (window.Telegram?.WebApp) {
+            window.Telegram.WebApp.openTelegramLink('https://t.me/elite_analyst_club');
           }
         }}
-        className={`mt-4 w-full flex flex-col items-center justify-center rounded-2xl border py-6 transition-all ${
-          info.open
-            ? 'border-emerald-400/40 bg-emerald-500/10 shadow-[0_0_30px_rgba(16,185,129,0.2)] hover:bg-emerald-500/20 active:scale-[0.98] cursor-pointer'
-            : 'border-yellow-500/30 bg-yellow-500/5 shadow-[0_0_30px_rgba(250,204,21,0.15)] cursor-not-allowed opacity-80'
+        className={`mt-4 w-full flex flex-col items-center justify-center rounded-2xl border py-6 transition-all cursor-pointer ${
+          canChat
+            ? 'border-emerald-400/40 bg-emerald-500/10 shadow-[0_0_30px_rgba(16,185,129,0.2)] hover:bg-emerald-500/20 active:scale-[0.98]'
+            : 'border-yellow-500/30 bg-yellow-500/5 shadow-[0_0_30px_rgba(250,204,21,0.15)] hover:bg-yellow-500/10'
         }`}
       >
         <div
           className={`mb-3 text-[10px] font-bold uppercase tracking-[0.35em] ${
-            info.open ? 'text-emerald-300/80' : 'text-yellow-500/70'
+            canChat ? 'text-emerald-300/80' : 'text-yellow-500/70'
           }`}
         >
-          {info.open ? t('elite.openNow') : t('elite.countdown')}
+          {canChat ? t('elite.openNow') : t('elite.countdown')}
         </div>
         <div
           className={`font-mono text-4xl font-bold tracking-widest ${
-            info.open ? 'text-emerald-300' : 'text-yellow-400'
+            canChat ? 'text-emerald-300' : 'text-yellow-400'
           }`}
         >
           {info.open ? formatHMS(info.secondsToClose) : formatHMS(info.secondsToNext)}
         </div>
         <div className="mt-3 text-[10px] uppercase tracking-wider text-slate-400">
-          {info.open ? '🎓 closes at 24:00 KST' : '🔒 opens 21:50 KST'}
+          {canChat 
+            ? '🎓 You have chat access until 24:00 KST' 
+            : info.open 
+              ? '👁️ Read-only (Top 10 or Premium to chat)' 
+              : '🔒 opens 21:50 KST'}
         </div>
       </button>
 

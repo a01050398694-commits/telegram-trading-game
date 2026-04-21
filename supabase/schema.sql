@@ -139,3 +139,32 @@ ALTER TABLE public.users                   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.wallets                 ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.positions               ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.exchange_verifications  ENABLE ROW LEVEL SECURITY;
+
+-- -----------------------------------------------------------
+-- Stage 10: 런칭 스펙 추가 스키마
+--   A) ranking_snapshots — 매일 자정 랭킹 1~100위 영구 보존
+--   B) referral_missions — 친구 초대 미션(3명/10명 달성 여부)
+-- -----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.ranking_snapshots (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  date            date NOT NULL, -- 스냅샷 기준일 (어제)
+  rank            integer NOT NULL,
+  user_id         uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  equity          bigint NOT NULL,
+  daily_pnl       bigint NOT NULL,
+  daily_pnl_pct   numeric(10, 2) NOT NULL,
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  UNIQUE(date, user_id)
+);
+CREATE INDEX IF NOT EXISTS ranking_snapshots_date_idx ON public.ranking_snapshots(date);
+
+CREATE TABLE IF NOT EXISTS public.referral_missions (
+  user_id         uuid PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
+  invited_count   integer NOT NULL DEFAULT 0,
+  reward_3_claimed  boolean NOT NULL DEFAULT false, -- 3명 초대 $50K 보너스
+  reward_10_claimed boolean NOT NULL DEFAULT false, -- 10명 초대 Lifetime 쿠폰
+  updated_at      timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.ranking_snapshots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.referral_missions ENABLE ROW LEVEL SECURITY;

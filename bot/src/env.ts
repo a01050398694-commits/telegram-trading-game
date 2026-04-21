@@ -56,4 +56,6 @@ export const env = {
   // DB 스키마는 bigint 그대로 재사용하되, 의미 단위만 '원' → 'USD 정수 달러' 로 전환.
   DAILY_ALLOWANCE: BigInt(optional('DAILY_ALLOWANCE', '100000')),
   MARKET_SYMBOLS: list('MARKET_SYMBOLS', 'btcusdt,ethusdt,solusdt'),
+  
+  VIP_CHAT_ID: optional('VIP_CHAT_ID', ''),
 } as const;

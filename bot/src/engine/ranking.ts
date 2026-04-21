@@ -14,6 +14,7 @@ export type RankingEntry = {
 export class RankingEngine {
   private cache: RankingEntry[] = [];
   private updateTimer: NodeJS.Timeout | null = null;
+  private lastRolloverDateStr: string | null = null;
 
   constructor(
     private readonly db: SupabaseClient,
@@ -42,6 +43,13 @@ export class RankingEngine {
       const kstDate = new Date(now.getTime() + kstOffset);
       kstDate.setUTCHours(0, 0, 0, 0); // KST 자정
       const startOfDayUTC = new Date(kstDate.getTime() - kstOffset);
+      const currentDateStr = kstDate.toISOString().split('T')[0]!;
+
+      // 롤오버 체크 (최초 실행시는 현재 날짜로 초기화만 하고, 날짜가 바뀌었으면 롤오버 실행)
+      if (this.lastRolloverDateStr !== null && this.lastRolloverDateStr !== currentDateStr) {
+        await this.rolloverMidnight(this.lastRolloverDateStr);
+      }
+      this.lastRolloverDateStr = currentDateStr;
 
       // 2. 데이터 페치
       // 전체 지갑 및 유저 정보
@@ -139,6 +147,47 @@ export class RankingEngine {
 
     } catch (err) {
       console.error('[ranking] Update failed:', err);
+    }
+  }
+
+  private async rolloverMidnight(dateStr: string) {
+    console.log(`[ranking] Triggering midnight rollover for date: ${dateStr}`);
+    try {
+      if (this.cache.length === 0) return;
+
+      // Map telegramUserId back to users table UUID
+      const { data: users, error: userErr } = await this.db
+        .from('users')
+        .select('id, telegram_id')
+        .in('telegram_id', this.cache.map(r => r.telegramUserId));
+        
+      if (userErr || !users) {
+        console.error('[ranking] Rollover failed to fetch user ids', userErr);
+        return;
+      }
+
+      const idMap = new Map<number, string>();
+      for (const u of users) idMap.set(u.telegram_id, u.id);
+
+      const inserts = this.cache.map(r => ({
+        date: dateStr,
+        rank: r.rank,
+        user_id: idMap.get(r.telegramUserId)!,
+        equity: r.equity,
+        daily_pnl: r.dailyPnl,
+        daily_pnl_pct: r.dailyPnlPercent,
+      })).filter(r => r.user_id !== undefined);
+
+      if (inserts.length === 0) return;
+
+      const { error } = await this.db.from('ranking_snapshots').insert(inserts);
+      if (error) {
+        console.error('[ranking] Rollover insert failed:', error);
+      } else {
+        console.log(`[ranking] Successfully rolled over ${inserts.length} rankings to snapshot.`);
+      }
+    } catch (err) {
+      console.error('[ranking] Rollover error:', err);
     }
   }
 }

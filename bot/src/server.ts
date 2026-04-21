@@ -72,7 +72,7 @@ async function resolveUser(
   let telegramUserId: number | null = null;
 
   if (initData) {
-    telegramUserId = verifyInitData(initData, env.TELEGRAM_BOT_TOKEN);
+    telegramUserId = verifyInitData(initData, env.BOT_TOKEN);
     if (!telegramUserId) {
       return { error: 'Invalid or forged initData signature', status: 401 };
     }

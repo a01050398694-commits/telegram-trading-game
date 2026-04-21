@@ -66,7 +66,7 @@ export default function App() {
         {tab === 'portfolio' && (
           <PortfolioTab telegramUserId={telegramUserId} status={status} />
         )}
-        {tab === 'vip' && <VIPTab />}
+        {tab === 'vip' && <VIPTab status={status} />}
         {tab === 'premium' && (
           <PremiumTab telegramUserId={telegramUserId} status={status} />
         )}
