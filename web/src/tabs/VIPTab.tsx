@@ -108,11 +108,18 @@ export function VIPTab() {
       {/* ── MASSIVE DEDICATED COUNTDOWN TIMER ─────────────────
           Stage 8.14 — 타이머가 구석 carousel 카드 안에 묶여 있어 모바일에서 거의 안 보임.
           전용 카드로 분리해서 화면 중앙에 거대하게 박아 무시 불가능하게 만든다. */}
-      <div
-        className={`mt-4 flex flex-col items-center justify-center rounded-2xl border py-6 ${
+      <button
+        type="button"
+        disabled={!info.open}
+        onClick={() => {
+          if (info.open && window.Telegram?.WebApp) {
+            window.Telegram.WebApp.openTelegramLink('https://t.me/antigravity_elite_club_demo');
+          }
+        }}
+        className={`mt-4 w-full flex flex-col items-center justify-center rounded-2xl border py-6 transition-all ${
           info.open
-            ? 'border-emerald-400/40 bg-emerald-500/10 shadow-[0_0_30px_rgba(16,185,129,0.2)]'
-            : 'border-yellow-500/30 bg-yellow-500/5 shadow-[0_0_30px_rgba(250,204,21,0.15)]'
+            ? 'border-emerald-400/40 bg-emerald-500/10 shadow-[0_0_30px_rgba(16,185,129,0.2)] hover:bg-emerald-500/20 active:scale-[0.98] cursor-pointer'
+            : 'border-yellow-500/30 bg-yellow-500/5 shadow-[0_0_30px_rgba(250,204,21,0.15)] cursor-not-allowed opacity-80'
         }`}
       >
         <div
@@ -132,7 +139,7 @@ export function VIPTab() {
         <div className="mt-3 text-[10px] uppercase tracking-wider text-slate-400">
           {info.open ? '🎓 closes at 24:00 KST' : '🔒 opens 21:50 KST'}
         </div>
-      </div>
+      </button>
 
       {/* ── PODIUM — TOP 3 ─────────────────────────── */}
       {/* Stage 8.8 — 2위(왼쪽) · 1위(가운데 높게) · 3위(오른쪽) 배치. items-end 로 바닥 정렬. */}

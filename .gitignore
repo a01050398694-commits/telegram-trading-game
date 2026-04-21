@@ -44,3 +44,5 @@ coverage/
 # Local data
 *.sqlite
 *.db
+
+.vercel
