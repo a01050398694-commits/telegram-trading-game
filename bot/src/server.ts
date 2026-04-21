@@ -312,15 +312,14 @@ export function createServer({ engine, priceCache, bot }: Deps): Express {
       }
 
       const payload = `${STARS_PAYLOAD_PREFIX}${resolved}:${Date.now()}`;
-      await bot.api.sendInvoice(
-        Number(telegramUserId),
+      const invoiceLink = await bot.api.createInvoiceLink(
         'Trading Academy · Risk Management Reset',
         'Reset practice balance to $100,000 and resume the paper-trading lesson.',
         payload,
         'XTR',
         [{ label: 'Risk Management Reset', amount: STARS_AMOUNT }],
       );
-      res.json({ ok: true });
+      res.json({ ok: true, invoiceLink });
     } catch (err) {
       console.error('[server] /payment/stars:', err);
       res.status(500).json({ error: (err as Error).message });

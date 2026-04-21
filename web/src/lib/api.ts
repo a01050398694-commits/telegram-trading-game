@@ -113,8 +113,8 @@ export function closeTrade(telegramUserId: number, positionId: string): Promise<
   });
 }
 
-export function requestStarsInvoice(telegramUserId: number): Promise<{ ok: true }> {
-  return request<{ ok: true }>('/api/payment/stars', {
+export function requestStarsInvoice(telegramUserId: number): Promise<{ ok: true; invoiceLink: string }> {
+  return request<{ ok: true; invoiceLink: string }>('/api/payment/stars', {
     method: 'POST',
     body: JSON.stringify({ telegramUserId }),
   });

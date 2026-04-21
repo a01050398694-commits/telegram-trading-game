@@ -149,12 +149,17 @@ export function TradeTab({
     setStarsError(null);
     setStarsPending(true);
     try {
-      await requestStarsInvoice(telegramUserId);
+      const { invoiceLink } = await requestStarsInvoice(telegramUserId);
+      window.Telegram.WebApp.openInvoice(invoiceLink, (status) => {
+        if (status === 'paid') {
+          void refresh();
+        }
+        setStarsPending(false);
+      });
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : (err as Error).message;
       setStarsError(msg);
       hapticNotification('error');
-    } finally {
       setStarsPending(false);
     }
   };

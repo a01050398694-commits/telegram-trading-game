@@ -115,11 +115,16 @@ export function PortfolioTab({ telegramUserId, status }: PortfolioTabProps) {
     setStarsError(null);
     setStarsPending(true);
     try {
-      await requestStarsInvoice(telegramUserId);
+      const { invoiceLink } = await requestStarsInvoice(telegramUserId);
+      window.Telegram.WebApp.openInvoice(invoiceLink, (status) => {
+        if (status === 'paid') {
+          void load(); // Reload status after payment
+        }
+        setStarsPending(false);
+      });
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : (err as Error).message;
       setStarsError(msg);
-    } finally {
       setStarsPending(false);
     }
   };
