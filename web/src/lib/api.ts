@@ -60,6 +60,16 @@ export type HistoryEntry = {
 };
 export type HistoryResponse = { history: HistoryEntry[] };
 
+export type RankingEntry = {
+  rank: number;
+  telegramUserId: number;
+  username: string;
+  equity: number;
+  dailyPnl: number;
+  dailyPnlPercent: number;
+};
+export type RankingsResponse = { rankings: RankingEntry[] };
+
 class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);
@@ -76,9 +86,19 @@ async function request<T>(
         Object.entries(init.query).map(([k, v]) => [k, String(v)]),
       )}`
     : path;
+  const headers: HeadersInit = {
+    ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+    ...(init?.headers || {}),
+  };
+
+  const initData = window.Telegram?.WebApp?.initData;
+  if (initData) {
+    (headers as Record<string, string>)['X-Telegram-Init-Data'] = initData;
+  }
+
   const res = await fetch(url, {
-    headers: init?.body ? { 'Content-Type': 'application/json' } : undefined,
     ...init,
+    headers,
   });
   const text = await res.text();
   const data = text ? (JSON.parse(text) as unknown) : null;
@@ -119,6 +139,10 @@ export function requestStarsInvoice(telegramUserId: number): Promise<{ ok: true;
     method: 'POST',
     body: JSON.stringify({ telegramUserId }),
   });
+}
+
+export function getTodayRankings(): Promise<RankingsResponse> {
+  return request<RankingsResponse>('/api/rankings/today', { method: 'GET' });
 }
 
 // Stage 9 — 거래소 UID 인증 신청 제출. 성공 시 서버가 생성한 VerificationRow 반환.

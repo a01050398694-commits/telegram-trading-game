@@ -14,18 +14,7 @@ type LeaderboardRow = {
   isYou?: boolean;
 };
 
-const MOCK_LEADERBOARD: readonly LeaderboardRow[] = [
-  { rank: 1, name: '@whale_king', pnl: 1_240_300, streak: 7 },
-  { rank: 2, name: '@perp_master', pnl: 892_110, streak: 4 },
-  { rank: 3, name: '@liq_hunter', pnl: 634_800, streak: 3 },
-  { rank: 4, name: '@diamond_hands', pnl: 412_550 },
-  { rank: 5, name: '@rsi_snipe', pnl: 280_020 },
-  { rank: 6, name: '@long_only', pnl: 178_900 },
-  { rank: 7, name: '@scalp_kim', pnl: 95_410 },
-  { rank: 8, name: '@btc_holder', pnl: 51_200 },
-  { rank: 9, name: '@eth_bull', pnl: 22_800 },
-  { rank: 10, name: '@sol_degen', pnl: 12_350 },
-];
+import { getTodayRankings, type RankingEntry } from '../lib/api';
 
 // 채팅 창 KST 체크 + 다음 오픈까지 남은 시간.
 function chatWindowInfo(now: Date = new Date()): {
@@ -70,10 +59,44 @@ function medal(rank: number): string {
 export function VIPTab() {
   const { t } = useTranslation();
   const [info, setInfo] = useState(() => chatWindowInfo());
+  const [rankings, setRankings] = useState<RankingEntry[]>([]);
+
   useEffect(() => {
     const id = window.setInterval(() => setInfo(chatWindowInfo()), 1000);
     return () => window.clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    // 1분 주기로 랭킹 갱신
+    const fetchRankings = async () => {
+      try {
+        const res = await getTodayRankings();
+        setRankings(res.rankings);
+      } catch (err) {
+        console.error('Failed to fetch rankings', err);
+      }
+    };
+    void fetchRankings();
+    const interval = setInterval(fetchRankings, 60_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const myId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+  const displayRows: LeaderboardRow[] = rankings.map(r => ({
+    rank: r.rank,
+    name: r.username,
+    pnl: r.dailyPnl,
+    // 원래 pnl 에는 수익금($)이 찍혔음. MOCK 데이터는 1_240_300 등.
+    // 하지만 우리는 formatMoney를 쓰므로 r.dailyPnl 을 그대로 넘기고 UI를 약간 수정.
+    isYou: r.telegramUserId === myId,
+  }));
+
+  // MOCK fallback if empty
+  const finalRows = displayRows.length > 0 ? displayRows : [];
+  const top1 = finalRows[0];
+  const top2 = finalRows[1];
+  const top3 = finalRows[2];
+  const podiumList = [top2, top1, top3].filter(Boolean) as LeaderboardRow[];
 
   return (
     // Stage 8.4 — 하단 BottomNav 에 Top 10 리스트가 잘리는 문제. pb-40 로 충분한 여백 확보.
@@ -144,7 +167,7 @@ export function VIPTab() {
       {/* ── PODIUM — TOP 3 ─────────────────────────── */}
       {/* Stage 8.8 — 2위(왼쪽) · 1위(가운데 높게) · 3위(오른쪽) 배치. items-end 로 바닥 정렬. */}
       <div className="grid grid-cols-3 items-end gap-3 pt-4">
-        {[MOCK_LEADERBOARD[1]!, MOCK_LEADERBOARD[0]!, MOCK_LEADERBOARD[2]!].map((r) => (
+        {podiumList.map((r) => (
           <PodiumCard key={r.rank} row={r} />
         ))}
       </div>
@@ -153,9 +176,9 @@ export function VIPTab() {
       {/* Stage 8.8 — gap-4 여유 숨쉴 공간 + glassmorphism 강화 (bg-white/5 + backdrop-blur-xl + p-4). */}
       <div className="flex flex-col gap-4">
         <div className="px-1 text-[9px] font-bold uppercase tracking-[0.3em] text-slate-500">
-          {t('elite.leaderboard')} · 4 — 10
+          {t('elite.leaderboard')} · 4 — 100
         </div>
-        {MOCK_LEADERBOARD.slice(3).map((r) => (
+        {finalRows.slice(3).map((r) => (
           <LeaderRow key={r.rank} row={r} />
         ))}
       </div>

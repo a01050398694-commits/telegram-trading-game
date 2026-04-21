@@ -1,7 +1,9 @@
 import express, { type Express, type Request, type Response, type NextFunction } from 'express';
 import type { Bot } from 'grammy';
 import { env } from './env.js';
+import crypto from 'node:crypto';
 import type { TradingEngine } from './engine/trading.js';
+import type { RankingEngine } from './engine/ranking.js';
 import type { PriceCache } from './priceCache.js';
 
 // 결제 식별자 — Stars invoice 의 payload 필드.
@@ -13,6 +15,7 @@ type Deps = {
   engine: TradingEngine;
   priceCache: PriceCache;
   bot: Bot;
+  rankingEngine: RankingEngine;
 };
 
 // -------------------------------------------------------------------------
@@ -31,19 +34,60 @@ function cors(req: Request, res: Response, next: NextFunction): void {
   next();
 }
 
+function verifyInitData(initData: string, botToken: string): number | null {
+  try {
+    const urlParams = new URLSearchParams(initData);
+    const hash = urlParams.get('hash');
+    if (!hash) return null;
+    urlParams.delete('hash');
+    
+    const dataCheckString = Array.from(urlParams.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, value]) => `${key}=${value}`)
+      .join('\n');
+      
+    const secretKey = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest();
+    const calculatedHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
+    
+    if (calculatedHash !== hash) return null;
+    
+    const userStr = urlParams.get('user');
+    if (!userStr) return null;
+    const user = JSON.parse(userStr);
+    return typeof user.id === 'number' ? user.id : null;
+  } catch {
+    return null;
+  }
+}
+
 // -------------------------------------------------------------------------
-// 요청 body 에서 telegramUserId 를 꺼내 UserRow 로 치환.
-// TODO Stage 6: initData HMAC 서명 검증으로 교체 — 현재는 unsafe (프론트 조작 가능).
+// 요청 헤더에서 initData 를 꺼내 HMAC 검증 후 UserRow 로 치환.
+// Stage 12: 프로덕션 배포 전 필수 보안 적용 완료.
 // -------------------------------------------------------------------------
 async function resolveUser(
   engine: TradingEngine,
-  telegramUserId: unknown,
+  req: Request,
 ): Promise<string | { error: string; status: number }> {
-  const id = Number(telegramUserId);
-  if (!Number.isInteger(id) || id <= 0) {
+  const initData = req.header('X-Telegram-Init-Data');
+  let telegramUserId: number | null = null;
+
+  if (initData) {
+    telegramUserId = verifyInitData(initData, env.TELEGRAM_BOT_TOKEN);
+    if (!telegramUserId) {
+      return { error: 'Invalid or forged initData signature', status: 401 };
+    }
+  } else if (env.NODE_ENV === 'development') {
+    // 로컬 개발 환경용 fallback (브라우저에서 직접 테스트 시)
+    const idParam = req.method === 'GET' ? req.query.telegramUserId : req.body.telegramUserId;
+    telegramUserId = Number(idParam);
+  } else {
+    return { error: 'Missing X-Telegram-Init-Data header (Production requires Mini App context)', status: 401 };
+  }
+
+  if (!telegramUserId || !Number.isInteger(telegramUserId) || telegramUserId <= 0) {
     return { error: 'invalid telegramUserId', status: 400 };
   }
-  const user = await engine.getUserByTelegramId(id);
+  const user = await engine.getUserByTelegramId(telegramUserId);
   if (!user) {
     return { error: 'user not found — run /start in bot first', status: 404 };
   }
@@ -53,7 +97,7 @@ async function resolveUser(
 // -------------------------------------------------------------------------
 // Express 앱 구성 — 엔진/캐시/봇 을 주입받아 라우트 연결.
 // -------------------------------------------------------------------------
-export function createServer({ engine, priceCache, bot }: Deps): Express {
+export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): Express {
   const app = express();
 
   app.use(cors);
@@ -63,12 +107,23 @@ export function createServer({ engine, priceCache, bot }: Deps): Express {
     res.json({ ok: true, env: env.NODE_ENV, prices: priceCache.snapshot() });
   });
 
+  // ---- 오늘의 랭킹 조회 --------------------------------------------------------
+  // 실시간 1분 주기로 계산된 캐시를 반환한다.
+  app.get('/api/rankings/today', (_req, res) => {
+    try {
+      res.json({ rankings: rankingEngine.getTop100() });
+    } catch (err) {
+      console.error('[server] /rankings/today:', err);
+      res.status(500).json({ error: (err as Error).message });
+    }
+  });
+
   // ---- 상태 조회 ------------------------------------------------------------
   // 프론트는 2초마다 폴링 → 지갑/청산/포지션 이 한 번에 동기화.
   // Stage 9: verification(최근 인증 신청 1건) 포함 → PremiumTab 이 Pending 상태 복원 가능.
   app.get('/api/user/status', async (req, res) => {
     try {
-      const resolved = await resolveUser(engine, req.query.telegramUserId);
+      const resolved = await resolveUser(engine, req);
       if (typeof resolved !== 'string') {
         res.status(resolved.status).json({ error: resolved.error });
         return;
@@ -140,7 +195,7 @@ export function createServer({ engine, priceCache, bot }: Deps): Express {
       const trimmedEmail =
         typeof email === 'string' && email.trim().length > 0 ? email.trim() : null;
 
-      const resolved = await resolveUser(engine, telegramUserId);
+      const resolved = await resolveUser(engine, req);
       if (typeof resolved !== 'string') {
         res.status(resolved.status).json({ error: resolved.error });
         return;
@@ -174,7 +229,7 @@ export function createServer({ engine, priceCache, bot }: Deps): Express {
   // 최근 종료/청산 포지션 20건. 프론트 PortfolioTab 이 렌더링.
   app.get('/api/user/history', async (req, res) => {
     try {
-      const resolved = await resolveUser(engine, req.query.telegramUserId);
+      const resolved = await resolveUser(engine, req);
       if (typeof resolved !== 'string') {
         res.status(resolved.status).json({ error: resolved.error });
         return;
@@ -225,7 +280,7 @@ export function createServer({ engine, priceCache, bot }: Deps): Express {
         return;
       }
 
-      const resolved = await resolveUser(engine, telegramUserId);
+      const resolved = await resolveUser(engine, req);
       if (typeof resolved !== 'string') {
         res.status(resolved.status).json({ error: resolved.error });
         return;
@@ -266,7 +321,7 @@ export function createServer({ engine, priceCache, bot }: Deps): Express {
         fallbackPrice?: number;
       };
 
-      const resolved = await resolveUser(engine, telegramUserId);
+      const resolved = await resolveUser(engine, req);
       if (typeof resolved !== 'string') {
         res.status(resolved.status).json({ error: resolved.error });
         return;
@@ -309,7 +364,7 @@ export function createServer({ engine, priceCache, bot }: Deps): Express {
   app.post('/api/payment/stars', async (req, res) => {
     try {
       const { telegramUserId } = req.body as { telegramUserId?: number };
-      const resolved = await resolveUser(engine, telegramUserId);
+      const resolved = await resolveUser(engine, req);
       if (typeof resolved !== 'string') {
         res.status(resolved.status).json({ error: resolved.error });
         return;
