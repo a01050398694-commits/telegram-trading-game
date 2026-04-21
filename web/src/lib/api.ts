@@ -40,6 +40,7 @@ export type OpenTradeInput = {
   side: 'long' | 'short';
   size: number;
   leverage: number;
+  fallbackPrice: number;
 };
 
 export type OpenTradeResult = { ok: true; positionId: string; entryPrice: number };
@@ -106,10 +107,10 @@ export function openTrade(input: OpenTradeInput): Promise<OpenTradeResult> {
   });
 }
 
-export function closeTrade(telegramUserId: number, positionId: string): Promise<CloseTradeResult> {
+export function closeTrade(telegramUserId: number, positionId: string, fallbackPrice: number): Promise<CloseTradeResult> {
   return request<CloseTradeResult>('/api/trade/close', {
     method: 'POST',
-    body: JSON.stringify({ telegramUserId, positionId }),
+    body: JSON.stringify({ telegramUserId, positionId, fallbackPrice }),
   });
 }
 

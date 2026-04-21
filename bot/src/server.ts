@@ -203,12 +203,13 @@ export function createServer({ engine, priceCache, bot }: Deps): Express {
   // ---- 포지션 오픈 ----------------------------------------------------------
   app.post('/api/trade/open', async (req, res) => {
     try {
-      const { telegramUserId, symbol, side, size, leverage } = req.body as {
+      const { telegramUserId, symbol, side, size, leverage, fallbackPrice } = req.body as {
         telegramUserId?: number;
         symbol?: string;
         side?: 'long' | 'short';
         size?: number;
         leverage?: number;
+        fallbackPrice?: number;
       };
 
       if (!symbol || (side !== 'long' && side !== 'short')) {
@@ -230,8 +231,9 @@ export function createServer({ engine, priceCache, bot }: Deps): Express {
         return;
       }
 
-      const markPrice = priceCache.get(symbol);
-      if (markPrice === null) {
+      const cachedPrice = priceCache.get(symbol);
+      const markPrice = cachedPrice ?? fallbackPrice;
+      if (!markPrice || markPrice <= 0) {
         res.status(503).json({ error: `price feed unavailable for ${symbol}` });
         return;
       }
@@ -258,9 +260,10 @@ export function createServer({ engine, priceCache, bot }: Deps): Express {
   // ---- 포지션 종료 ----------------------------------------------------------
   app.post('/api/trade/close', async (req, res) => {
     try {
-      const { telegramUserId, positionId } = req.body as {
+      const { telegramUserId, positionId, fallbackPrice } = req.body as {
         telegramUserId?: number;
         positionId?: string;
+        fallbackPrice?: number;
       };
 
       const resolved = await resolveUser(engine, telegramUserId);
@@ -285,8 +288,9 @@ export function createServer({ engine, priceCache, bot }: Deps): Express {
         res.status(404).json({ error: 'position not found or not open' });
         return;
       }
-      const markPrice = priceCache.get(target.symbol);
-      if (markPrice === null) {
+      const cachedPrice = priceCache.get(target.symbol);
+      const markPrice = cachedPrice ?? fallbackPrice;
+      if (!markPrice || markPrice <= 0) {
         res.status(503).json({ error: `price feed unavailable for ${target.symbol}` });
         return;
       }

@@ -115,7 +115,7 @@ export function TradeTab({
     setTradeError(null);
     setTradePending(true);
     try {
-      await openTrade({ telegramUserId, symbol, side, size, leverage });
+      await openTrade({ telegramUserId, symbol, side, size, leverage, fallbackPrice: feed.price ?? 0 });
       await refresh();
       hapticNotification('success');
     } catch (err) {
@@ -132,7 +132,7 @@ export function TradeTab({
     setTradeError(null);
     setTradePending(true);
     try {
-      await closeTrade(telegramUserId, serverPosition.id);
+      await closeTrade(telegramUserId, serverPosition.id, feed.price ?? 0);
       await refresh();
       hapticNotification('success');
     } catch (err) {

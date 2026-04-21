@@ -57,7 +57,43 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-y-auto px-3 pt-12 pb-[150px]">
-      {/* ── UPGRADE BANNER (CTA) ─────────────────────────
+      {/* ── INVITEMEMBER UPGRADE BUTTON ─────────────────────────
+          Stage 12 — 하이브리드 결제 연동.
+          구독/평생 멤버십 결제는 미니앱 밖의 InviteMember 봇으로 보낸다. */}
+      <button
+        type="button"
+        onClick={() => {
+          const botUrl = import.meta.env.VITE_INVITEMEMBER_BOT_URL || 'https://t.me/YOUR_INVITEMEMBER_BOT_HERE';
+          if (window.Telegram?.WebApp) {
+            window.Telegram.WebApp.openTelegramLink(botUrl);
+          } else {
+            window.open(botUrl, '_blank');
+          }
+        }}
+        className="group relative flex w-full shrink-0 flex-col rounded-2xl border-2 border-yellow-500/50 bg-gradient-to-b from-slate-900 to-black p-5 text-left shadow-[0_0_60px_rgba(250,204,21,0.2),_0_16px_40px_rgba(0,0,0,0.6)] transition-all active:scale-[0.98]"
+      >
+        <div className="pointer-events-none absolute inset-x-6 top-0 h-[1px] bg-gradient-to-r from-transparent via-yellow-400/70 to-transparent" />
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start gap-2">
+              <span className="shrink-0 text-xl drop-shadow-[0_0_12px_rgba(250,204,21,0.6)]">
+                💎
+              </span>
+              <span className="break-words whitespace-normal font-mono text-[13px] font-bold uppercase leading-snug tracking-[0.15em] text-amber-200">
+                {t('academy.hub.upgradeCta')} (InviteMember)
+              </span>
+            </div>
+            <div className="mt-2 break-words whitespace-normal text-[11px] leading-relaxed text-amber-100/70">
+              구독 결제 봇으로 이동하여 VIP 혜택을 해제하세요.
+            </div>
+          </div>
+          <span className="shrink-0 text-xl text-amber-300/70 transition-transform duration-200">
+            →
+          </span>
+        </div>
+      </button>
+
+      {/* ── EXCHANGE UID VERIFICATION (ACCORDION) ─────────────
           Stage 8.10 — 단일 CTA 버튼. 클릭 시 결제 모달.
           Stage 8.14 — Liquid layout.
             · 고정 높이/overflow-hidden 제약 해제. 컨텐츠가 wrap 되면서 세로 자동 확장.
@@ -67,26 +103,17 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
         type="button"
         onClick={toggleForm}
         aria-expanded={showForm}
-        className="group relative flex w-full shrink-0 flex-col rounded-2xl border-2 border-yellow-500/50 bg-gradient-to-b from-slate-900 to-black p-5 text-left shadow-[0_0_60px_rgba(250,204,21,0.2),_0_16px_40px_rgba(0,0,0,0.6)] transition-all active:scale-[0.98]"
+        className="group relative mt-3 flex w-full shrink-0 flex-col rounded-2xl border border-indigo-500/30 bg-slate-900/50 p-4 text-left transition-all hover:bg-slate-800/50 active:scale-[0.98]"
       >
-        {/* Top gold hairline */}
-        <div className="pointer-events-none absolute inset-x-6 top-0 h-[1px] bg-gradient-to-r from-transparent via-yellow-400/70 to-transparent" />
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-start gap-2">
-              <span className="shrink-0 text-xl drop-shadow-[0_0_12px_rgba(250,204,21,0.6)]">
-                👑
-              </span>
-              <span className="break-words whitespace-normal font-mono text-[13px] font-bold uppercase leading-snug tracking-[0.15em] text-amber-200">
-                {t('academy.hub.upgradeCta')}
-              </span>
-            </div>
-            <div className="mt-2 break-words whitespace-normal text-[11px] leading-relaxed text-amber-100/70">
-              {t('academy.hub.upgradeSub')}
-            </div>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="shrink-0 text-lg">🎁</span>
+            <span className="break-words whitespace-normal font-mono text-[12px] font-bold uppercase tracking-widest text-indigo-300">
+              {t('academy.verify.title')}
+            </span>
           </div>
           <span
-            className={`shrink-0 text-xl text-amber-300/70 transition-transform duration-200 ${
+            className={`shrink-0 text-lg text-indigo-400 transition-transform duration-200 ${
               showForm ? 'rotate-90' : ''
             }`}
           >
@@ -94,6 +121,7 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
           </span>
         </div>
       </button>
+
 
       {/* ── INLINE UID VERIFICATION FORM (ACCORDION) ─────
           Stage 8.15 — 모달 폐기. 업그레이드 버튼 아래에 네이티브 flow 안에서 인라인으로 확장.
