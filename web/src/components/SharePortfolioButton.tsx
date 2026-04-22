@@ -11,9 +11,10 @@ type SharePortfolioButtonProps = {
   equity: number;
   winRate: number;
   totalTrades: number;
+  telegramUserId?: number | null;
 };
 
-export function SharePortfolioButton({ equity, winRate, totalTrades }: SharePortfolioButtonProps) {
+export function SharePortfolioButton({ equity, winRate, totalTrades, telegramUserId }: SharePortfolioButtonProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -26,8 +27,10 @@ export function SharePortfolioButton({ equity, winRate, totalTrades }: SharePort
       if (manualSaveSrc) URL.revokeObjectURL(manualSaveSrc);
     };
   }, [manualSaveSrc]);
+  
+  const deepLink = telegramUserId ? `${BOT_DEEP_LINK}?start=${telegramUserId}` : BOT_DEEP_LINK;
 
-  const shareTextTemplate = `🏆 텔레그램 가상 트레이딩 대회 출전 중!\n\n💰 현재 자산: ${formatMoney(equity)}\n🎯 승률: ${winRate.toFixed(1)}%\n\n👉 지금 바로 무료로 참가하고 $100K 챌린지 시작하기!\n${BOT_DEEP_LINK}`;
+  const shareTextTemplate = `🏆 텔레그램 가상 트레이딩 대회 출전 중!\n\n💰 현재 자산: ${formatMoney(equity)}\n🎯 승률: ${winRate.toFixed(1)}%\n\n👉 지금 바로 무료로 참가하고 $100K 챌린지 시작하기!\n${deepLink}`;
 
   const handleOpen = () => {
     hapticImpact('light');

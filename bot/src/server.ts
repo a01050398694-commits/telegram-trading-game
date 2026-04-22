@@ -142,6 +142,7 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
       let rank = 0;
       let yesterdayPnl = 0;
       let referralCount = 0;
+      let history: { date: string; pnl: number }[] = [];
 
       if (telegramUserId) {
         // 1. isPremium
@@ -175,6 +176,24 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
           } catch (err) {
             console.error('[server] failed to fetch yesterdayPnl', err);
           }
+        }
+
+        // 3.5. history (최근 7일 손익)
+        try {
+          const past7Kst = new Date(nowKst.getTime() - 6 * 24 * 60 * 60 * 1000); // nowKst is already yesterday
+          const past7Str = past7Kst.toISOString().split('T')[0]!;
+          const { data: histData } = await engine['db']
+            .from('ranking_snapshots')
+            .select('date, daily_pnl')
+            .eq('user_id', resolved)
+            .gte('date', past7Str)
+            .order('date', { ascending: true });
+            
+          if (histData) {
+            history = histData.map(d => ({ date: d.date, pnl: Number(d.daily_pnl) }));
+          }
+        } catch (err) {
+          console.error('[server] failed to fetch history', err);
         }
 
         // 4. referralCount
@@ -219,6 +238,7 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
         rank,
         yesterdayPnl,
         referralCount,
+        history,
       });
     } catch (err) {
       console.error('[server] /user/status:', err);
@@ -488,6 +508,50 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
       res.json({ ok: true, invoiceLink });
     } catch (err) {
       console.error('[server] /payment/stars:', err);
+      res.status(500).json({ error: (err as Error).message });
+    }
+  });
+
+  // ---- 관리자 전용 API (B-14) ------------------------------------------------
+  app.post('/api/admin/verify', async (req, res) => {
+    try {
+      const adminSecret = req.headers['x-admin-secret'];
+      if (!adminSecret || adminSecret !== process.env.ADMIN_SECRET) {
+        res.status(401).json({ error: 'unauthorized admin' });
+        return;
+      }
+
+      const { userId, status, adminNote } = req.body as {
+        userId: string;
+        status: 'approved' | 'rejected';
+        adminNote?: string;
+      };
+
+      if (!userId || (status !== 'approved' && status !== 'rejected')) {
+        res.status(400).json({ error: 'invalid payload' });
+        return;
+      }
+
+      // 1. verification 테이블 업데이트
+      const { error: vErr } = await engine['db']
+        .from('verifications')
+        .update({ status })
+        .eq('user_id', userId);
+
+      if (vErr) throw new Error(`verification update failed: ${vErr.message}`);
+
+      // 2. 만약 승인이라면, users 테이블의 is_verified 도 업데이트
+      if (status === 'approved') {
+        const { error: uErr } = await engine['db']
+          .from('users')
+          .update({ is_verified: true })
+          .eq('id', userId);
+        if (uErr) throw new Error(`user verify update failed: ${uErr.message}`);
+      }
+
+      res.json({ ok: true, userId, status, message: `verification ${status}` });
+    } catch (err) {
+      console.error('[server] /admin/verify:', err);
       res.status(500).json({ error: (err as Error).message });
     }
   });

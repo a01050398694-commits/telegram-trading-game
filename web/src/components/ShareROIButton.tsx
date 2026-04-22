@@ -24,9 +24,10 @@ type Position = {
 type ShareROIButtonProps = {
   position: Position;
   markPrice: number | null;
+  telegramUserId?: number | null;
 };
 
-export function ShareROIButton({ position, markPrice }: ShareROIButtonProps) {
+export function ShareROIButton({ position, markPrice, telegramUserId }: ShareROIButtonProps) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [resultMsg, setResultMsg] = useState<string | null>(null);
@@ -54,12 +55,14 @@ export function ShareROIButton({ position, markPrice }: ShareROIButtonProps) {
       position.leverage
     : 0;
 
+  const deepLink = telegramUserId ? `${BOT_DEEP_LINK}?start=${telegramUserId}` : BOT_DEEP_LINK;
+
   const roiSign = roiPct >= 0 ? '+' : '';
   const tickerLine = `${market.ticker}USDT ${position.side.toUpperCase()} ${position.leverage}x · ROI ${roiSign}${roiPct.toFixed(2)}%`;
   const shareTextTemplate =
     roiPct >= 0
-      ? `🔥 폼 미쳤다! 나 방금 수익 먹음!\n${tickerLine}\n\n🏆 너도 공식 모의투자 글로벌 아카데미 가입하고 $100K 챌린지 시작해 봐!\n👉 ${BOT_DEEP_LINK}`
-      : `📉 오늘은 수업료 냈다. 리스크 관리 배우는 중.\n${tickerLine}\n\n🎓 너도 $100K 모의 시드로 같이 연습하자!\n👉 ${BOT_DEEP_LINK}`;
+      ? `🔥 폼 미쳤다! 나 방금 수익 먹음!\n${tickerLine}\n\n🏆 너도 공식 모의투자 글로벌 아카데미 가입하고 $100K 챌린지 시작해 봐!\n👉 ${deepLink}`
+      : `📉 오늘은 수업료 냈다. 리스크 관리 배우는 중.\n${tickerLine}\n\n🎓 너도 $100K 모의 시드로 같이 연습하자!\n👉 ${deepLink}`;
 
   const handleOpen = () => {
     hapticImpact('light');

@@ -20,11 +20,15 @@ import {
   isLiquidated,
 } from './liquidation.js';
 
+import { EventEmitter } from 'events';
+
 // ---------------------------------------------------------------------------
 // TradingEngine: DB 의존 로직. 순수 계산은 liquidation.ts 위임.
 // ---------------------------------------------------------------------------
-export class TradingEngine {
-  constructor(private readonly db: Db) {}
+export class TradingEngine extends EventEmitter {
+  constructor(private readonly db: Db) {
+    super();
+  }
 
   // -------------------------------------------------------------------------
   // 유저/지갑 upsert — /start 시 호출
@@ -431,6 +435,9 @@ export class TradingEngine {
         .eq('user_id', userId)
         .eq('status', 'open');
       if (restErr) console.error(`[engine] cascade liquidate failed for ${userId}:`, restErr.message);
+      
+      // Emit event for retention DM (B-10)
+      this.emit('liquidated', userId);
     }
 
     console.log(

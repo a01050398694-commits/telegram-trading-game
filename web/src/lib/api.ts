@@ -37,6 +37,7 @@ export type UserStatus = {
   yesterdayPnl: number;
   referralCount: number;
   telegramUserId: number;
+  history: { date: string; pnl: number }[];
 };
 
 export type OpenTradeInput = {

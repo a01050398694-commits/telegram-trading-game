@@ -4,6 +4,7 @@ import { formatMoney, formatUSD, calcPnl } from '../lib/format';
 import { getMarket } from '../lib/markets';
 import { ShareROIButton } from '../components/ShareROIButton';
 import { SharePortfolioButton } from '../components/SharePortfolioButton';
+import { PnLChart } from '../components/PnLChart';
 import { useBinanceFeed } from '../lib/useBinanceFeed';
 import {
   ApiError,
@@ -213,7 +214,7 @@ export function PortfolioTab({ telegramUserId, status }: PortfolioTabProps) {
               )}
             </div>
           )}
-          <SharePortfolioButton equity={liveEquity} winRate={winRate} totalTrades={totalTrades} />
+          <SharePortfolioButton equity={liveEquity} winRate={winRate} totalTrades={totalTrades} telegramUserId={status?.telegramUserId} />
         </div>
       </div>
 
@@ -246,6 +247,16 @@ export function PortfolioTab({ telegramUserId, status }: PortfolioTabProps) {
         />
       </div>
 
+      {/* ── 7-DAY PNL CHART ───────────────────────────── */}
+      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur-xl">
+        <div className="flex items-center justify-between pb-4">
+          <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">
+            7-Day Performance
+          </span>
+        </div>
+        <PnLChart data={status?.history ?? []} />
+      </div>
+
       {/* ── OPEN POSITION ─────────────────────────────── */}
       <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur-xl">
         <div className="mb-3 flex items-center justify-between">
@@ -253,7 +264,7 @@ export function PortfolioTab({ telegramUserId, status }: PortfolioTabProps) {
             {t('portfolio.openPosition')}
           </span>
           {showShare && sharePosition && (
-            <ShareROIButton position={sharePosition} markPrice={livePrice} />
+            <ShareROIButton position={sharePosition} markPrice={livePrice} telegramUserId={status?.telegramUserId} />
           )}
         </div>
         {position ? (

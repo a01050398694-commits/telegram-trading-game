@@ -5,6 +5,7 @@ import { TradingEngine } from './engine/trading.js';
 import { RankingEngine } from './engine/ranking.js';
 import { ChatSwitcher } from './engine/chatSwitcher.js';
 import { RetentionCron } from './cron/retention.js';
+import { setupLiquidationRecovery } from './cron/recovery.js';
 import { BinancePriceFeed, type PriceUpdate } from './services/binance.js';
 import { PriceCache } from './priceCache.js';
 import { env } from './env.js';
@@ -19,6 +20,9 @@ async function main(): Promise<void> {
   const server = createServer({ engine, priceCache, bot, rankingEngine });
   const chatSwitcher = new ChatSwitcher(bot, rankingEngine);
   const retentionCron = new RetentionCron(bot, db);
+  
+  // Set up liquidation recovery DMs
+  setupLiquidationRecovery(bot, engine);
 
   // 가격 피드 → (1) 캐시 갱신 (2) 청산 감시.
   // 매 tick마다 DB 스캔은 초당 1회 수준이라 비용 안전. 심볼 증가 시엔 throttle 재검토.
