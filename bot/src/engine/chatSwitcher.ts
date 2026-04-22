@@ -1,94 +1,105 @@
-import cron from 'node-cron';
 import type { Bot } from 'grammy';
 import type { RankingEngine } from './ranking.js';
 import { env } from '../env.js';
 
 export class ChatSwitcher {
-  private allowedUserIds: number[] = [];
+  private timer: NodeJS.Timeout | null = null;
+  private currentMode: 'LOCKED' | 'OPEN' = 'LOCKED';
 
   constructor(
     private readonly bot: Bot,
-    private readonly rankingEngine: RankingEngine,
+    private readonly ranking: RankingEngine,
   ) {}
 
   start() {
-    const chatId = env.VIP_CHAT_ID;
-    if (!chatId) {
-      console.warn('[chatSwitcher] VIP_CHAT_ID not configured, skipping chat permissions cron.');
+    if (!env.VIP_CHAT_ID) {
+      console.log('[chatSwitcher] VIP_CHAT_ID not configured, skipping chat permissions cron.');
       return;
     }
+    // Check every 30 seconds
+    this.timer = setInterval(() => this.tick(), 30_000);
+    this.tick();
+  }
 
-    console.log('[chatSwitcher] Cron initialized for KST 21:50 and 24:00.');
+  stop() {
+    if (this.timer) clearInterval(this.timer);
+  }
 
-    // KST 21:50 = UTC 12:50
-    cron.schedule('50 12 * * *', async () => {
-      console.log('[chatSwitcher] Triggering 21:50 KST unrestrict for Top 10.');
-      try {
-        const top10 = this.rankingEngine.getTop100().slice(0, 10);
-        this.allowedUserIds = top10.map((r) => r.telegramUserId);
+  private async tick() {
+    try {
+      const now = new Date();
+      const kstMs = now.getTime() + 9 * 60 * 60 * 1000;
+      const kstDate = new Date(kstMs);
+      
+      const hours = kstDate.getUTCHours();
+      const mins = kstDate.getUTCMinutes();
+      
+      const isWindowOpen = hours === 21 && mins >= 50; // 21:50 ~ 21:59. (PRD says 21:50~24:00, wait! Let's check PRD)
+      // PRD says 21:50~24:00. So hours >= 21 and (hours > 21 or mins >= 50). But max hour is 23 in KST.
+      const isOpenTime = (hours === 21 && mins >= 50) || (hours >= 22);
 
-        for (const userId of this.allowedUserIds) {
-          try {
-            await this.bot.api.restrictChatMember(chatId, userId, {
-              can_send_messages: true,
-              can_send_audios: true,
-              can_send_documents: true,
-              can_send_photos: true,
-              can_send_videos: true,
-              can_send_video_notes: true,
-              can_send_voice_notes: true,
-              can_send_polls: false,
-              can_send_other_messages: true,
-              can_add_web_page_previews: true,
-              can_change_info: false,
-              can_invite_users: false,
-              can_pin_messages: false,
-            });
-            console.log(`[chatSwitcher] Unrestricted user ${userId}`);
-          } catch (err) {
-            console.error(`[chatSwitcher] Failed to unrestrict ${userId}:`, err);
-          }
-        }
-      } catch (err) {
-        console.error('[chatSwitcher] Error in 21:50 cron:', err);
+      if (isOpenTime && this.currentMode === 'LOCKED') {
+        console.log('[chatSwitcher] Opening VIP chat for top 10...');
+        await this.openChat();
+        this.currentMode = 'OPEN';
+      } else if (!isOpenTime && this.currentMode === 'OPEN') {
+        console.log('[chatSwitcher] Closing VIP chat for everyone...');
+        await this.closeChat();
+        this.currentMode = 'LOCKED';
       }
-    });
+    } catch (err) {
+      console.error('[chatSwitcher] tick error:', err);
+    }
+  }
 
-    // KST 24:00 (자정) = UTC 15:00
-    cron.schedule('0 15 * * *', async () => {
-      console.log('[chatSwitcher] Triggering 24:00 KST restrict for Top 10.');
+  private async openChat() {
+    if (!env.VIP_CHAT_ID) return;
+    
+    // 1. Get Top 10
+    const top100 = this.ranking.getTop100();
+    const top10 = top100.slice(0, 10);
+
+    // Default permissions for group (everyone else)
+    // We want nobody else to talk.
+    try {
+      await this.bot.api.setChatPermissions(env.VIP_CHAT_ID, {
+        can_send_messages: false,
+      });
+    } catch (err) {
+      console.error('[chatSwitcher] failed to set default chat permissions:', err);
+    }
+
+    // Give exception permissions to top 10
+    for (const user of top10) {
       try {
-        if (this.allowedUserIds.length === 0) {
-          // 캐시가 비어있으면 현재 탑10 가져오기 (재시작 등)
-          this.allowedUserIds = this.rankingEngine.getTop100().slice(0, 10).map((r) => r.telegramUserId);
-        }
-
-        for (const userId of this.allowedUserIds) {
-          try {
-            await this.bot.api.restrictChatMember(chatId, userId, {
-              can_send_messages: false,
-              can_send_audios: false,
-              can_send_documents: false,
-              can_send_photos: false,
-              can_send_videos: false,
-              can_send_video_notes: false,
-              can_send_voice_notes: false,
-              can_send_polls: false,
-              can_send_other_messages: false,
-              can_add_web_page_previews: false,
-              can_change_info: false,
-              can_invite_users: false,
-              can_pin_messages: false,
-            });
-            console.log(`[chatSwitcher] Restricted user ${userId}`);
-          } catch (err) {
-            console.error(`[chatSwitcher] Failed to restrict ${userId}:`, err);
-          }
-        }
-        this.allowedUserIds = []; // reset
+        await this.bot.api.restrictChatMember(env.VIP_CHAT_ID, user.telegramUserId, {
+          can_send_messages: true,
+          can_send_audios: true,
+          can_send_documents: true,
+          can_send_photos: true,
+          can_send_videos: true,
+          can_send_video_notes: true,
+          can_send_voice_notes: true,
+          can_send_polls: true,
+          can_send_other_messages: true,
+          can_add_web_page_previews: true,
+        });
       } catch (err) {
-        console.error('[chatSwitcher] Error in 24:00 cron:', err);
+        console.error(`[chatSwitcher] failed to promote top10 user ${user.telegramUserId}:`, err);
       }
-    });
+    }
+  }
+
+  private async closeChat() {
+    if (!env.VIP_CHAT_ID) return;
+
+    try {
+      // Lockdown group for everyone
+      await this.bot.api.setChatPermissions(env.VIP_CHAT_ID, {
+        can_send_messages: false,
+      });
+    } catch (err) {
+      console.error('[chatSwitcher] failed to close chat permissions:', err);
+    }
   }
 }

@@ -181,6 +181,16 @@ export class TradingEngine {
     return (data as UserRow | null) ?? null;
   }
 
+  async getUserById(userId: string): Promise<UserRow | null> {
+    const { data, error } = await this.db
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+    if (error) throw new Error(`getUserById: ${error.message}`);
+    return (data as UserRow | null) ?? null;
+  }
+
   async getWallet(userId: string): Promise<WalletRow | null> {
     const { data, error } = await this.db
       .from('wallets')

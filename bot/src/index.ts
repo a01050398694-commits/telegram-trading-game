@@ -49,6 +49,7 @@ async function main(): Promise<void> {
   // graceful shutdown
   const shutdown = async (signal: string): Promise<void> => {
     console.log(`[bot] received ${signal}, shutting down`);
+    chatSwitcher.stop();
     rankingEngine.stop();
     feed.stop();
     await bot.stop();

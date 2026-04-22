@@ -136,7 +136,8 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
         engine.getLatestVerification(resolved),
       ]);
 
-      const telegramUserId = await engine.getTelegramUserId(resolved);
+      const userRow = await engine.getUserById(resolved);
+      const telegramUserId = userRow?.telegram_id;
       let isPremium = false;
       let rank = 0;
       let yesterdayPnl = 0;
@@ -155,7 +156,7 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
         const nowKst = new Date(Date.now() + kstOffset);
         // "어제"의 날짜 문자열 (YYYY-MM-DD)
         nowKst.setUTCDate(nowKst.getUTCDate() - 1);
-        const yDateStr = nowKst.toISOString().split('T')[0];
+        const yDateStr: string = nowKst.toISOString().split('T')[0]!;
 
         const cachedPnl = yesterdayPnlCache.get(resolved);
         if (cachedPnl && cachedPnl.date === yDateStr) {
@@ -300,6 +301,57 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
     }
   });
 
+  // ---- 랭킹 데이터 (Sprint 3) -----------------------------------------------
+  app.get('/api/rankings/today', (req, res) => {
+    try {
+      const top100 = rankingEngine.getTop100();
+      res.json({ rankings: top100 });
+    } catch (err) {
+      console.error('[server] /rankings/today:', err);
+      res.status(500).json({ error: (err as Error).message });
+    }
+  });
+
+  app.get('/api/rankings/yesterday', async (req, res) => {
+    try {
+      const kstOffset = 9 * 60 * 60 * 1000;
+      const nowKst = new Date(Date.now() + kstOffset);
+      nowKst.setUTCDate(nowKst.getUTCDate() - 1);
+      const yDateStr = nowKst.toISOString().split('T')[0];
+
+      // fallback 쿼리 (ranking_snapshots 테이블이 없으면 빈 배열 반환)
+      try {
+        const { data, error } = await engine['db']
+          .from('ranking_snapshots')
+          .select('user_id, rank, equity, daily_pnl, daily_pnl_pct, users(telegram_id, username)')
+          .eq('date', yDateStr)
+          .order('rank', { ascending: true })
+          .limit(100);
+
+        if (error || !data) {
+          res.json({ rankings: [] });
+          return;
+        }
+
+        const formatted = data.map((r: any) => ({
+          rank: r.rank,
+          telegramUserId: r.users?.telegram_id || 0,
+          username: r.users?.username || 'Unknown',
+          equity: r.equity,
+          dailyPnl: r.daily_pnl,
+          dailyPnlPercent: r.daily_pnl_pct,
+        }));
+        res.json({ rankings: formatted });
+      } catch (e) {
+        // 테이블이 존재하지 않을 때 대비
+        res.json({ rankings: [] });
+      }
+    } catch (err) {
+      console.error('[server] /rankings/yesterday:', err);
+      res.status(500).json({ error: (err as Error).message });
+    }
+  });
+
   // ---- 포지션 오픈 ----------------------------------------------------------
   app.post('/api/trade/open', async (req, res) => {
     try {
@@ -420,6 +472,7 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
         'Trading Academy · Risk Management Reset',
         'Reset practice balance to $100,000 and resume the paper-trading lesson.',
         payload,
+        '', // provider_token must be empty for Telegram Stars
         'XTR',
         [{ label: 'Risk Management Reset', amount: STARS_AMOUNT }],
       );
