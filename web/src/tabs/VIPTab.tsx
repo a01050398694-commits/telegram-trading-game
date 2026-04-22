@@ -148,11 +148,11 @@ export function VIPTab({ status }: { status?: UserStatus | null }) {
         }`}
       >
         <div
-          className={`mb-3 text-[10px] font-bold uppercase tracking-[0.35em] ${
-            canChat ? 'text-emerald-300/80' : 'text-yellow-500/70'
+          className={`mb-3 text-[12px] font-bold uppercase tracking-[0.35em] ${
+            canChat ? 'text-emerald-300' : 'text-yellow-500/70'
           }`}
         >
-          {canChat ? t('elite.openNow') : t('elite.countdown')}
+          {canChat ? '✅ VIP 채팅방 입장하기' : t('elite.countdown')}
         </div>
         <div
           className={`font-mono text-4xl font-bold tracking-widest ${
@@ -161,12 +161,12 @@ export function VIPTab({ status }: { status?: UserStatus | null }) {
         >
           {info.open ? formatHMS(info.secondsToClose) : formatHMS(info.secondsToNext)}
         </div>
-        <div className="mt-3 text-[10px] uppercase tracking-wider text-slate-400">
+        <div className="mt-3 text-[11px] uppercase tracking-wider text-slate-400">
           {canChat 
-            ? '🎓 You have chat access until 24:00 KST' 
+            ? '터치하여 텔레그램 채팅방으로 이동합니다' 
             : info.open 
-              ? '👁️ Read-only (Top 10 or Premium to chat)' 
-              : '🔒 opens 21:50 KST'}
+              ? '👁️ 열람 전용 (채팅은 Top 10 또는 Premium 전용)' 
+              : '🔒 매일 밤 21:50 KST 오픈'}
         </div>
       </button>
 

@@ -141,6 +141,7 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
       let isPremium = false;
       let rank = 0;
       let yesterdayPnl = 0;
+      let referralCount = 0;
 
       if (telegramUserId) {
         // 1. isPremium
@@ -175,6 +176,13 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
             console.error('[server] failed to fetch yesterdayPnl', err);
           }
         }
+
+        // 4. referralCount
+        try {
+          referralCount = await engine.getReferralCount(resolved);
+        } catch (err) {
+          console.error('[server] failed to fetch referralCount', err);
+        }
       }
       res.json({
         userId: resolved,
@@ -206,10 +214,11 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
           : null,
         // Stage 9: VIP 플래그는 MVP 에서 "approved 인증 1건 이상" 으로 정의.
         // 추후 Stars 결제/수동 지급 등으로 확장 가능.
-        isVIP: verification?.status === 'approved',
+        isVIP: verification?.status === 'approved' || isPremium,
         isPremium,
         rank,
         yesterdayPnl,
+        referralCount,
       });
     } catch (err) {
       console.error('[server] /user/status:', err);

@@ -181,6 +181,15 @@ export class TradingEngine {
     return (data as UserRow | null) ?? null;
   }
 
+  async getReferralCount(userId: string): Promise<number> {
+    const { count, error } = await this.db
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+      .eq('referred_by', userId);
+    if (error) throw new Error(`getReferralCount: ${error.message}`);
+    return count ?? 0;
+  }
+
   async getUserById(userId: string): Promise<UserRow | null> {
     const { data, error } = await this.db
       .from('users')

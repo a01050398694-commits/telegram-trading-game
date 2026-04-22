@@ -35,6 +35,8 @@ export type UserStatus = {
   isPremium: boolean;
   rank: number;
   yesterdayPnl: number;
+  referralCount: number;
+  telegramUserId: number;
 };
 
 export type OpenTradeInput = {

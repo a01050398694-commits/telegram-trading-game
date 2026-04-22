@@ -61,38 +61,58 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
           Stage 12 — 하이브리드 결제 연동.
           구독/평생 멤버십 결제는 미니앱 밖의 InviteMember 봇으로 보낸다. */}
       {(!status || !status.isPremium) && (
-      <button
-        type="button"
-        onClick={() => {
-          const botUrl = import.meta.env.VITE_INVITEMEMBER_BOT_URL || 'https://t.me/YOUR_INVITEMEMBER_BOT_HERE';
-          if (window.Telegram?.WebApp) {
-            window.Telegram.WebApp.openTelegramLink?.(botUrl);
-          } else {
-            window.open(botUrl, '_blank');
-          }
-        }}
-        className="group relative flex w-full shrink-0 flex-col rounded-2xl border-2 border-yellow-500/50 bg-gradient-to-b from-slate-900 to-black p-5 text-left shadow-[0_0_60px_rgba(250,204,21,0.2),_0_16px_40px_rgba(0,0,0,0.6)] transition-all active:scale-[0.98]"
-      >
-        <div className="pointer-events-none absolute inset-x-6 top-0 h-[1px] bg-gradient-to-r from-transparent via-yellow-400/70 to-transparent" />
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-start gap-2">
-              <span className="shrink-0 text-xl drop-shadow-[0_0_12px_rgba(250,204,21,0.6)]">
-                💎
-              </span>
-              <span className="break-words whitespace-normal font-mono text-[13px] font-bold uppercase leading-snug tracking-[0.15em] text-amber-200">
-                {t('academy.hub.upgradeCta')} (InviteMember)
-              </span>
+      <div className="flex flex-col gap-2 w-full">
+        <button
+          type="button"
+          onClick={() => {
+            const botUrl = import.meta.env.VITE_INVITEMEMBER_BOT_URL || 'https://t.me/YOUR_INVITEMEMBER_BOT_HERE';
+            if (window.Telegram?.WebApp) {
+              window.Telegram.WebApp.openTelegramLink?.(botUrl);
+            } else {
+              window.open(botUrl, '_blank');
+            }
+          }}
+          className="group relative flex w-full shrink-0 flex-col rounded-2xl border-2 border-yellow-500/50 bg-gradient-to-b from-slate-900 to-black p-5 text-left shadow-[0_0_60px_rgba(250,204,21,0.2),_0_16px_40px_rgba(0,0,0,0.6)] transition-all active:scale-[0.98]"
+        >
+          <div className="pointer-events-none absolute inset-x-6 top-0 h-[1px] bg-gradient-to-r from-transparent via-yellow-400/70 to-transparent" />
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-start gap-2">
+                <span className="shrink-0 text-xl drop-shadow-[0_0_12px_rgba(250,204,21,0.6)]">
+                  💎
+                </span>
+                <span className="break-words whitespace-normal font-mono text-[13px] font-bold uppercase leading-snug tracking-[0.15em] text-amber-200">
+                  {t('academy.hub.upgradeCta')}
+                </span>
+              </div>
+              <div className="mt-2 break-words whitespace-normal text-[11px] leading-relaxed text-amber-100/70">
+                구독 봇으로 이동하여 VIP 혜택을 구매하세요.
+              </div>
             </div>
-            <div className="mt-2 break-words whitespace-normal text-[11px] leading-relaxed text-amber-100/70">
-              구독 결제 봇으로 이동하여 VIP 혜택을 해제하세요.
-            </div>
+            <span className="shrink-0 text-xl text-amber-300/70 transition-transform duration-200">
+              →
+            </span>
           </div>
-          <span className="shrink-0 text-xl text-amber-300/70 transition-transform duration-200">
-            →
-          </span>
-        </div>
-      </button>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            if (window.Telegram?.WebApp) {
+              window.Telegram.WebApp.openTelegramLink?.('https://t.me/Tradergames_bot?text=/premium');
+            }
+          }}
+          className="group relative flex w-full items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-left transition-all active:scale-[0.98]"
+        >
+          <div className="flex items-center gap-2">
+            <span className="shrink-0 text-lg">✅</span>
+            <span className="break-words whitespace-normal text-[12px] font-bold text-emerald-300">
+              결제를 완료하셨나요? 락 풀기
+            </span>
+          </div>
+          <span className="text-[10px] text-emerald-400/60 underline underline-offset-2">Click</span>
+        </button>
+      </div>
       )}
 
       {/* ── EXCHANGE UID VERIFICATION (ACCORDION) ─────────────
@@ -151,6 +171,50 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
         <div className="mt-4 break-keep text-[14px] font-medium leading-relaxed tracking-tight text-slate-200">
           {t('academy.heroSubtitle')}
         </div>
+      </div>
+
+      {/* ── REFERRAL MISSION ────────────────────────────── */}
+      <div className="rounded-3xl border border-emerald-400/20 bg-slate-900 p-5 mt-4 mb-4 relative overflow-hidden">
+        <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-emerald-500/10 blur-[30px]" />
+        
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🤝</span>
+            <span className="font-bold text-emerald-300 text-[13px] tracking-wide">
+              친구 초대 미션
+            </span>
+          </div>
+          <span className="text-[10px] font-mono text-emerald-400/80 bg-emerald-500/10 px-2 py-1 rounded-md">
+            {status?.referralCount ?? 0} / 3 명
+          </span>
+        </div>
+        
+        <div className="text-[11px] text-slate-300 mb-4 leading-relaxed break-keep">
+          친구 3명을 초대하면 연습용 시드머니 <span className="text-emerald-400 font-bold">$50,000</span>를 즉시 추가 지급해 드립니다!
+        </div>
+        
+        {/* Progress bar */}
+        <div className="w-full bg-slate-800 rounded-full h-2 mb-4 overflow-hidden">
+          <div 
+            className="bg-emerald-500 h-2 rounded-full transition-all duration-500" 
+            style={{ width: `${Math.min(100, ((status?.referralCount ?? 0) / 3) * 100)}%` }}
+          />
+        </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            if (status?.telegramUserId) {
+              const link = `https://t.me/Tradergames_bot?start=${status.telegramUserId}`;
+              navigator.clipboard.writeText(link);
+              setToast('초대 링크가 복사되었습니다!');
+              window.setTimeout(() => setToast(null), 2000);
+            }
+          }}
+          className="w-full bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 rounded-xl py-3 text-[12px] font-bold transition-all active:scale-[0.98]"
+        >
+          초대 링크 복사하기 🔗
+        </button>
       </div>
 
       <div className="relative">
