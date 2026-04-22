@@ -2,6 +2,10 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import en from '../locales/en.json';
 import ko from '../locales/ko.json';
+import ru from '../locales/ru.json';
+import tr from '../locales/tr.json';
+import vi from '../locales/vi.json';
+import id from '../locales/id.json';
 
 // Stage 8.0 — 클라이언트 i18n.
 // 저장소: localStorage 'tg-trading.lang'.
@@ -9,7 +13,7 @@ import ko from '../locales/ko.json';
 // 추후 추가 언어(ru/es/ja/tr/pt/vi/zh/hi) 는 locales/*.json 만 드롭하면 됨.
 
 const STORAGE_KEY = 'tg-trading.lang';
-export const SUPPORTED_LANGS = ['en', 'ko'] as const;
+export const SUPPORTED_LANGS = ['en', 'ko', 'ru', 'tr', 'vi', 'id'] as const;
 export type SupportedLang = (typeof SUPPORTED_LANGS)[number];
 
 function detect(): SupportedLang {
@@ -19,9 +23,18 @@ function detect(): SupportedLang {
     return saved as SupportedLang;
   }
   const tg = window.Telegram?.WebApp?.initDataUnsafe?.user?.language_code;
-  if (tg && tg.startsWith('ko')) return 'ko';
+  if (tg) {
+    const code = tg.slice(0, 2);
+    if ((SUPPORTED_LANGS as readonly string[]).includes(code)) {
+      return code as SupportedLang;
+    }
+  }
   const nav = window.navigator.language ?? 'en';
-  return nav.startsWith('ko') ? 'ko' : 'en';
+  const navCode = nav.slice(0, 2);
+  if ((SUPPORTED_LANGS as readonly string[]).includes(navCode)) {
+    return navCode as SupportedLang;
+  }
+  return 'en';
 }
 
 void i18n
@@ -30,6 +43,10 @@ void i18n
     resources: {
       en: { translation: en },
       ko: { translation: ko },
+      ru: { translation: ru },
+      tr: { translation: tr },
+      vi: { translation: vi },
+      id: { translation: id },
     },
     lng: detect(),
     fallbackLng: 'en',

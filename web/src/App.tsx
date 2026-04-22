@@ -44,6 +44,17 @@ export default function App() {
     };
   }, [telegramUserId, refresh]);
 
+  if (status === null && statusError === null) {
+    return (
+      <div className="flex h-[100dvh] flex-col items-center justify-center bg-slate-950 text-white">
+        <div className="text-4xl">🚀</div>
+        <div className="mt-4 text-[11px] font-bold uppercase tracking-widest text-slate-500">
+          Loading Data...
+        </div>
+      </div>
+    );
+  }
+
   return (
     // Stage 8.11 — Android Chrome 100vh 버그 회피. Telegram 이 계산한 viewportStableHeight
     // 를 --tg-viewport-height 변수로 받아 <main> 높이에 직접 적용. 브라우저 프리뷰 fallback

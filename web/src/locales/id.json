@@ -1,0 +1,141 @@
+{
+  "common": {
+    "change": "Change",
+    "close": "Close",
+    "save": "Save",
+    "cancel": "Cancel",
+    "loading": "Loading…",
+    "submit": "Submit",
+    "continue": "Continue"
+  },
+  "header": {
+    "perpetual": "Perpetual · 1m",
+    "connecting": "Connecting…",
+    "live": "Live",
+    "reconnecting": "Reconnecting…",
+    "dev": "DEV · Browser",
+    "high": "H",
+    "low": "L",
+    "volume": "Vol"
+  },
+  "nav": {
+    "trade": "Trade",
+    "portfolio": "Portfolio",
+    "elite": "Elite Club",
+    "academy": "Academy"
+  },
+  "trade": {
+    "long": "Long",
+    "short": "Short",
+    "leverage": "Leverage",
+    "size": "Size",
+    "entry": "Entry",
+    "liq": "Liq. Price",
+    "pnl": "Unrealized PnL",
+    "balanceLocked": "Margin Locked",
+    "open": "Open Position",
+    "closePosition": "Close Position"
+  },
+  "liquidation": {
+    "title": "Risk Management Triggered",
+    "body": "Your simulated margin has been depleted. This is a paper-trading lesson — no real funds lost. Reset your practice balance to continue learning.",
+    "resetCta": "Reset Practice Balance",
+    "resetCostSuffix": "Stars"
+  },
+  "portfolio": {
+    "totalEquity": "Total Equity",
+    "status": "Status",
+    "active": "🟢 Active",
+    "liquidated": "🔴 Reset Required",
+    "realized": "Realized (20 trades)",
+    "openPosition": "Open Position",
+    "noOpen": "No open positions",
+    "history": "Trade History",
+    "empty": "No trades yet.",
+    "referralTitle": "Invite a friend — earn $10,000",
+    "referralSub": "Copy invite link",
+    "referralCopied": "🎁 Invite link copied!"
+  },
+  "elite": {
+    "heroTitle": "Elite Analyst Club",
+    "heroSubtitle": "Top 10 paper-traders unlock a private analyst chat every evening.",
+    "heroSubtitleLine1": "Top 10 paper-traders unlock",
+    "heroSubtitleLine2": "a private analyst chat every evening.",
+    "countdown": "Chat opens in",
+    "openNow": "Chat is live — join now",
+    "leaderboard": "Today's Top 10"
+  },
+  "academy": {
+    "heroTitle": "Academy Membership",
+    "heroSubtitle": "Structured trading education for serious learners. No gambling — only practice.",
+    "planFree": "Free",
+    "planPremium": "Academy",
+    "planLifetime": "Lifetime",
+    "priceFree": "$0",
+    "pricePremium": "$29.99",
+    "priceLifetime": "$7.99",
+    "subtitleFree": "Demo",
+    "subtitlePremium": "/mo",
+    "subtitleLifetime": "/mo forever",
+    "bestValue": "ELITE LIFETIME PASS",
+    "features": {
+      "multiChart": "Multi-Coin Charts",
+      "dailySeed": "One-time $100K Practice Seed",
+      "eliteChat": "Elite Analyst Club Access",
+      "tournament": "Global Paper Trading Tournament",
+      "resetDiscount": "Risk Reset −30%",
+      "lifetimeDiscount": "Lifetime Academy Discount"
+    },
+    "verify": {
+      "title": "Verify Exchange UID",
+      "hint": "Sign up with an official partner exchange and verify your UID to unlock the full Lifetime Academy benefits for free.",
+      "uid": "Exchange UID",
+      "exchange": "Exchange",
+      "submit": "Submit for Review",
+      "pending": "Your submission is under review.",
+      "approvedTitle": "Verified",
+      "approvedHint": "Lifetime Academy benefits are now active on your account.",
+      "errSelectExchange": "Select an exchange.",
+      "errUidShort": "UID must be at least 3 characters.",
+      "errNoTelegram": "Open this app inside Telegram to submit verification."
+    },
+    "hub": {
+      "upgradeCta": "Upgrade to Elite Lifetime Pass",
+      "upgradeSub": "$7.99/mo · locked forever · free with verified UID",
+      "library": "Education Library",
+      "comingSoon": "Available Soon",
+      "lessons": {
+        "beginner": {
+          "title": "Beginner's Guide",
+          "desc": "Perpetual futures fundamentals: Long/Short, margin, liquidation mechanics."
+        },
+        "leverage": {
+          "title": "Leverage & Margin 101",
+          "desc": "How to size leverage properly and why margin gets locked."
+        },
+        "risk": {
+          "title": "Risk Management",
+          "desc": "Position sizing, stop-loss discipline, max drawdown rules."
+        },
+        "psych": {
+          "title": "Trading Psychology",
+          "desc": "Avoid FOMO and revenge trades — decide by process, not emotion."
+        }
+      }
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "english": "English",
+    "korean": "한국어",
+    "disclaimer": "This is an educational paper-trading simulator. No real money is involved."
+  },
+  "coinSelector": {
+    "title": "Select Market",
+    "placeholder": "Search BTC, ETH, PEPE...",
+    "footer": "Perpetual Futures",
+    "active": "Active",
+    "empty": "No markets match"
+  }
+}

@@ -11,6 +11,17 @@
     <title>Trading Game</title>
     <!-- Telegram Web App SDK: 텔레그램 클라이언트 내부에서 열릴 때 window.Telegram.WebApp 제공 -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/vite.svg" />
+    <script>
+      // 텔레그램 미니앱 스플래시 직후 풀스크린 확장 (소비자 관점 UX)
+      window.addEventListener('DOMContentLoaded', () => {
+        if (window.Telegram && window.Telegram.WebApp) {
+          window.Telegram.WebApp.expand();
+          window.Telegram.WebApp.ready();
+        }
+      });
+    </script>
   </head>
   <body class="bg-slate-900 text-slate-100">
     <div id="root"></div>
