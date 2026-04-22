@@ -89,6 +89,7 @@ declare global {
     showPopup?: (params: TelegramPopupParams, cb?: (buttonId: string) => void) => void;
     showAlert?: (message: string, cb?: () => void) => void;
     openTelegramLink?: (url: string) => void;
+    openInvoice?: (url: string, callback?: (status: 'paid' | 'cancelled' | 'failed' | 'pending') => void) => void;
     // Stage 8.11 — viewportChanged 구독. 안드로이드 URL 바 토글 대응.
     onEvent?: (eventType: string, eventHandler: () => void) => void;
     offEvent?: (eventType: string, eventHandler: () => void) => void;

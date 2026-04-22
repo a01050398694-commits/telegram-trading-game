@@ -66,7 +66,7 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
         onClick={() => {
           const botUrl = import.meta.env.VITE_INVITEMEMBER_BOT_URL || 'https://t.me/YOUR_INVITEMEMBER_BOT_HERE';
           if (window.Telegram?.WebApp) {
-            window.Telegram.WebApp.openTelegramLink(botUrl);
+            window.Telegram.WebApp.openTelegramLink?.(botUrl);
           } else {
             window.open(botUrl, '_blank');
           }
@@ -91,7 +91,6 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
           <span className="shrink-0 text-xl text-amber-300/70 transition-transform duration-200">
             →
           </span>
-        </div>
         </div>
       </button>
       )}

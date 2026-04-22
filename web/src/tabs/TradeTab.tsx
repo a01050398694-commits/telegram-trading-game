@@ -150,7 +150,7 @@ export function TradeTab({
     setStarsPending(true);
     try {
       const { invoiceLink } = await requestStarsInvoice(telegramUserId);
-      window.Telegram.WebApp.openInvoice(invoiceLink, (status) => {
+      window.Telegram?.WebApp?.openInvoice?.(invoiceLink, (status: string) => {
         if (status === 'paid') {
           void refresh();
         }

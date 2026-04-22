@@ -138,7 +138,7 @@ export function VIPTab({ status }: { status?: UserStatus | null }) {
         type="button"
         onClick={() => {
           if (window.Telegram?.WebApp) {
-            window.Telegram.WebApp.openTelegramLink('https://t.me/Trader_club');
+            window.Telegram.WebApp.openTelegramLink?.('https://t.me/Trader_club');
           }
         }}
         className={`mt-4 w-full flex flex-col items-center justify-center rounded-2xl border py-6 transition-all cursor-pointer ${
