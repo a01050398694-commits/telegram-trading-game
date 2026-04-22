@@ -4,6 +4,7 @@ import { createSupabase } from './db/supabase.js';
 import { TradingEngine } from './engine/trading.js';
 import { RankingEngine } from './engine/ranking.js';
 import { ChatSwitcher } from './engine/chatSwitcher.js';
+import { RetentionCron } from './cron/retention.js';
 import { BinancePriceFeed, type PriceUpdate } from './services/binance.js';
 import { PriceCache } from './priceCache.js';
 import { env } from './env.js';
@@ -17,6 +18,7 @@ async function main(): Promise<void> {
   const rankingEngine = new RankingEngine(db, priceCache);
   const server = createServer({ engine, priceCache, bot, rankingEngine });
   const chatSwitcher = new ChatSwitcher(bot, rankingEngine);
+  const retentionCron = new RetentionCron(bot, db);
 
   // 가격 피드 → (1) 캐시 갱신 (2) 청산 감시.
   // 매 tick마다 DB 스캔은 초당 1회 수준이라 비용 안전. 심볼 증가 시엔 throttle 재검토.
@@ -41,6 +43,7 @@ async function main(): Promise<void> {
   feed.start();
   rankingEngine.start();
   chatSwitcher.start();
+  retentionCron.start();
 
   server.listen(env.SERVER_PORT, () => {
     console.log(`[server] listening on http://localhost:${env.SERVER_PORT}`);
@@ -49,6 +52,7 @@ async function main(): Promise<void> {
   // graceful shutdown
   const shutdown = async (signal: string): Promise<void> => {
     console.log(`[bot] received ${signal}, shutting down`);
+    retentionCron.stop();
     chatSwitcher.stop();
     rankingEngine.stop();
     feed.stop();
