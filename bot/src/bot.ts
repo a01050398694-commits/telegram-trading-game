@@ -1,7 +1,14 @@
 import { Bot, InlineKeyboard, type Context } from 'grammy';
 import { env } from './env.js';
 import type { TradingEngine } from './engine/trading.js';
+import type { ReferralMissionEngine } from './engine/referralMission.js';
 import { STARS_PAYLOAD_PREFIX } from './server.js';
+
+// B-08 — /start 레퍼럴 처리 시 마일스톤 평가를 주입받기 위한 컨테이너.
+// 순환 의존(ReferralMissionEngine ↔ Bot) 을 피하기 위해 생성 후 setter 로 주입.
+export type BotContext = {
+  referralMission: ReferralMissionEngine | null;
+};
 
 function formatBalance(n: number): string {
   // Stage 6: USD 정수 달러 단위. $100,000 포맷.
@@ -31,7 +38,7 @@ function buildStartKeyboard(isHttps: boolean, webappUrl: string, isKo: boolean):
   return kb;
 }
 
-export function createBot(engine: TradingEngine): Bot {
+export function createBot(engine: TradingEngine, context: BotContext): Bot {
   const bot = new Bot(env.BOT_TOKEN);
 
   // -------------------------------------------------------------------------
@@ -114,6 +121,15 @@ export function createBot(engine: TradingEngine): Bot {
         } catch (bonusErr) {
           // 보너스 실패는 /start 흐름을 막지 않음 — 단, 로그는 남긴다.
           console.error('[bot] grantReferralBonus:', bonusErr);
+        }
+
+        // B-08 — 초대자의 레퍼럴 마일스톤(3명/10명) 평가. 실패는 무시.
+        if (context.referralMission && referrerUserId) {
+          try {
+            await context.referralMission.evaluateMilestones(referrerUserId);
+          } catch (missionErr) {
+            console.error('[bot] referral mission evaluate:', missionErr);
+          }
         }
       }
       // bonusGranted 참조용 (린트 unused 방지).

@@ -4,8 +4,11 @@ import { env } from './env.js';
 import crypto from 'node:crypto';
 import { type TradingEngine } from './engine/trading.js';
 import { type RankingEngine } from './engine/ranking.js';
+import { type ReferralMissionEngine } from './engine/referralMission.js';
 import { checkIsPremium } from './services/premiumCache.js';
+import { issuePromoCode } from './services/invitemember.js';
 import type { PriceCache } from './priceCache.js';
+import { tradeLimiter, readLimiter, adminLimiter } from './middleware/rateLimit.js';
 
 // 결제 식별자 — Stars invoice 의 payload 필드.
 // 성공 콜백 시 이 prefix 로 판별해 revivePaidUser 호출.
@@ -17,6 +20,7 @@ type Deps = {
   priceCache: PriceCache;
   bot: Bot;
   rankingEngine: RankingEngine;
+  referralMission: ReferralMissionEngine;
 };
 
 // -------------------------------------------------------------------------
@@ -98,12 +102,21 @@ async function resolveUser(
 // -------------------------------------------------------------------------
 // Express 앱 구성 — 엔진/캐시/봇 을 주입받아 라우트 연결.
 // -------------------------------------------------------------------------
-export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): Express {
+export function createServer({ engine, priceCache, bot, rankingEngine, referralMission }: Deps): Express {
   const app = express();
   const yesterdayPnlCache = new Map<string, { value: number; date: string }>();
 
+  // Render / Vercel 등 프록시 뒤에서 req.ip 를 X-Forwarded-For 로 해석 — rate limit 정확도.
+  app.set('trust proxy', 1);
+
   app.use(cors);
   app.use(express.json());
+
+  // B-16 — 읽기성 엔드포인트 전반에 기본 rate limit. 거래/결제는 아래에서 덮어씀.
+  app.use('/api', readLimiter);
+  app.use('/api/trade', tradeLimiter);
+  app.use('/api/payment', tradeLimiter);
+  app.use('/api/admin', adminLimiter);
 
   app.get('/health', (_req, res) => {
     res.json({ ok: true, env: env.NODE_ENV, prices: priceCache.snapshot() });
@@ -203,6 +216,31 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
           console.error('[server] failed to fetch referralCount', err);
         }
       }
+
+      // B-08 — 미션 상태. 실패 시 기본값으로 폴백.
+      let mission: {
+        referredCount: number;
+        milestone3Claimed: boolean;
+        milestone10Claimed: boolean;
+        promoCode: string | null;
+      } = {
+        referredCount: referralCount,
+        milestone3Claimed: false,
+        milestone10Claimed: false,
+        promoCode: null,
+      };
+      try {
+        const row = await referralMission.getStatus(resolved);
+        mission = {
+          referredCount: Math.max(referralCount, row.referred_count),
+          milestone3Claimed: row.milestone_3_claimed,
+          milestone10Claimed: row.milestone_10_claimed,
+          promoCode: row.promo_code,
+        };
+      } catch (err) {
+        console.error('[server] failed to fetch mission', err);
+      }
+
       res.json({
         userId: resolved,
         balance: wallet?.balance ?? 0,
@@ -239,6 +277,8 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
         yesterdayPnl,
         referralCount,
         history,
+        mission,
+        telegramUserId,
       });
     } catch (err) {
       console.error('[server] /user/status:', err);
@@ -532,26 +572,106 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
         return;
       }
 
-      // 1. verification 테이블 업데이트
+      // 1. exchange_verifications 테이블 업데이트
       const { error: vErr } = await engine['db']
-        .from('verifications')
+        .from('exchange_verifications')
         .update({ status })
         .eq('user_id', userId);
 
       if (vErr) throw new Error(`verification update failed: ${vErr.message}`);
 
-      // 2. 만약 승인이라면, users 테이블의 is_verified 도 업데이트
+      // 2. 승인 시 is_verified 업데이트 + B-13 Promo code 자동 발급 DM
+      let issuedPromo: string | null = null;
       if (status === 'approved') {
         const { error: uErr } = await engine['db']
           .from('users')
           .update({ is_verified: true })
           .eq('id', userId);
         if (uErr) throw new Error(`user verify update failed: ${uErr.message}`);
+
+        // Promo 발급 + 텔레그램 DM. 실패해도 승인 흐름은 유지.
+        const promo = issuePromoCode();
+        if (promo.ok) {
+          issuedPromo = promo.code;
+          try {
+            const userRow = await engine.getUserById(userId);
+            if (userRow?.telegram_id) {
+              await bot.api.sendMessage(
+                userRow.telegram_id,
+                `✅ 거래소 UID 인증이 *승인*되었습니다!\n\n1개월 Academy Promo code 를 발송드립니다:\n\n\`${promo.code}\`\n\n구독 봇에서 적용해 주세요.`,
+                { parse_mode: 'Markdown' },
+              );
+            }
+          } catch (dmErr) {
+            console.warn('[server] approval DM failed:', dmErr);
+          }
+        }
       }
 
-      res.json({ ok: true, userId, status, message: `verification ${status}` });
+      // 3. D-04 감사 로그 기록 — 실패는 응답에 영향 안 줌.
+      try {
+        await engine['db'].from('admin_actions').insert({
+          actor_label: 'x-admin-secret',
+          action_type: status === 'approved' ? 'verify_approve' : 'verify_reject',
+          target_user_id: userId,
+          payload: { status, adminNote: adminNote ?? null },
+          note: adminNote ?? null,
+          ip_address: req.ip ?? null,
+        });
+      } catch (auditErr) {
+        console.warn('[server] admin audit log failed:', auditErr);
+      }
+
+      res.json({
+        ok: true,
+        userId,
+        status,
+        message: `verification ${status}`,
+        promoCode: issuedPromo,
+      });
     } catch (err) {
       console.error('[server] /admin/verify:', err);
+      res.status(500).json({ error: (err as Error).message });
+    }
+  });
+
+  // ---- 관리자 메트릭스 (A-05) ------------------------------------------------
+  // 대표님 전용. DAU / MAU / 총 결제 유저수 / 청산율 요약.
+  app.get('/api/admin/metrics', async (req, res) => {
+    try {
+      const adminSecret = req.headers['x-admin-secret'];
+      if (!adminSecret || adminSecret !== process.env.ADMIN_SECRET) {
+        res.status(401).json({ error: 'unauthorized admin' });
+        return;
+      }
+
+      const db = engine['db'];
+      const now = new Date();
+      const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+      const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+      const [{ count: totalUsers }, { count: dau }, { count: mau }, { count: liquidated }, { count: verified }] =
+        await Promise.all([
+          db.from('users').select('*', { count: 'exact', head: true }),
+          db.from('positions').select('user_id', { count: 'exact', head: true }).gte('opened_at', dayAgo),
+          db.from('positions').select('user_id', { count: 'exact', head: true }).gte('opened_at', monthAgo),
+          db.from('wallets').select('*', { count: 'exact', head: true }).eq('is_liquidated', true),
+          db.from('users').select('*', { count: 'exact', head: true }).eq('is_verified', true),
+        ]);
+
+      res.json({
+        totalUsers: totalUsers ?? 0,
+        dau: dau ?? 0,
+        mau: mau ?? 0,
+        liquidated: liquidated ?? 0,
+        liquidationRate:
+          totalUsers && totalUsers > 0 ? ((liquidated ?? 0) / totalUsers) * 100 : 0,
+        verified: verified ?? 0,
+        conversionRate:
+          totalUsers && totalUsers > 0 ? ((verified ?? 0) / totalUsers) * 100 : 0,
+      });
+    } catch (err) {
+      console.error('[server] /admin/metrics:', err);
       res.status(500).json({ error: (err as Error).message });
     }
   });

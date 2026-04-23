@@ -53,9 +53,9 @@ export class BinancePriceFeed extends EventEmitter {
   }
 
   private connect(): void {
-    // combined stream: /stream?streams=btcusdt@ticker/ethusdt@ticker
+    // combined stream for Binance Futures USDT-M: /stream?streams=btcusdt@ticker/ethusdt@ticker
     const streams = this.symbols.map((s) => `${s.toLowerCase()}@ticker`).join('/');
-    const url = `wss://data-stream.binance.vision/stream?streams=${streams}`;
+    const url = `wss://fstream.binance.com/stream?streams=${streams}`;
 
     const ws = new WebSocket(url);
     this.ws = ws;
