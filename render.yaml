@@ -3,13 +3,15 @@ services:
     name: telegram-trading-bot
     env: node
     plan: free
+    # Render 는 NODE_ENV=production 에서 devDeps 를 스킵하므로 --include=dev 필수.
     buildCommand: npm ci --include=dev && npm run build -w bot
     startCommand: npm run start:bot
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
-      # Render 는 $PORT 를 자동 주입한다. bot/src/env.ts 가 우선 채택.
+      # Render 가 $PORT 를 자동 주입. bot/src/env.ts 가 우선 채택.
+      # ─── 필수(대표님이 Blueprint Apply 시 입력) ───
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: TELEGRAM_WEBAPP_URL
@@ -20,9 +22,38 @@ services:
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
+      - key: VIP_CHAT_ID
+        sync: false
+      - key: PREMIUM_CHAT_ID
+        sync: false
+      # ─── 자동 생성 ───
+      - key: ADMIN_SECRET
+        generateValue: true
+      # ─── 기본값 ───
       - key: DAILY_ALLOWANCE
         value: "100000"
       - key: MARKET_SYMBOLS
         value: "btcusdt,ethusdt,solusdt,bnbusdt,xrpusdt"
-      - key: VIP_CHAT_ID
-        value: "@Trader_club"
+      - key: LOG_LEVEL
+        value: "info"
+      - key: SENTRY_TRACES_SAMPLE_RATE
+        value: "0.1"
+      # ─── 선택 — 가지고 있으면 입력 ───
+      - key: SENTRY_DSN
+        sync: false
+      - key: MEXC_AFFILIATE_UIDS
+        sync: false
+      - key: MEXC_AFFILIATE_URL
+        sync: false
+      - key: MEXC_API_KEY
+        sync: false
+      - key: MEXC_API_SECRET
+        sync: false
+      - key: BYBIT_AFFILIATE_UIDS
+        sync: false
+      - key: BYBIT_API_KEY
+        sync: false
+      - key: BYBIT_API_SECRET
+        sync: false
+      - key: INVITEMEMBER_PROMO_POOL
+        sync: false
