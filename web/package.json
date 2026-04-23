@@ -10,13 +10,16 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@sentry/react": "^8.47.0",
     "html2canvas": "^1.4.1",
     "i18next": "^26.0.6",
     "lightweight-charts": "^5.1.0",
+    "posthog-js": "^1.203.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-i18next": "^17.0.4",
-    "recharts": "^3.8.1"
+    "recharts": "^3.8.1",
+    "web-vitals": "^4.2.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.0",

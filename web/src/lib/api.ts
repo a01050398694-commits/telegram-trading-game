@@ -24,6 +24,13 @@ export type ServerVerification = {
   createdAt: string;
 };
 
+export type MissionStatus = {
+  referredCount: number;
+  milestone3Claimed: boolean;
+  milestone10Claimed: boolean;
+  promoCode: string | null;
+};
+
 export type UserStatus = {
   userId: string;
   balance: number;
@@ -38,6 +45,7 @@ export type UserStatus = {
   referralCount: number;
   telegramUserId: number;
   history: { date: string; pnl: number }[];
+  mission: MissionStatus;
 };
 
 export type OpenTradeInput = {

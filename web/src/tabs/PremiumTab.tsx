@@ -173,49 +173,14 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
         </div>
       </div>
 
-      {/* ── REFERRAL MISSION ────────────────────────────── */}
-      <div className="rounded-3xl border border-emerald-400/20 bg-slate-900 p-5 mt-4 mb-4 relative overflow-hidden">
-        <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-emerald-500/10 blur-[30px]" />
-        
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">🤝</span>
-            <span className="font-bold text-emerald-300 text-[13px] tracking-wide">
-              친구 초대 미션
-            </span>
-          </div>
-          <span className="text-[10px] font-mono text-emerald-400/80 bg-emerald-500/10 px-2 py-1 rounded-md">
-            {status?.referralCount ?? 0} / 3 명
-          </span>
-        </div>
-        
-        <div className="text-[11px] text-slate-300 mb-4 leading-relaxed break-keep">
-          친구 3명을 초대하면 연습용 시드머니 <span className="text-emerald-400 font-bold">$50,000</span>를 즉시 추가 지급해 드립니다!
-        </div>
-        
-        {/* Progress bar */}
-        <div className="w-full bg-slate-800 rounded-full h-2 mb-4 overflow-hidden">
-          <div 
-            className="bg-emerald-500 h-2 rounded-full transition-all duration-500" 
-            style={{ width: `${Math.min(100, ((status?.referralCount ?? 0) / 3) * 100)}%` }}
-          />
-        </div>
-
-        <button
-          type="button"
-          onClick={() => {
-            if (status?.telegramUserId) {
-              const link = `https://t.me/Tradergames_bot?start=${status.telegramUserId}`;
-              navigator.clipboard.writeText(link);
-              setToast('초대 링크가 복사되었습니다!');
-              window.setTimeout(() => setToast(null), 2000);
-            }
-          }}
-          className="w-full bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 rounded-xl py-3 text-[12px] font-bold transition-all active:scale-[0.98]"
-        >
-          초대 링크 복사하기 🔗
-        </button>
-      </div>
+      {/* ── REFERRAL MISSION (F-05, F-06) ───────────────────
+          두 단계 마일스톤:
+            · 3명 초대  → +$50,000 연습 자본 (milestone_3_claimed)
+            · 10명 초대 → Academy 1개월 Promo code (milestone_10_claimed) */}
+      <ReferralMissionCard status={status} onCopy={(msg) => {
+        setToast(msg);
+        window.setTimeout(() => setToast(null), 2000);
+      }} />
 
       <div className="relative">
         {(!status || !status.isPremium) && (
@@ -287,6 +252,126 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
           {toast}
         </div>
       )}
+    </div>
+  );
+}
+
+function ReferralMissionCard({
+  status,
+  onCopy,
+}: {
+  status: UserStatus | null;
+  onCopy: (msg: string) => void;
+}) {
+  const referred = status?.mission?.referredCount ?? status?.referralCount ?? 0;
+  const m3Done = status?.mission?.milestone3Claimed ?? false;
+  const m10Done = status?.mission?.milestone10Claimed ?? false;
+  const promoCode = status?.mission?.promoCode ?? null;
+
+  const progress3 = Math.min(100, (referred / 3) * 100);
+  const progress10 = Math.min(100, (referred / 10) * 100);
+
+  const copyPromo = () => {
+    if (!promoCode) return;
+    navigator.clipboard.writeText(promoCode);
+    onCopy('쿠폰 코드가 복사되었습니다!');
+  };
+
+  const copyInvite = () => {
+    if (!status?.telegramUserId) return;
+    const link = `https://t.me/Tradergames_bot?start=${status.telegramUserId}`;
+    navigator.clipboard.writeText(link);
+    onCopy('초대 링크가 복사되었습니다!');
+  };
+
+  return (
+    <div className="relative mt-4 mb-4 overflow-hidden rounded-3xl border border-emerald-400/20 bg-slate-900 p-5">
+      <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-emerald-500/10 blur-[30px]" />
+
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-lg">🤝</span>
+          <span className="text-[13px] font-bold tracking-wide text-emerald-300">
+            친구 초대 미션
+          </span>
+        </div>
+        <span className="rounded-md bg-emerald-500/10 px-2 py-1 font-mono text-[10px] text-emerald-400/80">
+          {referred} 명 초대 완료
+        </span>
+      </div>
+
+      {/* Milestone 1: 3명 → $50K */}
+      <div className="mb-4">
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-[11px] font-bold text-slate-200">
+            🎁 1단계 · 3명 → +$50,000 연습 자본
+          </span>
+          <span
+            className={`text-[10px] font-mono ${
+              m3Done ? 'text-emerald-400' : 'text-slate-500'
+            }`}
+          >
+            {m3Done ? '완료' : `${Math.min(referred, 3)}/3`}
+          </span>
+        </div>
+        <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
+          <div
+            className={`h-2 rounded-full transition-all duration-500 ${
+              m3Done ? 'bg-emerald-400' : 'bg-emerald-500'
+            }`}
+            style={{ width: `${progress3}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Milestone 2: 10명 → 1개월 쿠폰 */}
+      <div className="mb-4">
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-[11px] font-bold text-slate-200">
+            🏆 2단계 · 10명 → Academy 1개월 쿠폰
+          </span>
+          <span
+            className={`font-mono text-[10px] ${
+              m10Done ? 'text-amber-400' : 'text-slate-500'
+            }`}
+          >
+            {m10Done ? '발급됨' : `${Math.min(referred, 10)}/10`}
+          </span>
+        </div>
+        <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
+          <div
+            className={`h-2 rounded-full transition-all duration-500 ${
+              m10Done ? 'bg-amber-400' : 'bg-amber-500/80'
+            }`}
+            style={{ width: `${progress10}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Promo code 노출 — 발급됐을 때만 */}
+      {m10Done && promoCode && (
+        <button
+          type="button"
+          onClick={copyPromo}
+          className="mb-3 w-full rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-center transition-all hover:bg-amber-500/20 active:scale-[0.98]"
+        >
+          <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-amber-300">
+            Academy 1-Month Promo
+          </div>
+          <div className="mt-1 font-mono text-sm font-black text-amber-100">
+            {promoCode}
+          </div>
+          <div className="mt-1 text-[9px] text-amber-400/70">탭하여 복사</div>
+        </button>
+      )}
+
+      <button
+        type="button"
+        onClick={copyInvite}
+        className="w-full rounded-xl border border-emerald-500/30 bg-emerald-500/20 py-3 text-[12px] font-bold text-emerald-300 transition-all hover:bg-emerald-500/30 active:scale-[0.98]"
+      >
+        초대 링크 복사하기 🔗
+      </button>
     </div>
   );
 }

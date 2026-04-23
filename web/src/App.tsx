@@ -6,6 +6,7 @@ import { VIPTab } from './tabs/VIPTab';
 import { PremiumTab } from './tabs/PremiumTab';
 import { useTelegram } from './hooks/useTelegram';
 import { ApiError, fetchUserStatus, type UserStatus } from './lib/api';
+import { initAnalytics, identify, track } from './lib/analytics';
 
 // Stage 6: 4-탭 멀티 스크린 쉘.
 // - App 은 탭 라우팅 + 공통 상태(status 폴링)만 담당
@@ -21,6 +22,25 @@ export default function App() {
   const [statusError, setStatusError] = useState<string | null>(null);
 
   const telegramUserId = user?.id ?? null;
+
+  // F-13 — PostHog / Web Vitals 초기화. mount 1회.
+  useEffect(() => {
+    initAnalytics();
+    track('app_opened', { inside_telegram: isInsideTelegram });
+  }, [isInsideTelegram]);
+
+  useEffect(() => {
+    if (telegramUserId !== null) {
+      identify(telegramUserId, {
+        language: user?.language_code ?? null,
+        username: user?.username ?? null,
+      });
+    }
+  }, [telegramUserId, user?.language_code, user?.username]);
+
+  useEffect(() => {
+    track('tab_viewed', { tab });
+  }, [tab]);
 
   const pollTimerRef = useRef<number | null>(null);
   const refresh = useCallback(async () => {
