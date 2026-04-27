@@ -29,8 +29,8 @@ function chatWindowInfo(now: Date = new Date()): {
     kst.getUTCMonth(),
     kst.getUTCDate(),
   );
-  const openAt = kstDayStart + (21 * 60 + 50) * 60 * 1000;
-  const closeAt = kstDayStart + 24 * 60 * 60 * 1000;
+  const openAt = kstDayStart; // 자정 00:00
+  const closeAt = kstDayStart + 15 * 60 * 1000; // 00:15
 
   const open = kstMs >= openAt && kstMs < closeAt;
   if (open) {
@@ -138,7 +138,8 @@ export function VIPTab({ status }: { status?: UserStatus | null }) {
         type="button"
         onClick={() => {
           if (window.Telegram?.WebApp) {
-            window.Telegram.WebApp.openTelegramLink?.('https://t.me/Trader_club');
+            const vipUrl = import.meta.env.VITE_VIP_CHANNEL_URL || 'https://t.me/binance';
+            window.Telegram.WebApp.openTelegramLink?.(vipUrl);
           }
         }}
         className={`mt-4 w-full flex flex-col items-center justify-center rounded-2xl border py-6 transition-all cursor-pointer ${
@@ -152,7 +153,7 @@ export function VIPTab({ status }: { status?: UserStatus | null }) {
             canChat ? 'text-emerald-300' : 'text-yellow-500/70'
           }`}
         >
-          {canChat ? '✅ VIP 채팅방 입장하기' : t('elite.countdown')}
+          {canChat ? '✅ ENTER VIP LOUNGE' : '⏳ NEXT OPEN'}
         </div>
         <div
           className={`font-mono text-4xl font-bold tracking-widest ${
@@ -163,16 +164,16 @@ export function VIPTab({ status }: { status?: UserStatus | null }) {
         </div>
         <div className="mt-3 text-[11px] uppercase tracking-wider text-slate-400">
           {canChat 
-            ? '터치하여 텔레그램 채팅방으로 이동합니다' 
+            ? '👉 Tap to enter the Elite VIP Lounge' 
             : info.open 
-              ? '👁️ 열람 전용 (채팅은 Top 10 또는 Premium 전용)' 
-              : '🔒 매일 밤 21:50 KST 오픈'}
+              ? '👁️ View Only (Top 10 or Premium ONLY)' 
+              : '🔒 Top 10 Elite or Premium ONLY. Upgrade to get instant premium signals!'}
         </div>
       </button>
 
       {/* ── PODIUM — TOP 3 ─────────────────────────── */}
       {/* Stage 8.8 — 2위(왼쪽) · 1위(가운데 높게) · 3위(오른쪽) 배치. items-end 로 바닥 정렬. */}
-      <div className="grid grid-cols-3 items-end gap-3 pt-4">
+      <div className="grid grid-cols-3 items-end gap-3 pt-4 pb-4">
         {podiumList.map((r) => (
           <PodiumCard key={r.rank} row={r} />
         ))}
@@ -243,22 +244,24 @@ function PodiumCard({ row }: { row: LeaderboardRow }) {
 
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl px-3 pt-3 pb-4 ${sizeCls} ${metalBorder} ${bg} ${glow}`}
+      className={`relative rounded-2xl px-3 pt-3 pb-4 ${sizeCls} ${metalBorder} ${bg} ${glow}`}
     >
-      {/* 금속 하이라이트 (대각 그라데이션) — 카드 상단에 희미한 윤기. */}
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background: isRank1
-            ? 'linear-gradient(135deg, rgba(255,236,179,0.18) 0%, transparent 45%)'
-            : isRank2
-              ? 'linear-gradient(135deg, rgba(255,255,255,0.14) 0%, transparent 45%)'
-              : 'linear-gradient(135deg, rgba(255,183,120,0.15) 0%, transparent 45%)',
-        }}
-      />
-      {isRank1 && (
-        <div className="pointer-events-none absolute -top-8 left-1/2 h-24 w-24 -translate-x-1/2 rounded-full bg-yellow-300/30 blur-3xl" />
-      )}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
+        {/* 금속 하이라이트 (대각 그라데이션) — 카드 상단에 희미한 윤기. */}
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background: isRank1
+              ? 'linear-gradient(135deg, rgba(255,236,179,0.18) 0%, transparent 45%)'
+              : isRank2
+                ? 'linear-gradient(135deg, rgba(255,255,255,0.14) 0%, transparent 45%)'
+                : 'linear-gradient(135deg, rgba(255,183,120,0.15) 0%, transparent 45%)',
+          }}
+        />
+        {isRank1 && (
+          <div className="pointer-events-none absolute -top-8 left-1/2 h-24 w-24 -translate-x-1/2 rounded-full bg-yellow-300/30 blur-3xl" />
+        )}
+      </div>
       <div className="relative flex h-full flex-col items-center justify-between text-center">
         <div className={`${medalBoxHeight} relative w-full`}>
           <span

@@ -92,7 +92,8 @@ export function PortfolioTab({ telegramUserId, status }: PortfolioTabProps) {
   const equityGlow = ''; // Stage 8.12: Android drop-shadow vanishing bug fix
 
   const handleReferralCopy = () => {
-    const url = `https://t.me/Tradergames_bot?start=${telegramUserId ?? 'demo'}`;
+    const botUsername = import.meta.env.VITE_BOT_USERNAME || 'Tradergames_bot';
+    const url = `https://t.me/${botUsername}?start=${telegramUserId ?? 'demo'}`;
     // Stage 8.13 — clipboard API 가 거부되는 일부 Android WebView 대비 textarea fallback.
     void navigator.clipboard?.writeText(url).catch(() => {
       const ta = document.createElement('textarea');

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Header } from '../components/Header';
 import { TradingChart } from '../components/TradingChart';
 import { ActionPanel, type Position } from '../components/ActionPanel';
@@ -58,6 +59,7 @@ export function TradeTab({
   statusError,
   refresh,
 }: TradeTabProps) {
+  const { t } = useTranslation();
   const [symbol, setSymbol] = useState<MarketSymbol>(MARKETS[0]!.symbol);
   const feed = useBinanceFeed(symbol, '1m');
 
@@ -88,7 +90,7 @@ export function TradeTab({
         )
       : 0;
 
-  const balance = status?.balance ?? 0;
+  const balance = status?.balance ?? 100000;
   const isLiquidated = status?.isLiquidated ?? false;
 
   const prevLiqRef = useRef(isLiquidated);
@@ -109,7 +111,7 @@ export function TradeTab({
     leverage: number;
   }) => {
     if (telegramUserId === null) {
-      setTradeError('Telegram 내부에서 열어주세요 (유저 ID 없음)');
+      setTradeError(t('trade.errorNoTelegram'));
       return;
     }
     setTradeError(null);

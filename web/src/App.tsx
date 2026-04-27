@@ -64,7 +64,7 @@ export default function App() {
     };
   }, [telegramUserId, refresh]);
 
-  if (status === null && statusError === null) {
+  if (telegramUserId !== null && status === null && statusError === null) {
     return (
       <div className="flex h-[100dvh] flex-col items-center justify-center bg-slate-950 text-white">
         <div className="text-4xl">🚀</div>

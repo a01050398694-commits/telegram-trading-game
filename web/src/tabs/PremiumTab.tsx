@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { EXCHANGES, getExchange, levelLabel, type VerificationLevel } from '../lib/exchanges';
 import { hapticImpact, hapticSelection } from '../utils/telegram';
-import { ApiError, submitVerification, type ServerVerification, type UserStatus } from '../lib/api';
+import { ApiError, submitVerification, requestStarsInvoice, type ServerVerification, type UserStatus } from '../lib/api';
 
 // Stage 8.15 — Payment Modal 전면 폐기 → 인라인 아코디언.
 //
@@ -64,12 +64,23 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
       <div className="flex flex-col gap-2 w-full">
         <button
           type="button"
-          onClick={() => {
-            const botUrl = import.meta.env.VITE_INVITEMEMBER_BOT_URL || 'https://t.me/YOUR_INVITEMEMBER_BOT_HERE';
-            if (window.Telegram?.WebApp) {
-              window.Telegram.WebApp.openTelegramLink?.(botUrl);
-            } else {
-              window.open(botUrl, '_blank');
+          onClick={async () => {
+            if (!telegramUserId) return;
+            try {
+              hapticImpact('medium');
+              const res = await requestStarsInvoice(telegramUserId, 'elite');
+              if (res.ok && res.invoiceLink && window.Telegram?.WebApp?.openInvoice) {
+                window.Telegram.WebApp.openInvoice(res.invoiceLink, (status) => {
+                  if (status === 'paid') {
+                    hapticImpact('heavy');
+                    setToast('✅ Premium activated!');
+                    setTimeout(() => window.location.reload(), 1500);
+                  }
+                });
+              }
+            } catch (err: any) {
+              setToast(err.message || 'Payment failed');
+              setTimeout(() => setToast(null), 3000);
             }
           }}
           className="group relative flex w-full shrink-0 flex-col rounded-2xl border-2 border-yellow-500/50 bg-gradient-to-b from-slate-900 to-black p-5 text-left shadow-[0_0_60px_rgba(250,204,21,0.2),_0_16px_40px_rgba(0,0,0,0.6)] transition-all active:scale-[0.98]"
@@ -86,7 +97,7 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
                 </span>
               </div>
               <div className="mt-2 break-words whitespace-normal text-[11px] leading-relaxed text-amber-100/70">
-                구독 봇으로 이동하여 VIP 혜택을 구매하세요.
+                {t('academy.hub.upgradeSub')}
               </div>
             </div>
             <span className="shrink-0 text-xl text-amber-300/70 transition-transform duration-200">
@@ -99,7 +110,8 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
           type="button"
           onClick={() => {
             if (window.Telegram?.WebApp) {
-              window.Telegram.WebApp.openTelegramLink?.('https://t.me/Tradergames_bot?text=/premium');
+              const botUsername = import.meta.env.VITE_BOT_USERNAME || 'Tradergames_bot';
+              window.Telegram.WebApp.openTelegramLink?.(`https://t.me/${botUsername}?text=/premium`);
             }
           }}
           className="group relative flex w-full items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-left transition-all active:scale-[0.98]"
@@ -107,7 +119,7 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
           <div className="flex items-center gap-2">
             <span className="shrink-0 text-lg">✅</span>
             <span className="break-words whitespace-normal text-[12px] font-bold text-emerald-300">
-              결제를 완료하셨나요? 락 풀기
+              {t('academy.referral.unlock')}
             </span>
           </div>
           <span className="text-[10px] text-emerald-400/60 underline underline-offset-2">Click</span>
@@ -263,6 +275,7 @@ function ReferralMissionCard({
   status: UserStatus | null;
   onCopy: (msg: string) => void;
 }) {
+  const { t } = useTranslation();
   const referred = status?.mission?.referredCount ?? status?.referralCount ?? 0;
   const m3Done = status?.mission?.milestone3Claimed ?? false;
   const m10Done = status?.mission?.milestone10Claimed ?? false;
@@ -274,29 +287,32 @@ function ReferralMissionCard({
   const copyPromo = () => {
     if (!promoCode) return;
     navigator.clipboard.writeText(promoCode);
-    onCopy('쿠폰 코드가 복사되었습니다!');
+    onCopy(t('academy.referral.couponCopied'));
   };
 
   const copyInvite = () => {
     if (!status?.telegramUserId) return;
-    const link = `https://t.me/Tradergames_bot?start=${status.telegramUserId}`;
+    const botUsername = import.meta.env.VITE_BOT_USERNAME || 'Tradergames_bot';
+    const link = `https://t.me/${botUsername}?start=${status.telegramUserId}`;
     navigator.clipboard.writeText(link);
-    onCopy('초대 링크가 복사되었습니다!');
+    onCopy(t('academy.referral.linkCopied'));
   };
 
   return (
-    <div className="relative mt-4 mb-4 overflow-hidden rounded-3xl border border-emerald-400/20 bg-slate-900 p-5">
-      <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-emerald-500/10 blur-[30px]" />
+    <div className="relative mt-4 mb-4 rounded-3xl border border-emerald-400/20 bg-slate-900 p-5">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl">
+        <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-emerald-500/10 blur-[30px]" />
+      </div>
 
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-lg">🤝</span>
           <span className="text-[13px] font-bold tracking-wide text-emerald-300">
-            친구 초대 미션
+            {t('academy.referral.title')}
           </span>
         </div>
         <span className="rounded-md bg-emerald-500/10 px-2 py-1 font-mono text-[10px] text-emerald-400/80">
-          {referred} 명 초대 완료
+          {t('academy.referral.invitedCount', { count: referred })}
         </span>
       </div>
 
@@ -304,14 +320,14 @@ function ReferralMissionCard({
       <div className="mb-4">
         <div className="mb-2 flex items-center justify-between">
           <span className="text-[11px] font-bold text-slate-200">
-            🎁 1단계 · 3명 → +$50,000 연습 자본
+            {t('academy.referral.step1')}
           </span>
           <span
             className={`text-[10px] font-mono ${
               m3Done ? 'text-emerald-400' : 'text-slate-500'
             }`}
           >
-            {m3Done ? '완료' : `${Math.min(referred, 3)}/3`}
+            {m3Done ? t('academy.referral.done') : `${Math.min(referred, 3)}/3`}
           </span>
         </div>
         <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
@@ -328,14 +344,14 @@ function ReferralMissionCard({
       <div className="mb-4">
         <div className="mb-2 flex items-center justify-between">
           <span className="text-[11px] font-bold text-slate-200">
-            🏆 2단계 · 10명 → Academy 1개월 쿠폰
+            {t('academy.referral.step2')}
           </span>
           <span
             className={`font-mono text-[10px] ${
               m10Done ? 'text-amber-400' : 'text-slate-500'
             }`}
           >
-            {m10Done ? '발급됨' : `${Math.min(referred, 10)}/10`}
+            {m10Done ? t('academy.referral.issued') : `${Math.min(referred, 10)}/10`}
           </span>
         </div>
         <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
@@ -361,7 +377,7 @@ function ReferralMissionCard({
           <div className="mt-1 font-mono text-sm font-black text-amber-100">
             {promoCode}
           </div>
-          <div className="mt-1 text-[9px] text-amber-400/70">탭하여 복사</div>
+          <div className="mt-1 text-[9px] text-amber-400/70">{t('academy.referral.tapToCopy')}</div>
         </button>
       )}
 
@@ -370,7 +386,7 @@ function ReferralMissionCard({
         onClick={copyInvite}
         className="w-full rounded-xl border border-emerald-500/30 bg-emerald-500/20 py-3 text-[12px] font-bold text-emerald-300 transition-all hover:bg-emerald-500/30 active:scale-[0.98]"
       >
-        초대 링크 복사하기 🔗
+        {t('academy.referral.copyLink')}
       </button>
     </div>
   );

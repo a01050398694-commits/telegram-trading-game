@@ -34,7 +34,8 @@
     "pnl": "미실현 손익",
     "balanceLocked": "증거금 잠김",
     "open": "포지션 오픈",
-    "closePosition": "포지션 종료"
+    "closePosition": "포지션 종료",
+    "errorNoTelegram": "Telegram 내부에서 열어주세요 (유저 ID 없음)"
   },
   "liquidation": {
     "title": "리스크 관리 리셋 필요",
@@ -122,6 +123,19 @@
           "desc": "FOMO·복수매매 회피, 규율 기반 의사결정"
         }
       }
+    },
+    "referral": {
+      "unlock": "결제를 완료하셨나요? 락 풀기",
+      "couponCopied": "쿠폰 코드가 복사되었습니다!",
+      "linkCopied": "초대 링크가 복사되었습니다!",
+      "title": "친구 초대 미션",
+      "invitedCount": "{{count}} 명 초대 완료",
+      "step1": "🎁 1단계 · 3명 → +$50,000 연습 자본",
+      "done": "완료",
+      "step2": "🏆 2단계 · 10명 → Academy 1개월 쿠폰",
+      "issued": "발급됨",
+      "tapToCopy": "탭하여 복사",
+      "copyLink": "초대 링크 복사하기 🔗"
     }
   },
   "settings": {

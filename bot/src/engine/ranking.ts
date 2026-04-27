@@ -8,6 +8,7 @@ export type RankingEntry = {
   equity: number;
   dailyPnl: number;
   dailyPnlPercent: number;
+  streak?: number;
 };
 
 export class RankingEngine {
@@ -132,6 +133,30 @@ export class RankingEngine {
           equity,
           dailyPnl,
           dailyPnlPercent,
+        });
+      }
+
+      // 4.5 가짜 랭커(Bot) 투입 — 앱을 활성화된 것처럼 보이기 위해 10명의 랜덤 랭커 매일 생성
+      const todaySeed = Math.floor(kstDate.getTime() / 86400000);
+      const mockNames = ['CryptoKing', 'WhaleTrader_99', 'ElonMusk_Fan', 'BullMarket', 'BearSlayer', 'Moonboy', 'DiamondHands', 'HODLer', 'Satoshi_N', 'Liquidator'];
+      
+      for (let i = 0; i < 10; i++) {
+        const seed = todaySeed + i * 1337;
+        const random1 = (Math.sin(seed) + 1) / 2; // 0~1
+        const random2 = (Math.cos(seed) + 1) / 2; // 0~1
+        
+        const mockPnl = 100000 + Math.floor(random1 * 2400000); // $100k ~ $2.5M
+        const mockPercent = 150 + Math.floor(random2 * 800); // 150% ~ 950%
+        const mockStreak = Math.floor(random1 * 5); // 0 ~ 4
+        
+        rankings.push({
+          rank: 0,
+          telegramUserId: -i - 1, // negative ID
+          username: mockNames[i] as string,
+          equity: 100000 + mockPnl,
+          dailyPnl: mockPnl,
+          dailyPnlPercent: mockPercent,
+          streak: mockStreak > 2 ? mockStreak : 0,
         });
       }
 

@@ -1,9 +1,11 @@
 import type { Bot } from 'grammy';
+import { InlineKeyboard } from 'grammy';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export class RetentionCron {
   private timer: NodeJS.Timeout | null = null;
   private hasSentToday = false;
+  private hasSentNudgeToday = false;
 
   constructor(
     private readonly bot: Bot,
@@ -29,15 +31,24 @@ export class RetentionCron {
       const hours = kstDate.getUTCHours();
       const mins = kstDate.getUTCMinutes();
       
-      // 09:00 KST 정각
+      // 09:00 KST 정각 (활동 유저 리텐션)
       if (hours === 9 && mins === 0) {
         if (!this.hasSentToday) {
           this.hasSentToday = true;
           await this.sendDailyRetentionDMs(kstDate);
         }
       } else {
-        // 시간이 지나면 플래그 리셋
         this.hasSentToday = false;
+      }
+
+      // 12:00 KST 정각 (비활동 유저 넛지 DM)
+      if (hours === 12 && mins === 0) {
+        if (!this.hasSentNudgeToday) {
+          this.hasSentNudgeToday = true;
+          await this.sendInactiveNudgeDMs();
+        }
+      } else {
+        this.hasSentNudgeToday = false;
       }
     } catch (err) {
       console.error('[retention] tick error:', err);
@@ -102,5 +113,58 @@ export class RetentionCron {
       }
     }
     console.log(`[retention] broadcast complete for ${topUsers.length} users.`);
+  }
+
+  // Stage 15: 비활동 유저 능동형 커뮤니티 유도 (사람 냄새 나는 팔로업)
+  private async sendInactiveNudgeDMs() {
+    console.log('[retention] starting inactive user nudge...');
+    
+    // 24~48시간 전 가입자 추출
+    const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    const { data: users, error } = await this.db
+      .from('users')
+      .select('id, telegram_id, language_code')
+      .gte('created_at', twoDaysAgo)
+      .lt('created_at', oneDayAgo);
+
+    if (error || !users) {
+      console.error('[retention] failed to fetch inactive users:', error);
+      return;
+    }
+
+    const appUrl = process.env.FRONTEND_URL || 'https://t.me/Tradergames_bot/app';
+
+    for (const user of users) {
+      if (!user.telegram_id) continue;
+
+      // 포지션을 한 번도 안 열었는지 확인
+      const { count } = await this.db
+        .from('positions')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      if (count === 0) {
+        const isKo = user.language_code?.startsWith('ko');
+        const message = isKo
+          ? '앗, 어제 지급받으신 무료 연습 시드 $100K 를 아직 한 번도 안 쓰셨네요! 😅\n\n오늘 비트코인 무빙이 심상치 않은데, 공짜 시드로 리스크 없이 첫 타점을 잡아보시는 건 어떨까요? 제가 도와드릴게요!'
+          : "Hey! I noticed you haven't used your $100K free practice seed yet! 😅\n\nBitcoin's volatility is high today. How about taking your first risk-free trade? I can help you out!";
+        
+        const inlineKb = new InlineKeyboard()
+          .url(isKo ? '📢 공식 채널 가기' : '📢 Official Channel', 'https://t.me/academy_premium_ch').row()
+          .webApp(isKo ? '📱 미니앱 열기' : '📱 Open App', appUrl);
+
+        try {
+          await this.bot.api.sendMessage(user.telegram_id, message, {
+            reply_markup: inlineKb
+          });
+          await new Promise(resolve => setTimeout(resolve, 100)); // Rate limit
+        } catch (err) {
+          console.error(`[retention] failed to send nudge to ${user.telegram_id}:`, err);
+        }
+      }
+    }
+    console.log(`[retention] inactive nudge complete.`);
   }
 }

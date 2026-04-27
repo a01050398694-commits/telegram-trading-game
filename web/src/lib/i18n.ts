@@ -18,22 +18,17 @@ export type SupportedLang = (typeof SUPPORTED_LANGS)[number];
 
 function detect(): SupportedLang {
   if (typeof window === 'undefined') return 'en';
-  const saved = window.localStorage.getItem(STORAGE_KEY);
-  if (saved && (SUPPORTED_LANGS as readonly string[]).includes(saved)) {
-    return saved as SupportedLang;
+  
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlLang = urlParams.get('lang');
+  if (urlLang && (SUPPORTED_LANGS as readonly string[]).includes(urlLang)) {
+    try { window.localStorage.setItem(STORAGE_KEY, urlLang); } catch {}
+    return urlLang as SupportedLang;
   }
-  const tg = window.Telegram?.WebApp?.initDataUnsafe?.user?.language_code;
-  if (tg) {
-    const code = tg.slice(0, 2);
-    if ((SUPPORTED_LANGS as readonly string[]).includes(code)) {
-      return code as SupportedLang;
-    }
-  }
-  const nav = window.navigator.language ?? 'en';
-  const navCode = nav.slice(0, 2);
-  if ((SUPPORTED_LANGS as readonly string[]).includes(navCode)) {
-    return navCode as SupportedLang;
-  }
+
+  // STRICT DEFAULT: If no URL param is present, force English.
+  // This overrides any previously saved Korean state.
+  try { window.localStorage.setItem(STORAGE_KEY, 'en'); } catch {}
   return 'en';
 }
 

@@ -58,5 +58,14 @@ export const env = {
   MARKET_SYMBOLS: list('MARKET_SYMBOLS', 'btcusdt,ethusdt,solusdt'),
   
   VIP_CHAT_ID: optional('VIP_CHAT_ID', ''),
+  VIP_CHANNEL_URL: optional('VIP_CHANNEL_URL', 'https://t.me/binance'),
   PREMIUM_CHAT_ID: optional('PREMIUM_CHAT_ID', ''),
+  COMMUNITY_CHAT_ID: optional('COMMUNITY_CHAT_ID', ''),
+  COMMUNITY_GROUP_URL: optional('COMMUNITY_GROUP_URL', 'https://t.me/Trader_club'),
+  
+  // AI Community Manager
+  OPENAI_API_KEY: optional('OPENAI_API_KEY', ''),
+  
+  // Shill Engine
+  SHILL_BOT_TOKENS: list('SHILL_BOT_TOKENS', ''),
 } as const;

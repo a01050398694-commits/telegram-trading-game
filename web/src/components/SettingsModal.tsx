@@ -55,7 +55,15 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         <div className="grid grid-cols-2 gap-2">
           {SUPPORTED_LANGS.map((lang) => {
             const active = lang === current;
-            const label = lang === 'ko' ? t('settings.korean') : t('settings.english');
+            const LANG_LABELS: Record<string, string> = {
+              en: 'English',
+              ko: '한국어',
+              ru: 'Русский',
+              tr: 'Türkçe',
+              vi: 'Tiếng Việt',
+              id: 'Bahasa Indonesia'
+            };
+            const label = LANG_LABELS[lang] || lang;
             return (
               <button
                 key={lang}

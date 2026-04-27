@@ -1,6 +1,70 @@
 # PROGRESS
 
-## Latest Session — 2026-04-21 (Stage 8.9 → 8.12 모바일 UI 수술)
+## Latest Session — 2026-04-22 (런칭 체크리스트 일괄 정리 · Stage 12 프로덕션 하드닝)
+
+### Done
+
+**체크리스트 인수인계 재진단 — 이미 구현된 항목 다수 발견**
+- B-01 랭킹 집계 크론 (`bot/src/engine/ranking.ts` 매분 캐시), B-02 자정 KST 롤오버, B-03 `/api/rankings/today|yesterday`, B-04 VIP 채팅 야간 토글(`ChatSwitcher`), B-05 initData HMAC, B-07 `/api/user/status` 확장, F-01~F-05, F-07, F-09 모두 기존 코드에 구현 완료 확인.
+
+**Phase 1 — P0 잔여**
+- `supabase/migrations/03_referral_missions.sql` 신규: 3명/10명 마일스톤 상태 테이블 + RLS + updated_at 트리거.
+- `supabase/migrations/04_admin_actions.sql` 신규: 관리자 감사 로그 (JSONB payload, IP, action_type).
+- `supabase/migrations/05_pg_cron.sql` 신규: `pg_cron` 확장 + 90일 이전 ranking snapshot 정리 잡.
+- `bot/src/services/invitemember.ts` 신규 (B-06): `getChatMember` 래퍼 + Promo code pool 발급기.
+- `bot/src/engine/referralMission.ts` 신규 (B-08): `evaluateMilestones(referrerUserId)` — 3명 시 +$50K 지갑 입금, 10명 시 Promo code 자동 발급 + DM.
+- `bot/src/bot.ts`: `/start` 에서 초대자 확정되면 `referralMission.evaluateMilestones` 호출. `createBot(engine, context)` 시그니처로 순환의존 해결.
+- `bot/src/server.ts`: `/api/user/status` 응답에 `mission{referredCount, milestone3Claimed, milestone10Claimed, promoCode}`, `telegramUserId` 추가. `/api/admin/verify` 승인 시 promo code 자동 발급 + DM + 감사 로그 insert. `/api/admin/metrics` 신규 (A-05).
+
+**Phase 2 — 운영 안정성**
+- `bot/src/lib/logger.ts` 신규 (B-17): pino + pino-pretty 개발 모드, PII redact, unhandledRejection/uncaughtException hook.
+- `bot/src/lib/sentry.ts` 신규 (B-15): `SENTRY_DSN` 있을 때만 활성, PII 스크럽(x-admin-secret/authorization).
+- `bot/src/middleware/rateLimit.ts` 신규 (B-16): express-rate-limit 3종 (trade 30/min, read 120/min, admin 100/min). server.ts 에 `trust proxy=1` + 라우트별 적용.
+
+**Phase 3 — 자동화 / 매출**
+- `bot/src/services/affiliates/mexc.ts`, `bot/src/services/affiliates/bybit.ts` 신규 (B-11, B-12): env 기반 수동 목록 → 공식 API 폴백 듀얼 모드. Bybit HMAC-SHA256 서명 구현.
+- `bot/src/cron/affiliateReconcile.ts` 신규: 1시간 주기 pending 인증 재조회 후 자동 승인 + 감사 로그.
+- B-13 Promo code 자동 발급: `/api/admin/verify` 승인 시점에 `issuePromoCode()` 호출 + DM 발송.
+
+**Phase 4 — 프론트 잔여**
+- `web/src/lib/api.ts`: `MissionStatus` 타입 추가, `UserStatus.mission`, `telegramUserId` 필드 추가.
+- `web/src/tabs/PremiumTab.tsx`: 기존 3/3 단일 프로그레스 → `ReferralMissionCard` 분리 컴포넌트. 3명/10명 이중 프로그레스 + Promo code 발급 시 탭-투-복사 카드 노출 (F-06).
+- `web/src/components/RankCard.tsx` 신규 (F-08): 1080×1920 SVG 스냅샷 + 공유 유틸(`rankCardToDataUrl`, `copyRankCard`). 외부 라이브러리 의존 없음.
+- `web/src/lib/analytics.ts` 신규 (F-13): posthog-js + web-vitals 래퍼. CLS/INP/LCP/FCP/TTFB 자동 전송, 이벤트 이름 화이트리스트(`EventName`).
+- `web/src/App.tsx`: analytics init + identify + tab_viewed 이벤트.
+
+**Phase 5 — 랜딩페이지 (L-05~L-13)**
+- `apps/landing/src/app/layout.tsx` 전면 교체: metadataBase, OG, Twitter card, alternates(en/ko), themeColor viewport.
+- `apps/landing/src/app/page.tsx` 확장: Hero + Features 4컷 + LivePreview + LiveLeaderboard(서버 컴포넌트 60s ISR) + Pricing + FAQ + Footer.
+- 신규 컴포넌트: `LivePreview`, `LiveLeaderboard`, `PricingTable`, `FAQ`, `SiteFooter`.
+- `apps/landing/src/app/ko/page.tsx` 신규 (L-12): 한국어 전용 랜딩.
+- `apps/landing/src/app/robots.ts`, `apps/landing/src/app/sitemap.ts` 신규 (L-11): SEO.
+
+**Phase 6 — 법무 (LG-01~LG-05)**
+- `apps/landing/src/components/LegalPage.tsx` 공통 레이아웃.
+- `/terms`, `/privacy`, `/disclaimer`, `/refund`, `/cookies` 5페이지 작성. "유사투자자문 아님" 명시 + GDPR/PIPA/CCPA 권리 섹션.
+
+**Phase 7 — 배포 준비 + Admin 대시보드**
+- `apps/landing/src/app/admin/page.tsx` 신규 (A-05): x-admin-secret 입력 → `/api/admin/metrics` 호출 → Total Users / DAU / MAU / 청산율 / 인증 전환율 표시.
+- `.env.example` 세트 4개 갱신/신규: 루트, `bot/`, `web/`, `apps/landing/`.
+
+### 검증 게이트
+- ✅ `npm run -w bot typecheck` — 에러 0
+- ✅ `npm run -w bot build` — tsc 산출 성공
+- ✅ `npm run -w web typecheck` — 에러 0
+- ✅ `npm run -w web build` — vite 성공 (1.26MB gzip 374KB)
+- ✅ `apps/landing` → `npx next build` — 13 static 페이지 (/, /ko, /admin, /cookies, /disclaimer, /privacy, /refund, /terms, /robots.txt, /sitemap.xml) 전부 prerender 성공
+
+### Blockers / AI 범위 밖
+- **IM-01~IM-09** InviteMember 대시보드 세팅 — 대표님 직접 (외부 SaaS).
+- **M-01~M-08** 디자인 에셋 — 로고 SVG / OG 이미지 / 프로모 비디오 / 스크린샷.
+- **I-01, I-04~I-12** 배포 실행 — GitHub 저장소 생성, Vercel 배포, Render 배포, Supabase 프로젝트 생성, Cloudflare DNS, BotFather 등록, UptimeRobot.
+- **LG-01~LG-05** 법무 템플릿 초안만 작성 완료 — 실제 법률 검토 필수.
+- **Q-01~Q-05** 실기기 QA — 안드로이드/iOS/Telegram 데스크톱/결제 E2E.
+
+---
+
+## Archive — 2026-04-21 (Stage 8.9 → 8.12 모바일 UI 수술)
 
 ### Done (이번 세션, Stage 8.9 ~ 8.12)
 

@@ -147,6 +147,7 @@ export function ActionPanel({
     markPrice !== null ? liquidationPrice('long', markPrice, leverage) : null;
   const shortLiq =
     markPrice !== null ? liquidationPrice('short', markPrice, leverage) : null;
+  const isLoadingPrice = markPrice === null;
   const canOpen = markPrice !== null && size > 0 && balance > 0 && !pending && !disabled;
 
   return (
@@ -251,7 +252,7 @@ export function ActionPanel({
             Long / Buy
           </span>
           <span className="relative mt-0.5 font-mono text-xl font-black leading-none tracking-tight drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]">
-            {pending ? '…' : '▲ LONG'}
+            {pending ? '…' : isLoadingPrice ? 'Loading...' : '▲ LONG'}
           </span>
           <span className="relative mt-2 font-mono text-[10px] font-semibold text-white/70">
             Liq. ${longLiq !== null ? formatUSD(longLiq) : '--'}
@@ -272,7 +273,7 @@ export function ActionPanel({
             Short / Sell
           </span>
           <span className="relative mt-0.5 font-mono text-xl font-black leading-none tracking-tight drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]">
-            {pending ? '…' : '▼ SHORT'}
+            {pending ? '…' : isLoadingPrice ? 'Loading...' : '▼ SHORT'}
           </span>
           <span className="relative mt-2 font-mono text-[10px] font-semibold text-white/70">
             Liq. ${shortLiq !== null ? formatUSD(shortLiq) : '--'}

@@ -165,6 +165,31 @@ export class TradingEngine extends EventEmitter {
     return (data as VerificationRow | null) ?? null;
   }
 
+  // Telegram Stars 결제를 통한 영구 프리미엄 권한 부여
+  async grantStarsPremium(userId: string): Promise<void> {
+    const { error } = await this.db.from('exchange_verifications').insert({
+      user_id: userId,
+      exchange_id: 'telegram_stars',
+      uid: 'elite_lifetime_pass',
+      status: 'approved',
+    });
+    if (error) throw new Error(`grantStarsPremium: ${error.message}`);
+  }
+
+  // Telegram Stars 결제로 부여된 영구 프리미엄 권한이 있는지 확인
+  async hasStarsPremium(userId: string): Promise<boolean> {
+    const { data, error } = await this.db
+      .from('exchange_verifications')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('exchange_id', 'telegram_stars')
+      .eq('status', 'approved')
+      .limit(1)
+      .maybeSingle();
+    if (error) throw new Error(`hasStarsPremium: ${error.message}`);
+    return !!data;
+  }
+
   private async ensureWallet(userId: string): Promise<void> {
     const { error } = await this.db
       .from('wallets')
@@ -183,6 +208,15 @@ export class TradingEngine extends EventEmitter {
       .maybeSingle();
     if (error) throw new Error(`getUserByTelegramId: ${error.message}`);
     return (data as UserRow | null) ?? null;
+  }
+
+  async getAllTelegramIds(): Promise<number[]> {
+    const { data, error } = await this.db
+      .from('users')
+      .select('telegram_id')
+      .not('telegram_id', 'is', null);
+    if (error) throw new Error(`getAllTelegramIds: ${error.message}`);
+    return (data as { telegram_id: number }[]).map((r) => r.telegram_id);
   }
 
   async getReferralCount(userId: string): Promise<number> {

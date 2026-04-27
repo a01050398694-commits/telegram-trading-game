@@ -15,6 +15,9 @@ import { tradeLimiter, readLimiter, adminLimiter } from './middleware/rateLimit.
 export const STARS_PAYLOAD_PREFIX = 'recharge_v1:';
 export const STARS_AMOUNT = 150; // PRD: 150 Stars 재구매
 
+export const STARS_ELITE_PREFIX = 'elite_v1:';
+export const STARS_ELITE_AMOUNT = 500; // 500 Stars for Elite Lifetime Pass
+
 type Deps = {
   engine: TradingEngine;
   priceCache: PriceCache;
@@ -159,7 +162,8 @@ export function createServer({ engine, priceCache, bot, rankingEngine, referralM
 
       if (telegramUserId) {
         // 1. isPremium
-        isPremium = await checkIsPremium(bot, telegramUserId);
+        const isStarsPremium = await engine.hasStarsPremium(resolved);
+        isPremium = isStarsPremium || await checkIsPremium(bot, telegramUserId);
 
         // 2. rank (오늘 랭킹)
         const top100 = rankingEngine.getTop100();
@@ -232,7 +236,7 @@ export function createServer({ engine, priceCache, bot, rankingEngine, referralM
       try {
         const row = await referralMission.getStatus(resolved);
         mission = {
-          referredCount: Math.max(referralCount, row.referred_count),
+          referredCount: Math.max(referralCount, row.invited_count),
           milestone3Claimed: row.milestone_3_claimed,
           milestone10Claimed: row.milestone_10_claimed,
           promoCode: row.promo_code,
@@ -529,21 +533,37 @@ export function createServer({ engine, priceCache, bot, rankingEngine, referralM
   // Stars: currency='XTR', provider_token 생략, prices amount = Stars 개수.
   app.post('/api/payment/stars', async (req, res) => {
     try {
-      const { telegramUserId } = req.body as { telegramUserId?: number };
+      const { telegramUserId, productType = 'reset' } = req.body as { telegramUserId?: number; productType?: 'reset' | 'elite' };
       const resolved = await resolveUser(engine, req);
       if (typeof resolved !== 'string') {
         res.status(resolved.status).json({ error: resolved.error });
         return;
       }
 
-      const payload = `${STARS_PAYLOAD_PREFIX}${resolved}:${Date.now()}`;
+      let payload: string;
+      let title: string;
+      let description: string;
+      let amount: number;
+
+      if (productType === 'elite') {
+        payload = `${STARS_ELITE_PREFIX}${resolved}:${Date.now()}`;
+        title = 'Elite Lifetime Pass';
+        description = 'Unlock VIP Analyst Chat, Multi-charts, and lifetime benefits.';
+        amount = STARS_ELITE_AMOUNT;
+      } else {
+        payload = `${STARS_PAYLOAD_PREFIX}${resolved}:${Date.now()}`;
+        title = 'Trading Academy · Risk Management Reset';
+        description = 'Reset practice balance to $100,000 and resume the paper-trading lesson.';
+        amount = STARS_AMOUNT;
+      }
+
       const invoiceLink = await bot.api.createInvoiceLink(
-        'Trading Academy · Risk Management Reset',
-        'Reset practice balance to $100,000 and resume the paper-trading lesson.',
+        title,
+        description,
         payload,
         '', // provider_token must be empty for Telegram Stars
         'XTR',
-        [{ label: 'Risk Management Reset', amount: STARS_AMOUNT }],
+        [{ label: title, amount }],
       );
       res.json({ ok: true, invoiceLink });
     } catch (err) {

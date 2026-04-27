@@ -17,7 +17,7 @@ export const MILESTONE_10_REFERRALS = 10;
 
 export type MissionRow = {
   user_id: string;
-  referred_count: number;
+  invited_count: number;
   milestone_3_claimed: boolean;
   milestone_10_claimed: boolean;
   promo_code: string | null;
@@ -25,7 +25,7 @@ export type MissionRow = {
 };
 
 export type MissionUpdateResult = {
-  referredCount: number;
+  invitedCount: number;
   milestone3Awarded: boolean;
   milestone10Awarded: boolean;
   promoCode: string | null;
@@ -49,14 +49,14 @@ export class ReferralMissionEngine {
 
     const { data: inserted, error: insertErr } = await this.db
       .from('referral_missions')
-      .insert({ user_id: userId, referred_count: 0 })
+      .insert({ user_id: userId, invited_count: 0 })
       .select()
       .single();
     if (insertErr) throw new Error(`referralMission(insert): ${insertErr.message}`);
     return inserted as MissionRow;
   }
 
-  // 초대자의 현재 referred_count 를 users.referred_by 로 다시 집계하고,
+  // 초대자의 현재 invited_count 를 users.referred_by 로 다시 집계하고,
   // 마일스톤 도달 여부를 체크해 해당 보상을 지급한다. 신규 초대 발생 직후 호출.
   async evaluateMilestones(referrerUserId: string): Promise<MissionUpdateResult> {
     const count = await this.trading.getReferralCount(referrerUserId);
@@ -65,7 +65,7 @@ export class ReferralMissionEngine {
     let milestone3Awarded = false;
     let milestone10Awarded = false;
     let promoCode: string | null = row.promo_code;
-    const patch: Partial<MissionRow> = { referred_count: count };
+    const patch: Partial<MissionRow> = { invited_count: count };
 
     // 3명 마일스톤
     if (!row.milestone_3_claimed && count >= MILESTONE_3_REFERRALS) {
@@ -128,7 +128,7 @@ export class ReferralMissionEngine {
     }
 
     return {
-      referredCount: count,
+      invitedCount: count,
       milestone3Awarded,
       milestone10Awarded,
       promoCode,

@@ -2,81 +2,160 @@ import { Bot, InlineKeyboard, type Context } from 'grammy';
 import { env } from './env.js';
 import type { TradingEngine } from './engine/trading.js';
 import type { ReferralMissionEngine } from './engine/referralMission.js';
-import { STARS_PAYLOAD_PREFIX } from './server.js';
+import { STARS_PAYLOAD_PREFIX, STARS_ELITE_PREFIX } from './server.js';
+import { setupCommunityFeatures } from './engine/community.js';
+import { botLocales, SupportedLang } from './locales.js';
 
-// B-08 — /start 레퍼럴 처리 시 마일스톤 평가를 주입받기 위한 컨테이너.
-// 순환 의존(ReferralMissionEngine ↔ Bot) 을 피하기 위해 생성 후 setter 로 주입.
 export type BotContext = {
   referralMission: ReferralMissionEngine | null;
 };
 
 function formatBalance(n: number): string {
-  // Stage 6: USD 정수 달러 단위. $100,000 포맷.
   return `$${n.toLocaleString('en-US')}`;
 }
 
-// Stage 8.0 — callback_data 상수. 매직스트링 방지.
 const CB_HOW = 'how_to_play';
 const CB_PREMIUM = 'academy_info';
+const CB_COMMUNITY = 'community_guide';
 
-// Stage 8.13 — 한국어 판정 헬퍼.
-// Telegram User.language_code 는 RFC4646 ("ko", "ko-KR" 등) — 둘 다 맞추려 startsWith 사용.
-function isKorean(ctx: Context): boolean {
-  return ctx.from?.language_code?.startsWith('ko') ?? false;
-}
-
-// /start 인라인 키보드. 라벨은 isKo 로 분기.
-function buildStartKeyboard(isHttps: boolean, webappUrl: string, isKo: boolean): InlineKeyboard {
-  const kb = new InlineKeyboard();
-  if (isHttps) {
-    kb.webApp(isKo ? '🎓 트레이딩 아카데미 입장' : '🎓 Open Trading Academy', webappUrl).row();
+async function getLang(ctx: Context, engine?: TradingEngine): Promise<SupportedLang> {
+  const tgId = ctx.from?.id;
+  if (tgId && engine) {
+    try {
+      const user = await engine.getUserByTelegramId(tgId);
+      if (user?.language_code && ['en', 'ko', 'ru', 'tr', 'vi', 'id'].includes(user.language_code)) {
+        return user.language_code as SupportedLang;
+      }
+    } catch {}
   }
-  kb.text(isKo ? '📖 게임 방법' : '📖 How It Works', CB_HOW).text(
-    isKo ? '📘 아카데미 멤버십' : '📘 Academy Membership',
-    CB_PREMIUM,
-  );
-  return kb;
+  // STRICT DEFAULT: Always return English if no language is explicitly set in our DB!
+  return 'en';
 }
 
 export function createBot(engine: TradingEngine, context: BotContext): Bot {
   const bot = new Bot(env.BOT_TOKEN);
 
-  // -------------------------------------------------------------------------
-  // /premium — 임시 우회 기능 (수동 프리미엄 권한 부여)
-  // -------------------------------------------------------------------------
+  setupCommunityFeatures(bot);
+
   bot.command('premium', async (ctx) => {
     const userId = ctx.from?.id;
     if (userId) {
       import('./services/premiumCache.js').then(({ grantManualPremium }) => {
         grantManualPremium(userId);
       });
-      await ctx.reply('✅ 결제가 확인되었습니다! 이제 미니앱을 열어 프리미엄 콘텐츠를 즐겨보세요.');
+      const lang = await getLang(ctx, engine);
+      const loc = botLocales[lang];
+      const isHttps = env.WEBAPP_URL.startsWith('https://');
+      const cacheBustedUrl = isHttps ? `${env.WEBAPP_URL}?lang=${lang}&v=${Date.now()}` : env.WEBAPP_URL;
+      const kb = new InlineKeyboard();
+      if (isHttps) {
+        kb.webApp(loc.btnOpenTerminal, cacheBustedUrl);
+      }
+      await ctx.reply('✅ Success! Open the terminal to access premium features.', { reply_markup: kb });
     }
   });
 
-  // -------------------------------------------------------------------------
-  // /start — Stage 8.0 교육 리브랜딩 + Stage 8.13 한국어 분기.
-  // -------------------------------------------------------------------------
-  bot.command('start', async (ctx) => {
-    const tgUser = ctx.from;
-    const isKo = isKorean(ctx);
-    if (!tgUser) {
-      await ctx.reply(isKo ? '유저 정보를 읽을 수 없습니다. 다시 시도해 주세요.' : 'Unable to read user info. Please try again.');
+  const playHandler = async (ctx: Context) => {
+    const lang = await getLang(ctx, engine);
+    const loc = botLocales[lang];
+    const isHttps = env.WEBAPP_URL.startsWith('https://');
+    const cacheBustedUrl = isHttps ? `${env.WEBAPP_URL}?lang=${lang}&v=${Date.now()}` : env.WEBAPP_URL;
+    const kb = new InlineKeyboard();
+    if (isHttps) {
+      kb.webApp(loc.btnOpenTerminal, cacheBustedUrl);
+    }
+    await ctx.reply(loc.startCaption, { reply_markup: kb });
+  };
+  bot.command('play', playHandler);
+  bot.command('trade', playHandler);
+
+  bot.command('broadcast', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId || String(userId) !== process.env.ADMIN_TG_ID) return;
+    
+    const message = typeof ctx.match === 'string' ? ctx.match.trim() : '';
+    if (!message) {
+      await ctx.reply('Usage: /broadcast message');
       return;
     }
 
-    // Stage 9 — 레퍼럴 파싱. `/start 123456` 혹은 t.me/bot?start=123456 형식.
-    // grammy 의 ctx.match 는 첫 command arg (없으면 "") 를 담는다.
-    // tgUser.id 자기 자신 초대 금지, 음수·NaN 방어.
-    const rawMatch = typeof ctx.match === 'string' ? ctx.match.trim() : '';
-    const parsedReferrer = rawMatch ? Number(rawMatch) : NaN;
-    const referrerTgId =
-      Number.isInteger(parsedReferrer) && parsedReferrer > 0 && parsedReferrer !== tgUser.id
-        ? parsedReferrer
-        : null;
+    await ctx.reply('🚀 Broadcasting...');
+    let success = 0;
+    let fail = 0;
+    
+    try {
+      const allIds = await engine.getAllTelegramIds();
+      for (const tgId of allIds) {
+        try {
+          await bot.api.sendMessage(tgId, `📢 *Announcement*\n\n${message}`, { parse_mode: 'Markdown' });
+          success++;
+        } catch (e) {
+          fail++;
+        }
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      await ctx.reply(`✅ Broadcast complete\n- Success: ${success}\n- Fail: ${fail}`);
+    } catch (err) {
+      console.error('[bot] broadcast error:', err);
+      await ctx.reply('⚠️ Error during broadcast.');
+    }
+  });
+
+  bot.command('signal', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId || String(userId) !== process.env.ADMIN_TG_ID) return;
+    
+    const message = typeof ctx.match === 'string' ? ctx.match.trim() : '';
+    if (!message) {
+      await ctx.reply('Usage: /signal message');
+      return;
+    }
+
+    await ctx.reply('🚀 Broadcasting signal...');
+    let success = 0;
+    
+    const isHttps = env.WEBAPP_URL.startsWith('https://');
+    const cacheBustedUrl = isHttps ? `${env.WEBAPP_URL}?v=${Date.now()}` : env.WEBAPP_URL;
+
+    const signalKb = new InlineKeyboard()
+      .url('💎 VIP Lounge', 'https://t.me/academy_premium_ch').row();
+    if (isHttps) {
+      signalKb.webApp('📱 Open App', cacheBustedUrl);
+    }
 
     try {
-      // upsertUser 먼저 — 초대자 uuid 를 referred_by 로 기록하려면 초대자가 이미 DB 에 있어야 함.
+      const allIds = await engine.getAllTelegramIds();
+      for (const tgId of allIds) {
+        try {
+          await bot.api.sendMessage(tgId, `🚨 *VIP MARKET SIGNAL* 🚨\n\n${message}`, { 
+            parse_mode: 'Markdown',
+            reply_markup: signalKb 
+          });
+          success++;
+        } catch (e) {}
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      await ctx.reply(`✅ Signal broadcast complete (Success: ${success})`);
+    } catch (err) {
+      console.error('[bot] signal error:', err);
+    }
+  });
+
+  bot.command('start', async (ctx) => {
+    const tgUser = ctx.from;
+    const lang = await getLang(ctx, engine);
+    const loc = botLocales[lang];
+    if (!tgUser) {
+      await ctx.reply(loc.userInfoError);
+      return;
+    }
+
+    const rawMatch = typeof ctx.match === 'string' ? ctx.match.trim() : '';
+    const parsedReferrer = rawMatch ? Number(rawMatch) : NaN;
+    const referrerTgId = Number.isInteger(parsedReferrer) && parsedReferrer > 0 && parsedReferrer !== tgUser.id
+        ? parsedReferrer : null;
+
+    try {
       let referrerUserId: string | null = null;
       if (referrerTgId !== null) {
         const ref = await engine.getUserByTelegramId(referrerTgId);
@@ -87,18 +166,13 @@ export function createBot(engine: TradingEngine, context: BotContext): Bot {
         telegram_id: tgUser.id,
         username: tgUser.username ?? null,
         first_name: tgUser.first_name ?? null,
-        language_code: tgUser.language_code ?? null,
+        language_code: lang,
         referred_by: referrerUserId,
       });
 
-      // Stage 10 — 최초 1회 시드 → 그 다음 레퍼럴 보너스 +$10,000 상가산.
-      // 순서 중요: grantInitialSeed 가 신규 지갑 balance 를 $100,000 으로 세팅하므로
-      // 보너스를 먼저 주면 덮인다. 재접속 유저에겐 granted=false 로 단순 잔고 조회.
       const { granted, balance: seedBalance } = await engine.grantInitialSeed(user.id);
       let balance = seedBalance;
 
-      // 레퍼럴 보너스 — 신규 유저이고 유효한 초대자일 때만 지급.
-      // 성공하면 양쪽에 $10,000 추가 후 초대자에게 DM.
       let bonusGranted = false;
       if (isNew && referrerTgId !== null && referrerUserId !== null) {
         try {
@@ -107,23 +181,19 @@ export function createBot(engine: TradingEngine, context: BotContext): Bot {
             bonusGranted = true;
             balance = bonus.newBalance;
             try {
+              const refLang = await getLang({ from: { id: bonus.referrerTelegramId } } as any, engine);
+              const refLoc = botLocales[refLang];
               await bot.api.sendMessage(
                 bonus.referrerTelegramId,
-                isKo
-                  ? `🎉 누군가 당신의 초대 링크로 *트레이딩 아카데미* 에 가입했습니다!\n\n연습 지갑에 *+$10,000* 보너스가 반영됐어요. (현재 잔고: $${bonus.referrerBalance.toLocaleString('en-US')})`
-                  : `🎉 Someone joined the *Trading Academy* via your invite link!\n\n*+$10,000* bonus has been added to your practice wallet. (Balance: $${bonus.referrerBalance.toLocaleString('en-US')})`,
+                refLoc.referralBonus.replace('{{balance}}', formatBalance(bonus.referrerBalance)),
                 { parse_mode: 'Markdown' },
               );
-            } catch (notifyErr) {
-              console.warn('[bot] referral notify failed:', notifyErr);
-            }
+            } catch (notifyErr) {}
           }
         } catch (bonusErr) {
-          // 보너스 실패는 /start 흐름을 막지 않음 — 단, 로그는 남긴다.
           console.error('[bot] grantReferralBonus:', bonusErr);
         }
 
-        // B-08 — 초대자의 레퍼럴 마일스톤(3명/10명) 평가. 실패는 무시.
         if (context.referralMission && referrerUserId) {
           try {
             await context.referralMission.evaluateMilestones(referrerUserId);
@@ -132,109 +202,161 @@ export function createBot(engine: TradingEngine, context: BotContext): Bot {
           }
         }
       }
-      // bonusGranted 참조용 (린트 unused 방지).
       void bonusGranted;
 
+      const isGroup = ctx.chat.type === 'group' || ctx.chat.type === 'supergroup';
       const isHttps = env.WEBAPP_URL.startsWith('https://');
-      const cacheBustedUrl = isHttps ? `${env.WEBAPP_URL}?v=${Date.now()}` : env.WEBAPP_URL;
-      const keyboard = buildStartKeyboard(isHttps, cacheBustedUrl, isKo);
+      const cacheBustedUrl = isHttps ? `${env.WEBAPP_URL}?lang=${lang}&v=${Date.now()}` : env.WEBAPP_URL;
+      
+      if (isGroup) {
+        const shortKb = new InlineKeyboard();
+        if (isHttps) {
+          shortKb.webApp(loc.btnOpenTerminal, cacheBustedUrl);
+        }
+        await ctx.replyWithPhoto('https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?q=80&w=1200&auto=format&fit=crop', {
+          caption: loc.startCaption,
+          parse_mode: 'Markdown',
+          reply_markup: shortKb
+        });
+        return;
+      }
 
-      const lines = isKo
-        ? [
-            '*🎓 트레이딩 아카데미*',
-            '',
-            '라이브 바이낸스 데이터로 돌아가는 안전한 교육용 모의 투자 시뮬레이터입니다.',
-            '실제 자금은 일절 사용되지 않으며, 트레이더의 규율을 연습하기 위한 체계적 환경입니다.',
-            '',
-            `최초 가입 축하금 *${formatBalance(Number(env.DAILY_ALLOWANCE))}* 의 모의 투자금이 딱 한 번 지급됩니다.`,
-            '',
-            granted
-              ? `✅ 최초 시드 *${formatBalance(balance)}* 가 지급되었습니다.`
-              : `💰 현재 연습 잔고: *${formatBalance(balance)}* _(이미 초기 시드를 수령했습니다)_`,
-            '',
-            isHttps
-              ? '👇 아래 버튼을 눌러 학습을 시작하세요.'
-              : '⚠️ 개발 모드 — 미니앱은 HTTPS 배포 후 활성화됩니다. 우선 `/balance` 명령어를 사용하세요.',
-          ]
-        : [
-            '*🎓 Trading Academy*',
-            '',
-            'A safe, educational paper-trading simulator powered by live Binance data.',
-            'No real money involved — only structured practice for disciplined traders.',
-            '',
-            `A one-time initial practice seed of *${formatBalance(Number(env.DAILY_ALLOWANCE))}* is granted on your first join.`,
-            '',
-            granted
-              ? `✅ Your initial practice seed of *${formatBalance(balance)}* is ready.`
-              : `💰 Current practice balance: *${formatBalance(balance)}* _(initial seed already claimed)_`,
-            '',
-            isHttps
-              ? '👇 Tap below to start your lesson.'
-              : '⚠️ Dev mode — Mini App activates after HTTPS deploy. Use `/balance` for now.',
-          ];
+      const cryptoMemes = [
+        'https://media.giphy.com/media/trN9ht5RlE3Dcwavg2/giphy.gif',
+        'https://media.giphy.com/media/Y2ZUWLrTy63j9T6qrK/giphy.gif',
+        'https://media.giphy.com/media/JtBZm3Getg3dqxEXCG/giphy.gif',
+      ];
+      const welcomeGifUrl = cryptoMemes[Math.floor(Math.random() * cryptoMemes.length)]!;
 
-      await ctx.reply(lines.join('\n'), {
+      const langKb = new InlineKeyboard();
+      if (isHttps) {
+        langKb.webApp(loc.btnOpenTerminal, cacheBustedUrl).row();
+      }
+      langKb
+        .text('🇺🇸 EN', 'lang_en')
+        .text('🇰🇷 KO', 'lang_ko')
+        .text('🇷🇺 RU', 'lang_ru').row()
+        .text('🇹🇷 TR', 'lang_tr')
+        .text('🇻🇳 VI', 'lang_vi')
+        .text('🇮🇩 ID', 'lang_id').row()
+        .text(loc.btnHowItWorks, CB_HOW)
+        .url(loc.btnCommunity, env.COMMUNITY_GROUP_URL);
+
+      await ctx.replyWithAnimation(welcomeGifUrl, {
+        caption: loc.startLines.join('\n'),
         parse_mode: 'Markdown',
-        reply_markup: keyboard,
+        reply_markup: langKb,
       });
+
+      if (isHttps) {
+        bot.api.setChatMenuButton({
+          chat_id: tgUser.id,
+          menu_button: {
+            type: 'web_app',
+            text: loc.btnOpenTerminal.replace(/[^a-zA-Z\s]/g, '').trim(), // Ensure it's short
+            web_app: { url: cacheBustedUrl }
+          }
+        }).catch(err => console.error('[bot] menu btn error:', err));
+      }
+
     } catch (err) {
       console.error('[bot] /start error:', err);
-      await ctx.reply(isKo ? '⚠️ 시작 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.' : '⚠️ Something went wrong while starting. Please try again shortly.');
+      await ctx.reply(loc.startError);
     }
   });
 
-  // -------------------------------------------------------------------------
-  // /balance — 연습 잔고 조회
-  // -------------------------------------------------------------------------
+  bot.callbackQuery(/lang_(.+)/, async (ctx) => {
+    const lang = ctx.match[1] as SupportedLang;
+    
+    try {
+      if (ctx.from) {
+        await engine.upsertUser({
+          telegram_id: ctx.from.id,
+          username: ctx.from.username ?? null,
+          first_name: ctx.from.first_name ?? null,
+          language_code: lang,
+          referred_by: null
+        });
+      }
+    } catch(e) {}
+
+    const loc = botLocales[lang] || botLocales['en'];
+
+    if (ctx.msg && ctx.msg.reply_markup) {
+      const isHttps = env.WEBAPP_URL.startsWith('https://');
+      const cacheBustedUrl = isHttps ? `${env.WEBAPP_URL}?lang=${lang}&v=${Date.now()}` : env.WEBAPP_URL;
+      
+      const newKb = new InlineKeyboard();
+      if (isHttps) {
+        newKb.webApp(loc.btnOpenTerminal, cacheBustedUrl).row();
+      }
+      newKb
+        .text('🇺🇸 EN', 'lang_en')
+        .text('🇰🇷 KO', 'lang_ko')
+        .text('🇷🇺 RU', 'lang_ru').row()
+        .text('🇹🇷 TR', 'lang_tr')
+        .text('🇻🇳 VI', 'lang_vi')
+        .text('🇮🇩 ID', 'lang_id').row()
+        .text(loc.btnHowItWorks, CB_HOW)
+        .url(loc.btnCommunity, env.COMMUNITY_GROUP_URL);
+
+      await ctx.editMessageCaption({
+        caption: loc.startLines.join('\n'),
+        parse_mode: 'Markdown',
+        reply_markup: newKb
+      });
+
+      if (isHttps && ctx.from) {
+        bot.api.setChatMenuButton({
+          chat_id: ctx.from.id,
+          menu_button: {
+            type: 'web_app',
+            text: loc.btnOpenTerminal.replace(/[^a-zA-Z\s]/g, '').trim(), // Strip emojis for menu button
+            web_app: { url: cacheBustedUrl }
+          }
+        }).catch(err => console.error('[bot] menu btn error:', err));
+      }
+    }
+
+    await ctx.answerCallbackQuery({
+      text: loc.langSet,
+      show_alert: true,
+    });
+  });
+
   bot.command('balance', async (ctx) => {
     const tgUser = ctx.from;
-    const isKo = isKorean(ctx);
+    const lang = await getLang(ctx, engine);
+    const loc = botLocales[lang];
     if (!tgUser) {
-      await ctx.reply(isKo ? '유저 정보를 읽을 수 없습니다.' : 'Unable to read user info.');
+      await ctx.reply(loc.userInfoError);
       return;
     }
 
     try {
       const user = await engine.getUserByTelegramId(tgUser.id);
       if (!user) {
-        await ctx.reply(isKo ? '먼저 /start 로 아카데미에 등록하세요.' : 'Send /start first to enroll in the Academy.');
+        await ctx.reply(loc.enrollFirst);
         return;
       }
 
       const wallet = await engine.getWallet(user.id);
       if (!wallet) {
-        await ctx.reply(isKo ? '연습 지갑을 찾을 수 없습니다. /start 를 다시 실행하세요.' : 'No practice wallet found. Run /start again.');
+        await ctx.reply(loc.noWallet);
         return;
       }
 
       const openCount = await engine.countOpenPositions(user.id);
+      const status = wallet.is_liquidated ? loc.resetRequired : loc.active;
+      const text = loc.balance
+        .replace('{{balance}}', formatBalance(wallet.balance))
+        .replace('{{status}}', status)
+        .replace('{{count}}', openCount.toString());
 
-      const status = wallet.is_liquidated
-        ? isKo
-          ? '🔴 *리셋 필요* — 리스크 관리 수업이 발동되었습니다'
-          : '🔴 *Reset required* — risk management lesson triggered'
-        : isKo
-          ? '🟢 활성'
-          : '🟢 Active';
-
-      const lines = isKo
-        ? [
-            '*💼 연습 지갑*',
-            `잔고: *${formatBalance(wallet.balance)}*`,
-            `상태: ${status}`,
-            `오픈 포지션: ${openCount}건`,
-          ]
-        : [
-            '*💼 Practice Wallet*',
-            `Balance: *${formatBalance(wallet.balance)}*`,
-            `Status: ${status}`,
-            `Open positions: ${openCount}`,
-          ];
-
-      await ctx.reply(lines.join('\n'), { parse_mode: 'Markdown' });
+      await ctx.reply(text, { parse_mode: 'Markdown' });
     } catch (err) {
       console.error('[bot] /balance error:', err);
-      await ctx.reply(isKo ? '⚠️ 잔고를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.' : '⚠️ Could not fetch balance. Try again shortly.');
+      await ctx.reply(loc.startError);
     }
   });
 
@@ -242,157 +364,84 @@ export function createBot(engine: TradingEngine, context: BotContext): Bot {
     await ctx.reply('pong');
   });
 
-  // -------------------------------------------------------------------------
-  // Stage 8.13 — 인라인 콜백 한국어 분기.
-  // -------------------------------------------------------------------------
   bot.callbackQuery(CB_HOW, async (ctx) => {
-    try {
-      await ctx.answerCallbackQuery();
-      const isKo = isKorean(ctx);
-      const lines = isKo
-        ? [
-            '*📖 트레이딩 아카데미 사용법*',
-            '',
-            '1️⃣ /start — 가입 시 최초 1회 *$100K* 의 모의 투자금이 지급됩니다.',
-            '2️⃣ 🎓 미니앱을 열어 바이낸스의 60+ 라이브 마켓을 둘러보세요.',
-            '3️⃣ 1~125배 레버리지로 롱/숏 의사결정을 연습하고 실시간 PnL 을 검토하세요.',
-            '4️⃣ 포지션을 종료해 학습 결과를 확정하세요 — 승리와 손실 모두 훌륭한 수업입니다.',
-            '5️⃣ 일일 상위 10명에게 21:50~24:00 KST 엘리트 애널리스트 클럽 초대장이 발송됩니다.',
-            '',
-            '⚠️ 본 앱은 *모의 투자 시뮬레이터* 입니다 — 실제 자금 손실 위험이 전혀 없습니다.',
-            '연습 잔고가 소진되면 150⭐ 로 리셋해야 계속할 수 있습니다 — 추가 무료 지급은 없습니다.',
-          ]
-        : [
-            '*📖 How the Trading Academy Works*',
-            '',
-            '1️⃣ /start — Receive a one-time $100K of simulated practice capital on your first join.',
-            '2️⃣ 🎓 Open the Mini App and explore 60+ live markets from Binance.',
-            '3️⃣ Practice long/short decisions with 1~125x leverage and review live PnL.',
-            '4️⃣ Close positions to realize learning outcomes — wins and losses teach equally.',
-            '5️⃣ Top 10 daily learners earn a 21:50~24:00 KST Elite Analyst Club chat invite.',
-            '',
-            '⚠️ This is a *paper-trading simulator* — there is never real money at risk.',
-            'If your practice balance is depleted, you must reset via 150⭐ to continue — no further free grants.',
-          ];
-      await ctx.reply(lines.join('\n'), { parse_mode: 'Markdown' });
-    } catch (err) {
-      console.error('[bot] how_to_play:', err);
-    }
+    const lang = await getLang(ctx, engine);
+    const loc = botLocales[lang];
+    await ctx.answerCallbackQuery();
+    await ctx.reply(loc.howItWorks, { parse_mode: 'Markdown' });
   });
 
-  bot.callbackQuery(CB_PREMIUM, async (ctx) => {
-    try {
-      await ctx.answerCallbackQuery();
-      const isKo = isKorean(ctx);
-      const lines = isKo
-        ? [
-            '*📘 아카데미 멤버십*',
-            '',
-            '━━━━━━━━━━━━━━━━━━━━',
-            '*Free* — $0',
-            '  ✓ 멀티코인 연습 차트',
-            '  ✓ 최초 $100K 연습 시드',
-            '',
-            '*Academy* — 월 $29.99',
-            '  ✓ Free 플랜 전체 포함',
-            '  ✓ 엘리트 애널리스트 클럽 채팅 입장',
-            '  ✓ 글로벌 모의 트레이딩 토너먼트 출전권',
-            '',
-            '*🏆 Lifetime Academy* — *월 $7.99 평생 고정*',
-            '  ✓ 위 혜택 전체 포함',
-            '  ✓ 리스크 리셋 30% 할인',
-            '  ✓ 공식 제휴 거래소 UID 1회 인증 시 평생 무료',
-            '━━━━━━━━━━━━━━━━━━━━',
-            '',
-            '👉 미니앱의 아카데미 탭에서 UID 인증을 제출하세요.',
-          ]
-        : [
-            '*📘 Academy Membership*',
-            '',
-            '━━━━━━━━━━━━━━━━━━━━',
-            '*Free* — $0',
-            '  ✓ Multi-coin practice charts',
-            '  ✓ One-time $100K practice seed',
-            '',
-            '*Academy* — $29.99/mo',
-            '  ✓ Everything in Free',
-            '  ✓ Elite Analyst Club chat access',
-            '  ✓ Global Paper Trading Tournament eligibility',
-            '',
-            '*🏆 Lifetime Academy* — *$7.99/mo forever*',
-            '  ✓ Everything above',
-            '  ✓ Risk Management Reset −30%',
-            '  ✓ One-time partner exchange UID verification',
-            '━━━━━━━━━━━━━━━━━━━━',
-            '',
-            '👉 Open the Academy tab in the Mini App to submit your verification.',
-          ];
-      const isHttps = env.WEBAPP_URL.startsWith('https://');
-      const cacheBustedUrl = isHttps ? `${env.WEBAPP_URL}?v=${Date.now()}` : env.WEBAPP_URL;
-      const keyboard = isHttps
-        ? new InlineKeyboard().webApp(isKo ? '📘 아카데미 열기' : '📘 Open Academy', cacheBustedUrl)
-        : undefined;
-      await ctx.reply(lines.join('\n'), {
-        parse_mode: 'Markdown',
-        ...(keyboard ? { reply_markup: keyboard } : {}),
-      });
-    } catch (err) {
-      console.error('[bot] academy_info:', err);
-    }
-  });
-
-  // -------------------------------------------------------------------------
-  // Stars 결제: pre_checkout_query → 항상 승인.
-  // -------------------------------------------------------------------------
   bot.on('pre_checkout_query', async (ctx) => {
     try {
-      await ctx.answerPreCheckoutQuery(true);
+      if (ctx.preCheckoutQuery.invoice_payload.startsWith(STARS_PAYLOAD_PREFIX) || 
+          ctx.preCheckoutQuery.invoice_payload.startsWith(STARS_ELITE_PREFIX)) {
+        await ctx.answerPreCheckoutQuery(true);
+      } else {
+        await ctx.answerPreCheckoutQuery(false, 'Invalid payload.');
+      }
     } catch (err) {
-      console.error('[bot] pre_checkout_query:', err);
-      await ctx.answerPreCheckoutQuery(false, 'Payment processing error — please try again.');
+      console.error('[bot] pre_checkout_query error:', err);
     }
   });
 
-  // -------------------------------------------------------------------------
-  // Stars 결제 성공: payload 검증 후 revivePaidUser.
-  // -------------------------------------------------------------------------
-  bot.on(':successful_payment', async (ctx) => {
-    const payment = ctx.message?.successful_payment;
-    if (!payment) return;
-    const isKo = isKorean(ctx);
-
-    const payload = payment.invoice_payload;
-    if (!payload.startsWith(STARS_PAYLOAD_PREFIX)) {
-      console.warn('[bot] unknown payment payload:', payload);
-      return;
-    }
-    const userId = payload.slice(STARS_PAYLOAD_PREFIX.length).split(':')[0];
-    if (!userId) {
-      console.error('[bot] malformed payment payload:', payload);
-      return;
-    }
-
+  bot.on('message:successful_payment', async (ctx) => {
+    const tgId = ctx.from?.id;
+    const payment = ctx.message.successful_payment;
+    if (!tgId || !payment) return;
+    
     try {
-      const { balance } = await engine.revivePaidUser(userId);
-      const lines = isKo
-        ? [
-            '✅ *리스크 관리 리셋 완료*',
-            `연습 잔고가 *${formatBalance(balance)}* 로 복원되었습니다.`,
-            '미니앱으로 돌아가 학습을 이어가세요.',
-          ]
-        : [
-            '✅ *Risk Management Reset Complete*',
-            `Practice balance restored to *${formatBalance(balance)}*.`,
-            'Return to the Mini App to continue your lesson.',
-          ];
-      await ctx.reply(lines.join('\n'), { parse_mode: 'Markdown' });
+      const user = await engine.getUserByTelegramId(tgId);
+      if (!user) return;
+
+      if (payment.invoice_payload.startsWith(STARS_ELITE_PREFIX)) {
+        await engine.grantStarsPremium(user.id);
+        const lang = await getLang(ctx, engine);
+        
+        let inviteLink = '';
+        if (env.PREMIUM_CHAT_ID) {
+          try {
+            const link = await bot.api.createChatInviteLink(env.PREMIUM_CHAT_ID, {
+              member_limit: 1,
+              creates_join_request: false
+            });
+            inviteLink = `\n\nVIP Lounge Access: ${link.invite_link}`;
+          } catch (e) {
+            console.error('[bot] createChatInviteLink failed:', e);
+          }
+        }
+        
+        const lines = [
+          `💎 *Elite Lifetime Pass Unlocked!*`,
+          `Welcome to the VIP club. All premium features have been unlocked in your terminal.`,
+          inviteLink
+        ];
+        await ctx.reply(lines.join('\n'), { parse_mode: 'Markdown' });
+        return;
+      }
+
+      if (payment.invoice_payload.startsWith(STARS_PAYLOAD_PREFIX)) {
+        const wallet = await engine.getWallet(user.id);
+        if (!wallet) return;
+
+        const { balance } = await engine.revivePaidUser(user.id);
+
+        const lang = await getLang(ctx, engine);
+        const loc = botLocales[lang];
+        const lines = [
+          loc.resetRequired.replace('🔴 *', '✅ *').replace('required', 'Complete').replace('필요', '완료'),
+          `Practice balance restored to *${formatBalance(balance)}*.`,
+          'Return to the Mini App to continue your lesson.'
+        ];
+        await ctx.reply(lines.join('\n'), { parse_mode: 'Markdown' });
+        return;
+      }
     } catch (err) {
-      console.error('[bot] revivePaidUser failed:', err);
-      await ctx.reply(isKo ? '⚠️ 결제는 성공했지만 잔고 업데이트에 실패했습니다. 지원팀에 문의해 주세요.' : '⚠️ Payment succeeded but balance update failed. Please contact support.');
+      console.error('[bot] successful_payment failed:', err);
+      const lang = await getLang(ctx, engine);
+      await ctx.reply(botLocales[lang].error, { parse_mode: 'Markdown' });
     }
   });
 
-  // 전역 에러 핸들러 — polling 루프 보호
   bot.catch((err) => {
     console.error('[bot] error:', err);
   });
