@@ -95,11 +95,14 @@ async function request<T>(
   path: string,
   init?: RequestInit & { query?: Record<string, string | number> },
 ): Promise<T> {
+  const baseUrl = import.meta.env.VITE_API_URL || '';
+  const fullPath = baseUrl + path;
+  
   const url = init?.query
-    ? `${path}?${new URLSearchParams(
+    ? `${fullPath}?${new URLSearchParams(
         Object.entries(init.query).map(([k, v]) => [k, String(v)]),
       )}`
-    : path;
+    : fullPath;
   const headers: HeadersInit = {
     ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
     ...(init?.headers || {}),
