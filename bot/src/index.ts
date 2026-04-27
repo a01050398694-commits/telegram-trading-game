@@ -132,8 +132,11 @@ async function main(): Promise<void> {
   shillEngine.setPriceCache(priceCache);
   void shillEngine.start();
 
-  server.listen(env.SERVER_PORT, () => {
-    console.log(`[server] listening on http://localhost:${env.SERVER_PORT}`);
+  // Stage 14 — Render/PaaS 배포: 0.0.0.0 바인딩 필수.
+  // 기본 'localhost' 만 듣면 컨테이너 외부 health check 가 죽어서 deploy 가 무한 unhealthy.
+  // env.SERVER_PORT 는 process.env.PORT 우선 채택 (Render 가 자동 주입).
+  server.listen(env.SERVER_PORT, '0.0.0.0', () => {
+    console.log(`[server] listening on 0.0.0.0:${env.SERVER_PORT}`);
   });
 
   // graceful shutdown

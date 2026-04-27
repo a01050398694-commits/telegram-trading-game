@@ -27,13 +27,34 @@ type Deps = {
 };
 
 // -------------------------------------------------------------------------
-// CORS — 개발 중엔 동일 오리진(Vite proxy) 또는 cloudflared 터널에서 호출.
-// 프로덕션에선 Express 앞단 reverse proxy 로 바꾸되, 우선 permissive 로 둔다.
+// CORS — Stage 14 명시적 origin 화이트리스트.
+// 왜 echoback (`origin ?? '*'`) 을 버렸나:
+//   · 기존 구현은 모든 origin 을 그대로 반사 → 사실상 와일드카드. 보안 약함.
+//   · 더 치명적으로, Allow-Headers 가 'Content-Type' 만 허용 → 프론트가 보내는
+//     X-Telegram-Init-Data 헤더가 preflight 에서 막혀 "Failed to fetch" 발생.
+// 운영 도메인(Vercel) + 로컬 dev (Vite/cloudflared) 만 통과시킨다.
 // -------------------------------------------------------------------------
+const ALLOWED_ORIGINS: ReadonlySet<string> = new Set([
+  'https://web-askbit.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:3000',
+]);
+
+function isAllowedOrigin(origin: string | undefined): boolean {
+  if (!origin) return false;
+  if (ALLOWED_ORIGINS.has(origin)) return true;
+  // cloudflared 터널 (개발용) — *.trycloudflare.com 만 허용.
+  return /^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/i.test(origin);
+}
+
 function cors(req: Request, res: Response, next: NextFunction): void {
-  res.setHeader('Access-Control-Allow-Origin', req.headers.origin ?? '*');
+  const origin = typeof req.headers.origin === 'string' ? req.headers.origin : undefined;
+  if (isAllowedOrigin(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin!);
+  }
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Telegram-Init-Data, X-Admin-Secret');
+  res.setHeader('Access-Control-Max-Age', '86400');
   res.setHeader('Vary', 'Origin');
   if (req.method === 'OPTIONS') {
     res.sendStatus(204);
