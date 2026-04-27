@@ -17,6 +17,7 @@ import {
   ApiError,
   closeTrade,
   openTrade,
+  requestStarsInvoice,
   type UserStatus,
 } from '../lib/api';
 
@@ -64,6 +65,8 @@ export function TradeTab({
 
   const [tradePending, setTradePending] = useState(false);
   const [tradeError, setTradeError] = useState<string | null>(null);
+  const [starsPending, setStarsPending] = useState(false);
+  const [starsError, setStarsError] = useState<string | null>(null);
 
   const serverPosition = status?.position ?? null;
   const positionForPanel: Position | null =
@@ -143,13 +146,35 @@ export function TradeTab({
     }
   };
 
-  const handleRecharge = () => {
-    const url = import.meta.env.VITE_INVITEMEMBER_BOT_URL;
-    if (!url) {
+  // Stage 14.2 — 네이티브 텔레그램 결제창(openInvoice) 복구.
+  // 미니앱 안에서 즉시 결제 시트가 뜨는 게 InviteMember 봇 리다이렉트보다 압도적으로 좋은 UX.
+  // openInvoice 미지원 환경(데스크탑 브라우저 프리뷰)에서만 InviteMember 폴백.
+  const handleRecharge = async () => {
+    if (telegramUserId === null) return;
+    setStarsError(null);
+    setStarsPending(true);
+    try {
+      const { invoiceLink } = await requestStarsInvoice(telegramUserId, 'reset');
+      const openInvoice = window.Telegram?.WebApp?.openInvoice;
+      if (openInvoice) {
+        openInvoice(invoiceLink, (status) => {
+          if (status === 'paid') {
+            void refresh();
+            hapticNotification('success');
+          }
+          setStarsPending(false);
+        });
+      } else {
+        const fallbackUrl = import.meta.env.VITE_INVITEMEMBER_BOT_URL;
+        if (fallbackUrl) openTelegramLinkSafe(fallbackUrl);
+        setStarsPending(false);
+      }
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : (err as Error).message;
+      setStarsError(msg);
       hapticNotification('error');
-      return;
+      setStarsPending(false);
     }
-    openTelegramLinkSafe(url);
   };
 
   const panelDisabled = telegramUserId === null || isLiquidated;
@@ -197,8 +222,8 @@ export function TradeTab({
           <LiquidationOverlay
             rechargeAmount={RECHARGE_USD}
             starsCost={STARS_COST}
-            pending={false}
-            errorMessage={null}
+            pending={starsPending}
+            errorMessage={starsError}
             onRecharge={handleRecharge}
           />
         )}

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { EXCHANGES, getExchange, levelLabel, type VerificationLevel } from '../lib/exchanges';
 import { hapticImpact, hapticSelection, openTelegramLinkSafe } from '../utils/telegram';
-import { ApiError, submitVerification, type ServerVerification, type UserStatus } from '../lib/api';
+import { ApiError, submitVerification, requestStarsInvoice, type ServerVerification, type UserStatus } from '../lib/api';
 
 // Stage 8.15 — Payment Modal 전면 폐기 → 인라인 아코디언.
 //
@@ -43,6 +43,7 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
   const { t } = useTranslation();
   const [showForm, setShowForm] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [isPaying, setIsPaying] = useState(false);
 
   const toggleForm = () => {
     hapticImpact('medium');
@@ -64,17 +65,34 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
       <div className="flex flex-col gap-2 w-full">
         <button
           type="button"
-          onClick={() => {
-            const url = import.meta.env.VITE_INVITEMEMBER_BOT_URL;
-            if (!url) {
-              setToast('Payment link not configured');
+          disabled={isPaying}
+          onClick={async () => {
+            if (!telegramUserId) return;
+            try {
+              hapticImpact('medium');
+              setIsPaying(true);
+              const res = await requestStarsInvoice(telegramUserId, 'elite');
+              if (res.ok && res.invoiceLink && window.Telegram?.WebApp?.openInvoice) {
+                window.Telegram.WebApp.openInvoice(res.invoiceLink, (status) => {
+                  if (status === 'paid') {
+                    hapticImpact('heavy');
+                    setToast('✅ Premium activated!');
+                    setTimeout(() => window.location.reload(), 1500);
+                  }
+                });
+              } else {
+                // Fallback for desktop testing where openInvoice is not available
+                const url = import.meta.env.VITE_INVITEMEMBER_BOT_URL;
+                if (url) openTelegramLinkSafe(url);
+              }
+            } catch (err: any) {
+              setToast(err.message || 'Payment failed');
               setTimeout(() => setToast(null), 3000);
-              return;
+            } finally {
+              setIsPaying(false);
             }
-            hapticImpact('medium');
-            openTelegramLinkSafe(url);
           }}
-          className="group relative flex w-full shrink-0 flex-col rounded-2xl border-2 border-yellow-500/50 bg-gradient-to-b from-slate-900 to-black p-5 text-left shadow-[0_0_60px_rgba(250,204,21,0.2),_0_16px_40px_rgba(0,0,0,0.6)] transition-all active:scale-[0.98]"
+          className="group relative flex w-full shrink-0 flex-col rounded-2xl border-2 border-yellow-500/50 bg-gradient-to-b from-slate-900 to-black p-5 text-left shadow-[0_0_60px_rgba(250,204,21,0.2),_0_16px_40px_rgba(0,0,0,0.6)] transition-all active:scale-[0.98] disabled:opacity-50"
         >
           <div className="pointer-events-none absolute inset-x-6 top-0 h-[1px] bg-gradient-to-r from-transparent via-yellow-400/70 to-transparent" />
           <div className="flex items-start justify-between gap-3">
@@ -84,7 +102,7 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
                   💎
                 </span>
                 <span className="break-words whitespace-normal font-mono text-[13px] font-bold uppercase leading-snug tracking-[0.15em] text-amber-200">
-                  {t('academy.hub.upgradeCta')}
+                  {isPaying ? 'Loading...' : t('academy.hub.upgradeCta')}
                 </span>
               </div>
               <div className="mt-2 break-words whitespace-normal text-[11px] leading-relaxed text-amber-100/70">

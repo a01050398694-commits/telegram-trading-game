@@ -10,9 +10,11 @@ import { useBinanceFeed } from '../lib/useBinanceFeed';
 import {
   ApiError,
   fetchUserHistory,
+  requestStarsInvoice,
   type HistoryEntry,
   type UserStatus,
 } from '../lib/api';
+import { hapticNotification } from '../utils/telegram';
 
 type PortfolioTabProps = {
   telegramUserId: number | null;
@@ -32,6 +34,8 @@ export function PortfolioTab({ telegramUserId, status }: PortfolioTabProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [referralToast, setReferralToast] = useState(false);
+  const [starsPending, setStarsPending] = useState(false);
+  const [starsError, setStarsError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (telegramUserId === null) return;
@@ -110,10 +114,33 @@ export function PortfolioTab({ telegramUserId, status }: PortfolioTabProps) {
     window.setTimeout(() => setReferralToast(false), 1800);
   };
 
-  const handleRecharge = () => {
-    const url = import.meta.env.VITE_INVITEMEMBER_BOT_URL;
-    if (!url) return;
-    openTelegramLinkSafe(url);
+  // Stage 14.2 — 네이티브 텔레그램 결제창 복구. handleRecharge 동일 패턴.
+  const handleRecharge = async () => {
+    if (telegramUserId === null) return;
+    setStarsError(null);
+    setStarsPending(true);
+    try {
+      const { invoiceLink } = await requestStarsInvoice(telegramUserId, 'reset');
+      const openInvoice = window.Telegram?.WebApp?.openInvoice;
+      if (openInvoice) {
+        openInvoice(invoiceLink, (status) => {
+          if (status === 'paid') {
+            void load();
+            hapticNotification('success');
+          }
+          setStarsPending(false);
+        });
+      } else {
+        const fallbackUrl = import.meta.env.VITE_INVITEMEMBER_BOT_URL;
+        if (fallbackUrl) openTelegramLinkSafe(fallbackUrl);
+        setStarsPending(false);
+      }
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : (err as Error).message;
+      setStarsError(msg);
+      hapticNotification('error');
+      setStarsPending(false);
+    }
   };
 
   return (
@@ -182,16 +209,22 @@ export function PortfolioTab({ telegramUserId, status }: PortfolioTabProps) {
             <div className="w-full">
               <button
                 type="button"
+                disabled={starsPending}
                 onClick={handleRecharge}
-                className="w-full rounded-xl border border-amber-400/30 bg-gradient-to-r from-amber-500 to-amber-400 px-4 py-3.5 text-slate-900 shadow-lg shadow-amber-500/20 transition-all duration-150 hover:brightness-110 active:scale-[0.98]"
+                className="w-full rounded-xl border border-amber-400/30 bg-gradient-to-r from-amber-500 to-amber-400 px-4 py-3.5 text-slate-900 shadow-lg shadow-amber-500/20 transition-all duration-150 hover:brightness-110 active:scale-[0.98] disabled:cursor-wait disabled:opacity-60"
               >
                 <div className="font-mono text-[10px] font-bold uppercase tracking-widest opacity-70">
                   {t('liquidation.resetCta')}
                 </div>
                 <div className="mt-0.5 text-lg font-extrabold">
-                  Upgrade →
+                  {starsPending ? t('common.loading') : `150 ⭐`}
                 </div>
               </button>
+              {starsError && (
+                <div className="mt-2 rounded-lg border border-rose-500/50 bg-rose-950/80 px-3 py-2 text-center text-[11px] font-medium text-rose-200">
+                  {starsError}
+                </div>
+              )}
             </div>
           )}
           <SharePortfolioButton equity={liveEquity} winRate={winRate} totalTrades={totalTrades} telegramUserId={status?.telegramUserId} />

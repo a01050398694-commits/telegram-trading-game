@@ -78,3 +78,48 @@ Stage 14에서 결제 흐름과 백엔드 도달성 골격을 갖춘 다음, 소
 - 결제 관련 onClick이 `openTelegramLinkSafe`만 사용하는가? (`grep -rE "openTelegramLink\??\.\(" web/src/tabs`로 직접 호출 0건이어야 함)
 - LONG/SHORT 버튼에서 `pending` 시 `Submitting...`이 노출되는가?
 - `tsc --noEmit` 통과.
+
+---
+
+# [Stage 14.2] Native Payment Restoration
+
+## Objective
+Stage 14에서 InviteMember 봇 리다이렉트로 전환했던 결제 흐름을 텔레그램 네이티브 결제창(`Telegram.WebApp.openInvoice`)으로 원상복구한다.
+유저를 미니앱 밖으로 쫓아내는 InviteMember 흐름은 컨텍스트 단절·복귀 동선 누락·결제 후 자동 새로고침 불가 등 UX가 최악이라 폐기.
+Stage 14.1의 일반 개선(`openTelegramLinkSafe` 헬퍼, `Connection Failed` 가드, `Submitting...` 라벨)은 모두 그대로 유지한다.
+
+## Atomic Tasks
+
+### Task 1 — `requestStarsInvoice` API 클라이언트 부활
+- `web/src/lib/api.ts`에 `requestStarsInvoice(telegramUserId: number, productType: 'reset' | 'elite' = 'reset')` 함수 복원.
+- 백엔드 `POST /api/payment/stars`에 `{ telegramUserId, productType }` body 전송 → `{ ok: true; invoiceLink: string }` 반환.
+- (현재 상태) Antigravity가 이미 154–159행에 복구.
+
+### Task 2 — PremiumTab Elite 결제 복구
+- 업그레이드 버튼 onClick → `requestStarsInvoice(telegramUserId, 'elite')` → `window.Telegram.WebApp.openInvoice(invoiceLink, callback)` 호출.
+- `status === 'paid'`면 햅틱 heavy + 토스트 "✅ Premium activated!" 1.5초 후 `window.location.reload()`.
+- `openInvoice`가 미지원(데스크탑 브라우저 등)이면 `openTelegramLinkSafe(VITE_INVITEMEMBER_BOT_URL)`로 폴백.
+- 결제 진행 중 `isPaying` 플래그로 버튼 disable + 라벨 "Loading..." 표기.
+- (현재 상태) Antigravity가 이미 66–116행에 복구.
+
+### Task 3 — TradeTab/PortfolioTab Recharge 복구
+- 청산 시 보이는 리차지 버튼 onClick → `requestStarsInvoice(telegramUserId, 'reset')` 호출.
+- 동일하게 `openInvoice` → 결제 성공 콜백에서 `refresh()`/`load()`로 상태 재조회. 폴백 동일.
+- `starsPending`/`starsError` state 부활:
+  - TradeTab: `LiquidationOverlay`에 다시 전달.
+  - PortfolioTab: 인라인 청산 버튼 disabled + `150 ⭐` 라벨 + 에러 박스 부활.
+
+### Task 4 — PLAN.md 기록
+- 이 Stage 14.2 섹션을 PLAN.md 하단에 추가.
+
+## Negative Constraints
+- `openTelegramLinkSafe` 헬퍼 자체는 삭제 금지 — referral unlock 버튼 + openInvoice 폴백 두 곳에서 사용.
+- `.env.production`의 `VITE_INVITEMEMBER_BOT_URL`은 폴백용으로 유지.
+- 백엔드 `/api/payment/stars` 엔드포인트는 그대로 (Stage 14에서 안 건드림).
+- VIPTab은 변경 없음.
+
+## Verification
+- 미니앱(텔레그램 모바일)에서 결제 버튼 탭 → 미니앱을 닫지 않고 네이티브 Stars 결제 시트가 즉시 떠야 함.
+- 결제 완료 후 자동으로 status 재조회 (Premium은 reload, Recharge는 refresh/load).
+- 데스크탑 프리뷰에서 `openInvoice`가 없으면 InviteMember 봇으로 폴백 (페이지 깨짐 없음).
+- `tsc --noEmit` 통과.

@@ -151,6 +151,13 @@ export function closeTrade(telegramUserId: number, positionId: string, fallbackP
   });
 }
 
+export function requestStarsInvoice(telegramUserId: number, productType: 'reset' | 'elite' = 'reset'): Promise<{ ok: true; invoiceLink: string }> {
+  return request<{ ok: true; invoiceLink: string }>('/api/payment/stars', {
+    method: 'POST',
+    body: JSON.stringify({ telegramUserId, productType }),
+  });
+}
+
 export function getTodayRankings(): Promise<RankingsResponse> {
   return request<RankingsResponse>('/api/rankings/today', { method: 'GET' });
 }
