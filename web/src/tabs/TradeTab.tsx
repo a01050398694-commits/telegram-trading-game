@@ -17,7 +17,6 @@ import {
   ApiError,
   closeTrade,
   openTrade,
-  requestStarsInvoice,
   type UserStatus,
 } from '../lib/api';
 
@@ -65,8 +64,6 @@ export function TradeTab({
 
   const [tradePending, setTradePending] = useState(false);
   const [tradeError, setTradeError] = useState<string | null>(null);
-  const [starsPending, setStarsPending] = useState(false);
-  const [starsError, setStarsError] = useState<string | null>(null);
 
   const serverPosition = status?.position ?? null;
   const positionForPanel: Position | null =
@@ -146,24 +143,13 @@ export function TradeTab({
     }
   };
 
-  const handleRecharge = async () => {
-    if (telegramUserId === null) return;
-    setStarsError(null);
-    setStarsPending(true);
-    try {
-      const { invoiceLink } = await requestStarsInvoice(telegramUserId);
-      window.Telegram?.WebApp?.openInvoice?.(invoiceLink, (status: string) => {
-        if (status === 'paid') {
-          void refresh();
-        }
-        setStarsPending(false);
-      });
-    } catch (err) {
-      const msg = err instanceof ApiError ? err.message : (err as Error).message;
-      setStarsError(msg);
+  const handleRecharge = () => {
+    const url = import.meta.env.VITE_INVITEMEMBER_BOT_URL;
+    if (!url) {
       hapticNotification('error');
-      setStarsPending(false);
+      return;
     }
+    window.Telegram?.WebApp?.openTelegramLink?.(url);
   };
 
   const panelDisabled = telegramUserId === null || isLiquidated;
@@ -211,8 +197,8 @@ export function TradeTab({
           <LiquidationOverlay
             rechargeAmount={RECHARGE_USD}
             starsCost={STARS_COST}
-            pending={starsPending}
-            errorMessage={starsError}
+            pending={false}
+            errorMessage={null}
             onRecharge={handleRecharge}
           />
         )}

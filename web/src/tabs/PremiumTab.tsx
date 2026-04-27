@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { EXCHANGES, getExchange, levelLabel, type VerificationLevel } from '../lib/exchanges';
 import { hapticImpact, hapticSelection } from '../utils/telegram';
-import { ApiError, submitVerification, requestStarsInvoice, type ServerVerification, type UserStatus } from '../lib/api';
+import { ApiError, submitVerification, type ServerVerification, type UserStatus } from '../lib/api';
 
 // Stage 8.15 — Payment Modal 전면 폐기 → 인라인 아코디언.
 //
@@ -58,30 +58,21 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
   return (
     <div className="flex h-full flex-col gap-4 overflow-y-auto px-3 pt-12 pb-[150px]">
       {/* ── INVITEMEMBER UPGRADE BUTTON ─────────────────────────
-          Stage 12 — 하이브리드 결제 연동.
-          구독/평생 멤버십 결제는 미니앱 밖의 InviteMember 봇으로 보낸다. */}
+          Stage 14 — 결제는 미니앱 밖의 InviteMember 봇으로 즉시 리다이렉트.
+          기존 requestStarsInvoice / openInvoice 백엔드 의존을 전면 제거 (Failed to fetch 원천 차단). */}
       {(!status || !status.isPremium) && (
       <div className="flex flex-col gap-2 w-full">
         <button
           type="button"
-          onClick={async () => {
-            if (!telegramUserId) return;
-            try {
-              hapticImpact('medium');
-              const res = await requestStarsInvoice(telegramUserId, 'elite');
-              if (res.ok && res.invoiceLink && window.Telegram?.WebApp?.openInvoice) {
-                window.Telegram.WebApp.openInvoice(res.invoiceLink, (status) => {
-                  if (status === 'paid') {
-                    hapticImpact('heavy');
-                    setToast('✅ Premium activated!');
-                    setTimeout(() => window.location.reload(), 1500);
-                  }
-                });
-              }
-            } catch (err: any) {
-              setToast(err.message || 'Payment failed');
+          onClick={() => {
+            const url = import.meta.env.VITE_INVITEMEMBER_BOT_URL;
+            if (!url) {
+              setToast('Payment link not configured');
               setTimeout(() => setToast(null), 3000);
+              return;
             }
+            hapticImpact('medium');
+            window.Telegram?.WebApp?.openTelegramLink?.(url);
           }}
           className="group relative flex w-full shrink-0 flex-col rounded-2xl border-2 border-yellow-500/50 bg-gradient-to-b from-slate-900 to-black p-5 text-left shadow-[0_0_60px_rgba(250,204,21,0.2),_0_16px_40px_rgba(0,0,0,0.6)] transition-all active:scale-[0.98]"
         >
