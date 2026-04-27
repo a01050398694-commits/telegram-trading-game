@@ -81,9 +81,9 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
                   }
                 });
               } else {
-                // Fallback for desktop testing where openInvoice is not available
-                const url = import.meta.env.VITE_INVITEMEMBER_BOT_URL;
-                if (url) openTelegramLinkSafe(url);
+                // Stage 14.3: Prevent desktop users from being kicked to a dead bot chat.
+                // Telegram Desktop doesn't fully support openInvoice. Instruct them to use mobile.
+                setToast('⚠️ PC 결제 미지원. 스마트폰 텔레그램 앱을 이용해주세요.');
               }
             } catch (err: any) {
               setToast(err.message || 'Payment failed');
@@ -115,22 +115,7 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
           </div>
         </button>
 
-        <button
-          type="button"
-          onClick={() => {
-            const botUsername = import.meta.env.VITE_BOT_USERNAME || 'Tradergames_bot';
-            openTelegramLinkSafe(`https://t.me/${botUsername}?text=/premium`);
-          }}
-          className="group relative flex w-full items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-left transition-all active:scale-[0.98]"
-        >
-          <div className="flex items-center gap-2">
-            <span className="shrink-0 text-lg">✅</span>
-            <span className="break-words whitespace-normal text-[12px] font-bold text-emerald-300">
-              {t('academy.referral.unlock')}
-            </span>
-          </div>
-          <span className="text-[10px] text-emerald-400/60 underline underline-offset-2">Click</span>
-        </button>
+
       </div>
       )}
 

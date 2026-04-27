@@ -165,8 +165,8 @@ export function TradeTab({
           setStarsPending(false);
         });
       } else {
-        const fallbackUrl = import.meta.env.VITE_INVITEMEMBER_BOT_URL;
-        if (fallbackUrl) openTelegramLinkSafe(fallbackUrl);
+        // Stage 14.3: Prevent desktop users from being kicked to a dead bot chat.
+        setStarsError('⚠️ PC 결제 미지원. 스마트폰 텔레그램 앱을 이용해 주세요.');
         setStarsPending(false);
       }
     } catch (err) {
