@@ -157,6 +157,7 @@ export function TradeTab({
       const { invoiceLink } = await requestStarsInvoice(telegramUserId, 'reset');
       const openInvoice = window.Telegram?.WebApp?.openInvoice;
       if (openInvoice) {
+        // 모바일: 네이티브 결제 시트
         openInvoice(invoiceLink, (status) => {
           if (status === 'paid') {
             void refresh();
@@ -165,8 +166,13 @@ export function TradeTab({
           setStarsPending(false);
         });
       } else {
-        // Stage 14.3: Prevent desktop users from being kicked to a dead bot chat.
-        setStarsError('⚠️ PC 결제 미지원. 스마트폰 텔레그램 앱을 이용해 주세요.');
+        // 데스크탑: invoiceLink URL을 직접 열어 텔레그램 결제 대화창 실행
+        const openLink = window.Telegram?.WebApp?.openTelegramLink;
+        if (openLink) {
+          openLink(invoiceLink);
+        } else {
+          window.open(invoiceLink, '_blank');
+        }
         setStarsPending(false);
       }
     } catch (err) {

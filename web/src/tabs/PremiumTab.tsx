@@ -72,18 +72,26 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
               hapticImpact('medium');
               setIsPaying(true);
               const res = await requestStarsInvoice(telegramUserId, 'elite');
-              if (res.ok && res.invoiceLink && window.Telegram?.WebApp?.openInvoice) {
-                window.Telegram.WebApp.openInvoice(res.invoiceLink, (status) => {
-                  if (status === 'paid') {
-                    hapticImpact('heavy');
-                    setToast('✅ Premium activated!');
-                    setTimeout(() => window.location.reload(), 1500);
+              if (res.ok && res.invoiceLink) {
+                const openInvoice = window.Telegram?.WebApp?.openInvoice;
+                if (openInvoice) {
+                  // 모바일: 네이티브 결제 시트 팝업
+                  openInvoice(res.invoiceLink, (status) => {
+                    if (status === 'paid') {
+                      hapticImpact('heavy');
+                      setToast('✅ Premium activated!');
+                      setTimeout(() => window.location.reload(), 1500);
+                    }
+                  });
+                } else {
+                  // 데스크탑: invoiceLink URL을 직접 열어서 텔레그램 결제 대화창 실행
+                  const openLink = window.Telegram?.WebApp?.openTelegramLink;
+                  if (openLink) {
+                    openLink(res.invoiceLink);
+                  } else {
+                    window.open(res.invoiceLink, '_blank');
                   }
-                });
-              } else {
-                // Stage 14.3: Prevent desktop users from being kicked to a dead bot chat.
-                // Telegram Desktop doesn't fully support openInvoice. Instruct them to use mobile.
-                setToast('⚠️ PC 결제 미지원. 스마트폰 텔레그램 앱을 이용해주세요.');
+                }
               }
             } catch (err: any) {
               setToast(err.message || 'Payment failed');
