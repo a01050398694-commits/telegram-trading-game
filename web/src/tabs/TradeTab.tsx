@@ -12,7 +12,7 @@ import { FundingTicker } from '../components/FundingTicker';
 import { useBinanceFeed } from '../lib/useBinanceFeed';
 import { calcPnl } from '../lib/format';
 import { MARKETS, type MarketSymbol } from '../lib/markets';
-import { hapticNotification } from '../utils/telegram';
+import { hapticNotification, openTelegramLinkSafe } from '../utils/telegram';
 import {
   ApiError,
   closeTrade,
@@ -149,7 +149,7 @@ export function TradeTab({
       hapticNotification('error');
       return;
     }
-    window.Telegram?.WebApp?.openTelegramLink?.(url);
+    openTelegramLinkSafe(url);
   };
 
   const panelDisabled = telegramUserId === null || isLiquidated;

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { openTelegramLinkSafe } from '../utils/telegram';
 import { formatMoney, formatUSD, calcPnl } from '../lib/format';
 import { getMarket } from '../lib/markets';
 import { ShareROIButton } from '../components/ShareROIButton';
@@ -112,7 +113,7 @@ export function PortfolioTab({ telegramUserId, status }: PortfolioTabProps) {
   const handleRecharge = () => {
     const url = import.meta.env.VITE_INVITEMEMBER_BOT_URL;
     if (!url) return;
-    window.Telegram?.WebApp?.openTelegramLink?.(url);
+    openTelegramLinkSafe(url);
   };
 
   return (

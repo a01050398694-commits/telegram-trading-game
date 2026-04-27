@@ -64,7 +64,23 @@ export default function App() {
     };
   }, [telegramUserId, refresh]);
 
-  if (telegramUserId !== null && status === null && statusError === null) {
+  if (telegramUserId !== null && status === null) {
+    if (statusError !== null) {
+      return (
+        <div className="flex h-[100dvh] flex-col items-center justify-center bg-slate-950 px-6 text-center text-white">
+          <div className="mb-4 text-4xl">⚠️</div>
+          <div className="text-lg font-bold text-rose-400">Connection Failed</div>
+          <div className="mt-2 text-[12px] text-slate-400">{statusError}</div>
+          <button 
+            type="button"
+            onClick={() => void refresh()} 
+            className="mt-6 rounded-xl border border-rose-500/50 bg-rose-500/20 px-6 py-3 text-sm font-bold text-rose-300 hover:bg-rose-500/30 active:scale-[0.98] transition-all"
+          >
+            Retry Connection
+          </button>
+        </div>
+      );
+    }
     return (
       <div className="flex h-[100dvh] flex-col items-center justify-center bg-slate-950 text-white">
         <div className="text-4xl">🚀</div>

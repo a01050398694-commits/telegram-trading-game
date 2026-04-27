@@ -131,7 +131,7 @@ export function ActionPanel({
         >
           <span className="pointer-events-none absolute inset-x-2 top-0 h-1/2 rounded-t-xl bg-gradient-to-b from-white/15 to-transparent" />
           <span className="relative drop-shadow-[0_1px_1px_rgba(0,0,0,0.4)]">
-            {pending ? 'Closing…' : 'Close Position'}
+            {pending ? 'Closing...' : 'Close Position'}
           </span>
         </button>
         {errorMessage && (
@@ -252,7 +252,7 @@ export function ActionPanel({
             Long / Buy
           </span>
           <span className="relative mt-0.5 font-mono text-xl font-black leading-none tracking-tight drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]">
-            {pending ? '…' : isLoadingPrice ? 'Loading...' : '▲ LONG'}
+            {pending ? 'Submitting...' : isLoadingPrice ? 'Loading...' : '↗ LONG'}
           </span>
           <span className="relative mt-2 font-mono text-[10px] font-semibold text-white/70">
             Liq. ${longLiq !== null ? formatUSD(longLiq) : '--'}
@@ -273,7 +273,7 @@ export function ActionPanel({
             Short / Sell
           </span>
           <span className="relative mt-0.5 font-mono text-xl font-black leading-none tracking-tight drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]">
-            {pending ? '…' : isLoadingPrice ? 'Loading...' : '▼ SHORT'}
+            {pending ? 'Submitting...' : isLoadingPrice ? 'Loading...' : '↘ SHORT'}
           </span>
           <span className="relative mt-2 font-mono text-[10px] font-semibold text-white/70">
             Liq. ${shortLiq !== null ? formatUSD(shortLiq) : '--'}

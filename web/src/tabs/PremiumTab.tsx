@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { EXCHANGES, getExchange, levelLabel, type VerificationLevel } from '../lib/exchanges';
-import { hapticImpact, hapticSelection } from '../utils/telegram';
+import { hapticImpact, hapticSelection, openTelegramLinkSafe } from '../utils/telegram';
 import { ApiError, submitVerification, type ServerVerification, type UserStatus } from '../lib/api';
 
 // Stage 8.15 — Payment Modal 전면 폐기 → 인라인 아코디언.
@@ -72,7 +72,7 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
               return;
             }
             hapticImpact('medium');
-            window.Telegram?.WebApp?.openTelegramLink?.(url);
+            openTelegramLinkSafe(url);
           }}
           className="group relative flex w-full shrink-0 flex-col rounded-2xl border-2 border-yellow-500/50 bg-gradient-to-b from-slate-900 to-black p-5 text-left shadow-[0_0_60px_rgba(250,204,21,0.2),_0_16px_40px_rgba(0,0,0,0.6)] transition-all active:scale-[0.98]"
         >
@@ -100,10 +100,8 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
         <button
           type="button"
           onClick={() => {
-            if (window.Telegram?.WebApp) {
-              const botUsername = import.meta.env.VITE_BOT_USERNAME || 'Tradergames_bot';
-              window.Telegram.WebApp.openTelegramLink?.(`https://t.me/${botUsername}?text=/premium`);
-            }
+            const botUsername = import.meta.env.VITE_BOT_USERNAME || 'Tradergames_bot';
+            openTelegramLinkSafe(`https://t.me/${botUsername}?text=/premium`);
           }}
           className="group relative flex w-full items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-left transition-all active:scale-[0.98]"
         >

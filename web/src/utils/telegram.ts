@@ -169,3 +169,12 @@ export async function shareROI(args: {
 export function isInsideTelegram(): boolean {
   return getTg() !== null;
 }
+
+export function openTelegramLinkSafe(url: string): void {
+  const tg = getTg();
+  if (tg?.openTelegramLink) {
+    tg.openTelegramLink(url);
+  } else {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+}

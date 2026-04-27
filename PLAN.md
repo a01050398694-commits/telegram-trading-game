@@ -34,3 +34,47 @@
 3. 배포 완료 후, 텔레그램 미니앱을 켜고 `Failed to fetch` 에러가 완벽히 사라졌는지(백엔드 API 통신 정상화) 확인합니다.
 4. 모든 결제/업그레이드 버튼을 클릭해보고 `@gunymarketing_bot`으로 정상 리다이렉트되는지 전수조사합니다.
 
+### Stage 14.1 (UX Polishing) [완료]
+1. `App.tsx`: 초기 API 로드 실패 시(statusError 발생), 유저를 가짜 $100k 계좌로 입장시키지 않고, 꽉 찬 에러 스크린("Connection Failed")과 "Retry Connection" 버튼을 띄우도록 수정 완료.
+2. `utils/telegram.ts`: 데스크탑 환경 등 Telegram 밖에서 접속했을 때를 대비하여 `openTelegramLinkSafe(url)`를 신규 제작하여 `window.open` fallback 추가 완료.
+3. `PremiumTab.tsx` 등: 모든 결제 링크 진입부를 방금 만든 `openTelegramLinkSafe`로 전면 교체 완료.
+4. `ActionPanel.tsx`: 주문 버튼 클릭 시 불명확한 `...` 문구를 `Submitting...`으로 변경하여 소비자 관점 로딩 UI/UX 최적화 완료.
+
+---
+
+# [Stage 14.1] UX Polishing — Errors, Payment Fallback, Trade Pending
+
+## Objective
+Stage 14에서 결제 흐름과 백엔드 도달성 골격을 갖춘 다음, 소비자 관점에서 발견된 거친 UX 모서리를 정밀하게 깎는다. 가짜 데이터 노출, 일반 브라우저에서 죽는 결제 버튼, 의미 없는 `…` pending 라벨을 모두 제거한다.
+
+## Atomic Tasks
+
+### Task 1 — App.tsx Connection Failed 가드
+- 초기 로딩 중 `statusError`가 존재하고 `status`가 아직 들어오지 않은 상태에서, 가짜 데이터로 탭을 렌더하지 않는다.
+- 전역 `Connection Failed` 풀스크린(⚠️ 아이콘 + 붉은색 경고 텍스트 + 에러 메시지)을 표시하고, 중앙의 `Retry Connection` 버튼이 `refresh()`를 호출하도록 한다.
+- (현재 상태) `web/src/App.tsx` 67–92행에 이미 구현 — 회귀 방지 차원에서 이 스펙을 PLAN에 박제.
+
+### Task 2 — `openTelegramLinkSafe` 헬퍼
+- `web/src/utils/telegram.ts`에 `openTelegramLinkSafe(url: string): void` 추가.
+- 텔레그램 WebApp 컨텍스트면 `window.Telegram.WebApp.openTelegramLink`를 사용하고, 일반 브라우저 컨텍스트면 `window.open(url, '_blank', 'noopener,noreferrer')`로 폴백.
+- (현재 상태) `web/src/utils/telegram.ts` 173–180행에 구현 완료.
+
+### Task 3 — 결제 버튼 일관성
+- `web/src/tabs/PremiumTab.tsx`, `web/src/tabs/TradeTab.tsx`, `web/src/tabs/PortfolioTab.tsx`에서 InviteMember 결제 봇으로 보내는 모든 버튼의 `onClick`이 `openTelegramLinkSafe(url)`를 사용하도록 통일한다.
+- 직접 `window.Telegram?.WebApp?.openTelegramLink?.(...)`를 호출하는 코드는 전부 제거.
+
+### Task 4 — Trade pending 라벨
+- `web/src/components/ActionPanel.tsx`의 LONG/SHORT 버튼이 `pending` 상태일 때 보여주던 `…`을 `Submitting...`으로 교체. Close 버튼은 기존 `Closing…`을 유지(이미 명확).
+
+### Task 5 — PLAN.md 기록
+- 이 Stage 14.1 섹션을 PLAN.md 하단에 추가하여 다음 세션에서도 이 UX 합의가 어디서 왔는지 추적 가능하게 한다.
+
+## Negative Constraints
+- VIPTab의 `openTelegramLink` 호출은 결제와 무관(VIP 라운지 채널 입장)하므로 이번 변경 범위에서 제외.
+- 백엔드(`bot/**`) 코드 변경 금지 — Stage 14 Task 2 범위.
+- 청산 오버레이의 디자인/카피는 건드리지 않는다.
+
+## Verification
+- 결제 관련 onClick이 `openTelegramLinkSafe`만 사용하는가? (`grep -rE "openTelegramLink\??\.\(" web/src/tabs`로 직접 호출 0건이어야 함)
+- LONG/SHORT 버튼에서 `pending` 시 `Submitting...`이 노출되는가?
+- `tsc --noEmit` 통과.
