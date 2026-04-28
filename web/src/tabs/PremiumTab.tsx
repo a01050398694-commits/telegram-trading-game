@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { EXCHANGES, getExchange, levelLabel, type VerificationLevel } from '../lib/exchanges';
-import { hapticImpact, hapticSelection, openStarsInvoice } from '../utils/telegram';
+import { hapticImpact, hapticSelection, openStarsInvoice, showAlertSafe } from '../utils/telegram';
 import { ApiError, submitVerification, requestStarsInvoice, type ServerVerification, type UserStatus } from '../lib/api';
 
 // Stage 8.15 — Payment Modal 전면 폐기 → 인라인 아코디언.
@@ -67,10 +67,10 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
           type="button"
           disabled={isPaying}
           onClick={async () => {
-            // Stage 14.4 — silent fail 제거. 모든 실패 분기에 사용자 피드백.
             if (!telegramUserId) {
-              setToast('Telegram 사용자 정보 로딩 중. 잠시 후 다시 시도해주세요.');
-              window.setTimeout(() => setToast(null), 3000);
+              showAlertSafe(
+                'Telegram 사용자 정보를 불러오지 못했습니다.\n\n원인: 일반 브라우저로 직접 접속했거나 Telegram WebApp 초기화 전입니다.\n\n해결: 텔레그램 봇 안에서 미니앱을 다시 열어주세요.',
+              );
               return;
             }
             hapticImpact('medium');
@@ -80,11 +80,11 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
               const res = await requestStarsInvoice(telegramUserId, 'elite');
               if (!res.invoiceLink) {
                 console.error('[Payment] server returned no invoiceLink:', res);
-                setToast('Server returned no invoice link. Try again.');
-                window.setTimeout(() => setToast(null), 3000);
+                showAlertSafe('서버가 invoice link 를 반환하지 않았습니다.\n\n응답: ' + JSON.stringify(res));
                 setIsPaying(false);
                 return;
               }
+              // Stage 14.4.1 진단 모드 — 결제창 안 뜨는 원인 사후 추적용. 정상 동작 검증 후 제거.
               const path = openStarsInvoice(
                 res.invoiceLink,
                 () => {
@@ -93,18 +93,23 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
                   window.setTimeout(() => window.location.reload(), 1500);
                 },
                 (reason) => {
-                  setToast(reason);
-                  window.setTimeout(() => setToast(null), 3000);
+                  showAlertSafe('결제 실패: ' + reason);
                   setIsPaying(false);
                 },
               );
-              // 'native' 분기는 콜백에서 setIsPaying 처리, 'tg-link'/'browser-redirect' 는 즉시 false.
+              showAlertSafe(
+                `[결제 진단]\n경로: ${path}\nlink: ${res.invoiceLink}\n\n` +
+                  (path === 'native'
+                    ? '→ openInvoice 호출됨. Stars 결제 시트가 떠야 합니다.\n시트가 안 뜨면 봇파더에서 Stars 결제 활성화 확인.'
+                    : path === 'tg-link'
+                      ? '→ openTelegramLink 호출됨. Telegram 결제 대화창으로 이동해야 합니다.'
+                      : '→ location.href 로 redirect. 텔레그램 앱이 deep link 를 잡아채야 합니다.'),
+              );
               if (path !== 'native') setIsPaying(false);
             } catch (err) {
               const msg = err instanceof Error ? err.message : 'Payment failed';
               console.error('[Payment] PremiumTab error:', err);
-              setToast(msg);
-              window.setTimeout(() => setToast(null), 3000);
+              showAlertSafe('결제 API 호출 실패: ' + msg);
               setIsPaying(false);
             }
           }}

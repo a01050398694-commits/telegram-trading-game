@@ -12,7 +12,7 @@ import { FundingTicker } from '../components/FundingTicker';
 import { useBinanceFeed } from '../lib/useBinanceFeed';
 import { calcPnl } from '../lib/format';
 import { MARKETS, type MarketSymbol } from '../lib/markets';
-import { hapticNotification, openStarsInvoice } from '../utils/telegram';
+import { hapticNotification, openStarsInvoice, showAlertSafe } from '../utils/telegram';
 import {
   ApiError,
   closeTrade,
@@ -146,12 +146,12 @@ export function TradeTab({
     }
   };
 
-  // Stage 14.4 — openStarsInvoice 헬퍼로 통일.
-  // 데스크탑 결제창이 안 뜨던 원인: window.open 이 await 후 호출돼 popup blocker 차단.
-  // 헬퍼가 native sheet → openTelegramLink → location.href 순으로 안전하게 폴백.
+  // Stage 14.4 — openStarsInvoice 헬퍼 + Stage 14.4.1 진단 alert.
   const handleRecharge = async () => {
     if (telegramUserId === null) {
-      setStarsError('Telegram 사용자 정보 로딩 중. 잠시 후 다시 시도해주세요.');
+      showAlertSafe(
+        'Telegram 사용자 정보를 불러오지 못했습니다.\n\n텔레그램 봇 안에서 미니앱을 다시 열어주세요.',
+      );
       return;
     }
     setStarsError(null);
@@ -160,7 +160,7 @@ export function TradeTab({
       console.log('[Payment] TradeTab handleRecharge clicked, telegramUserId=', telegramUserId);
       const { invoiceLink } = await requestStarsInvoice(telegramUserId, 'reset');
       if (!invoiceLink) {
-        setStarsError('Server returned no invoice link. Try again.');
+        showAlertSafe('서버가 invoice link 를 반환하지 않았습니다. 봇 토큰/Stars 결제 설정 확인 필요.');
         setStarsPending(false);
         return;
       }
@@ -172,15 +172,25 @@ export function TradeTab({
           setStarsPending(false);
         },
         (reason) => {
+          showAlertSafe('결제 실패: ' + reason);
           setStarsError(reason);
           hapticNotification('error');
           setStarsPending(false);
         },
       );
+      showAlertSafe(
+        `[결제 진단]\n경로: ${path}\nlink: ${invoiceLink}\n\n` +
+          (path === 'native'
+            ? '→ openInvoice 호출됨. Stars 결제 시트가 떠야 합니다.\n안 뜨면 봇파더 Stars 결제 활성화 확인.'
+            : path === 'tg-link'
+              ? '→ openTelegramLink 로 이동.'
+              : '→ location.href redirect.'),
+      );
       if (path !== 'native') setStarsPending(false);
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : (err as Error).message;
       console.error('[Payment] TradeTab handleRecharge error:', err);
+      showAlertSafe('결제 API 호출 실패: ' + msg);
       setStarsError(msg);
       hapticNotification('error');
       setStarsPending(false);

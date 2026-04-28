@@ -170,6 +170,23 @@ export function isInsideTelegram(): boolean {
   return getTg() !== null;
 }
 
+// Stage 14.4 — 진단/에러용 native popup. setToast 는 작아서 놓치기 쉬움.
+// Telegram WebApp 컨텍스트면 showAlert (네이티브 모달), 일반 브라우저면 window.alert.
+export function showAlertSafe(message: string): void {
+  const tg = getTg();
+  if (tg?.showAlert) {
+    try {
+      tg.showAlert(message);
+      return;
+    } catch {
+      /* 폴백 */
+    }
+  }
+  if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+    window.alert(message);
+  }
+}
+
 export function openTelegramLinkSafe(url: string): void {
   const tg = getTg();
   if (tg?.openTelegramLink) {
