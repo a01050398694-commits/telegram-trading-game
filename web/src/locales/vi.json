@@ -68,38 +68,38 @@
     "heroSubtitle": "Structured trading education for serious learners. No gambling — only practice.",
     "planFree": "Free",
     "planPremium": "Academy",
-    "planLifetime": "Lifetime",
+    "planLifetime": "Premium Monthly",
     "priceFree": "$0",
     "pricePremium": "$29.99",
-    "priceLifetime": "$7.99",
+    "priceLifetime": "$39.99",
     "subtitleFree": "Demo",
     "subtitlePremium": "/mo",
-    "subtitleLifetime": "/mo forever",
-    "bestValue": "ELITE LIFETIME PASS",
+    "subtitleLifetime": "/month",
+    "bestValue": "PREMIUM SUBSCRIPTION",
     "features": {
       "multiChart": "Multi-Coin Charts",
-      "dailySeed": "One-time $100K Practice Seed",
-      "eliteChat": "Elite Analyst Club Access",
-      "tournament": "Global Paper Trading Tournament",
-      "resetDiscount": "Risk Reset −30%",
-      "lifetimeDiscount": "Lifetime Academy Discount"
+      "dailySeed": "$10K Practice Seed + Auto $10K Refill Every 2 Weeks",
+      "eliteChat": "askbit Community Access",
+      "tournament": "Portfolio Analysis & Coaching",
+      "resetDiscount": "$2.99 Recharge ($1K)",
+      "lifetimeDiscount": "Priority Support"
     },
     "verify": {
       "title": "Verify Exchange UID",
-      "hint": "Sign up with an official partner exchange and verify your UID to unlock the full Lifetime Academy benefits for free.",
+      "hint": "Sign up with an official partner exchange and verify your UID to unlock Premium benefits for free.",
       "uid": "Exchange UID",
       "exchange": "Exchange",
       "submit": "Submit for Review",
       "pending": "Your submission is under review.",
       "approvedTitle": "Verified",
-      "approvedHint": "Lifetime Academy benefits are now active on your account.",
+      "approvedHint": "Premium benefits are now active on your account.",
       "errSelectExchange": "Select an exchange.",
       "errUidShort": "UID must be at least 3 characters.",
       "errNoTelegram": "Open this app inside Telegram to submit verification."
     },
     "hub": {
-      "upgradeCta": "Upgrade to Elite Lifetime Pass",
-      "upgradeSub": "$7.99/mo · locked forever · free with verified UID",
+      "upgradeCta": "Subscribe to Premium",
+      "upgradeSub": "$39.99/mo · Auto $10K refill · Portfolio Analysis · askbit Community",
       "library": "Education Library",
       "comingSoon": "Available Soon",
       "lessons": {
@@ -121,7 +121,7 @@
         }
       }
     },
-    "unlock": "Unlock after payment"
+    "unlock": "Processing payment…"
   },
   "settings": {
     "title": "Settings",

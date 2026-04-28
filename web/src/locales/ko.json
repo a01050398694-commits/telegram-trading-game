@@ -68,38 +68,38 @@
     "heroSubtitle": "진지한 학습자를 위한 체계적 트레이딩 교육, 도박이 아닌 순수 연습 환경",
     "planFree": "Free",
     "planPremium": "Academy",
-    "planLifetime": "Lifetime",
+    "planLifetime": "프리미엄 월간",
     "priceFree": "$0",
     "pricePremium": "$29.99",
-    "priceLifetime": "$7.99",
+    "priceLifetime": "$39.99",
     "subtitleFree": "데모",
     "subtitlePremium": "/월",
-    "subtitleLifetime": "/월 평생",
-    "bestValue": "ELITE LIFETIME PASS",
+    "subtitleLifetime": "/월",
+    "bestValue": "프리미엄 구독",
     "features": {
       "multiChart": "멀티 코인 차트",
-      "dailySeed": "최초 1회 $100K 연습 시드",
-      "eliteChat": "엘리트 애널리스트 클럽 입장",
-      "tournament": "글로벌 모의 트레이딩 토너먼트",
-      "resetDiscount": "리스크 리셋 30% 할인",
-      "lifetimeDiscount": "평생 아카데미 할인"
+      "dailySeed": "$10K 연습 시드 + 2주마다 $10K 자동 충전",
+      "eliteChat": "askbit 커뮤니티 입장",
+      "tournament": "포트폴리오 분석 & 코칭",
+      "resetDiscount": "$2.99 리차지 ($1K)",
+      "lifetimeDiscount": "우선 지원"
     },
     "verify": {
       "title": "거래소 UID 인증",
-      "hint": "공식 제휴 거래소 가입 후 UID를 인증하면, 평생 아카데미 혜택을 무료로 받으실 수 있습니다",
+      "hint": "공식 제휴 거래소 가입 후 UID를 인증하면, 프리미엄 혜택을 무료로 받으실 수 있습니다",
       "uid": "거래소 UID",
       "exchange": "거래소",
       "submit": "심사 제출",
       "pending": "제출 내역을 심사 중입니다",
       "approvedTitle": "인증 완료",
-      "approvedHint": "평생 아카데미 혜택이 활성화되었습니다.",
+      "approvedHint": "프리미엄 혜택이 활성화되었습니다.",
       "errSelectExchange": "거래소를 선택해 주세요.",
       "errUidShort": "UID는 최소 3자 이상이어야 합니다.",
       "errNoTelegram": "텔레그램 앱에서 열어야 인증 제출이 가능합니다."
     },
     "hub": {
-      "upgradeCta": "엘리트 평생 패스 업그레이드",
-      "upgradeSub": "월 $7.99 · 평생 고정 · UID 인증 시 무료",
+      "upgradeCta": "프리미엄 구독하기",
+      "upgradeSub": "월 $39.99 · 2주마다 $10K 자동 충전 · 포트폴리오 분석 · askbit 커뮤니티",
       "library": "교육 라이브러리",
       "comingSoon": "곧 공개 예정",
       "lessons": {
@@ -121,7 +121,7 @@
         }
       }
     },
-    "unlock": "결제를 완료하셨나요? 락 풀기"
+    "unlock": "결제 처리 중…"
   },
   "settings": {
     "title": "설정",

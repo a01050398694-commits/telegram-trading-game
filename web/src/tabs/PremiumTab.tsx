@@ -373,7 +373,7 @@ function InlineUpgradeForm({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Lifetime Black Card — 재사용. */}
+      {/* Premium Subscription Card */}
       <div className="relative overflow-visible rounded-3xl border-2 border-yellow-500/50 bg-gradient-to-b from-slate-900 to-black p-6 shadow-[0_0_60px_rgba(250,204,21,0.2),_0_20px_50px_rgba(0,0,0,0.7)]">
           <div className="pointer-events-none absolute inset-x-6 top-0 h-[1px] bg-gradient-to-r from-transparent via-yellow-400/70 to-transparent" />
           <div className="text-[10px] font-black uppercase tracking-[0.35em] text-amber-300/90">
