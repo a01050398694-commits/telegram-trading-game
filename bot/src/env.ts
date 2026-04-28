@@ -52,9 +52,9 @@ export const env = {
   SUPABASE_ANON_KEY: required('SUPABASE_ANON_KEY'),
   SUPABASE_SERVICE_ROLE_KEY: optional('SUPABASE_SERVICE_ROLE_KEY', ''),
 
-  // Trading engine — Stage 6: USD scale. 기본 시드 $100,000 (정수 달러 단위 저장).
-  // DB 스키마는 bigint 그대로 재사용하되, 의미 단위만 '원' → 'USD 정수 달러' 로 전환.
-  DAILY_ALLOWANCE: BigInt(optional('DAILY_ALLOWANCE', '100000')),
+  // Trading engine — Stage 15.1: 무료 자본 $10,000 (계정당 1회만, free_credit_used flag 로 보장).
+  // 청산 시 InviteMember Recharge 결제 ($2.99) 로 +$1,000 충전.
+  DAILY_ALLOWANCE: BigInt(optional('DAILY_ALLOWANCE', '10000')),
   MARKET_SYMBOLS: list('MARKET_SYMBOLS', 'btcusdt,ethusdt,solusdt'),
   
   VIP_CHAT_ID: optional('VIP_CHAT_ID', ''),

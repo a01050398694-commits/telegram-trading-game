@@ -4,18 +4,16 @@ import { hapticImpact } from '../utils/telegram';
 
 type LiquidationOverlayProps = {
   rechargeAmount: number;
-  starsCost: number;
-  pending: boolean;
+  priceLabel: string;
   errorMessage: string | null;
   onRecharge: () => void;
 };
 
 // Stage 8.0 — "Liquidated" 도박성 용어 제거.
-// 교육 메시지: 모의 증거금 소진 → 리스크 관리 연습 리셋.
+// Stage 15.1 — 결제는 InviteMember 외부 redirect 라 pending state 불요. priceLabel 만 노출.
 export function LiquidationOverlay({
   rechargeAmount,
-  starsCost,
-  pending,
+  priceLabel,
   errorMessage,
   onRecharge,
 }: LiquidationOverlayProps) {
@@ -34,19 +32,16 @@ export function LiquidationOverlay({
 
       <button
         type="button"
-        disabled={pending}
         onClick={() => {
           hapticImpact('heavy');
           onRecharge();
         }}
-        className="w-full rounded-xl border border-amber-400/30 bg-gradient-to-r from-amber-500 to-amber-400 px-4 py-4 text-slate-900 shadow-lg shadow-amber-500/20 transition-all duration-150 hover:brightness-110 active:scale-[0.98] disabled:cursor-wait disabled:opacity-60"
+        className="w-full rounded-xl border border-amber-400/30 bg-gradient-to-r from-amber-500 to-amber-400 px-4 py-4 text-slate-900 shadow-lg shadow-amber-500/20 transition-all duration-150 hover:brightness-110 active:scale-[0.98]"
       >
         <div className="font-mono text-[10px] font-bold uppercase tracking-widest opacity-70">
           {t('liquidation.resetCta')} · {formatMoney(rechargeAmount)}
         </div>
-        <div className="mt-0.5 text-lg font-extrabold">
-          {pending ? t('common.loading') : `${starsCost} ⭐`}
-        </div>
+        <div className="mt-0.5 text-lg font-extrabold">{priceLabel}</div>
       </button>
 
       {errorMessage && (

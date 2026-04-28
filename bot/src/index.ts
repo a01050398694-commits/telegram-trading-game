@@ -7,7 +7,6 @@ import { createSupabase } from './db/supabase.js';
 import { TradingEngine } from './engine/trading.js';
 import { RankingEngine } from './engine/ranking.js';
 import { ChatSwitcher } from './engine/chatSwitcher.js';
-import { ReferralMissionEngine } from './engine/referralMission.js';
 import { RetentionCron } from './cron/retention.js';
 import { AffiliateReconcileCron } from './cron/affiliateReconcile.js';
 import { setupLiquidationRecovery } from './cron/recovery.js';
@@ -24,14 +23,8 @@ async function main(): Promise<void> {
   const engine = new TradingEngine(db);
   const priceCache = new PriceCache();
   const rankingEngine = new RankingEngine(db, priceCache);
-  // bot 은 referralMission 을 주입받아야 하므로 순서상 referralMission 을 먼저.
-  // 그러나 referralMission 은 bot 을 필요로 함 → 순환 의존. 해결: bot 인스턴스는
-  // 생성 후 engine 주입 방식. 아래에서 1) bot 먼저 2) referralMission 생성 3) bot.setReferralMissionEngine
-  const botContext = { referralMission: null as ReferralMissionEngine | null };
-  const bot = createBot(engine, botContext);
-  const referralMission = new ReferralMissionEngine(db, engine, bot);
-  botContext.referralMission = referralMission;
-  const server = createServer({ engine, priceCache, bot, rankingEngine, referralMission });
+  const bot = createBot(engine);
+  const server = createServer({ engine, priceCache, bot, rankingEngine });
   const chatSwitcher = new ChatSwitcher(bot, rankingEngine);
   const retentionCron = new RetentionCron(bot, db);
   const affiliateReconcileCron = new AffiliateReconcileCron(db);

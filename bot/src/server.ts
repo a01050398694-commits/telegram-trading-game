@@ -4,9 +4,7 @@ import { env } from './env.js';
 import crypto from 'node:crypto';
 import { type TradingEngine } from './engine/trading.js';
 import { type RankingEngine } from './engine/ranking.js';
-import { type ReferralMissionEngine } from './engine/referralMission.js';
 import { checkIsPremium } from './services/premiumCache.js';
-import { issuePromoCode } from './services/invitemember.js';
 import type { PriceCache } from './priceCache.js';
 import { tradeLimiter, readLimiter, adminLimiter } from './middleware/rateLimit.js';
 
@@ -23,7 +21,6 @@ type Deps = {
   priceCache: PriceCache;
   bot: Bot;
   rankingEngine: RankingEngine;
-  referralMission: ReferralMissionEngine;
 };
 
 // -------------------------------------------------------------------------
@@ -126,7 +123,7 @@ async function resolveUser(
 // -------------------------------------------------------------------------
 // Express 앱 구성 — 엔진/캐시/봇 을 주입받아 라우트 연결.
 // -------------------------------------------------------------------------
-export function createServer({ engine, priceCache, bot, rankingEngine, referralMission }: Deps): Express {
+export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): Express {
   const app = express();
   const yesterdayPnlCache = new Map<string, { value: number; date: string }>();
 
@@ -242,30 +239,6 @@ export function createServer({ engine, priceCache, bot, rankingEngine, referralM
         }
       }
 
-      // B-08 — 미션 상태. 실패 시 기본값으로 폴백.
-      let mission: {
-        referredCount: number;
-        milestone3Claimed: boolean;
-        milestone10Claimed: boolean;
-        promoCode: string | null;
-      } = {
-        referredCount: referralCount,
-        milestone3Claimed: false,
-        milestone10Claimed: false,
-        promoCode: null,
-      };
-      try {
-        const row = await referralMission.getStatus(resolved);
-        mission = {
-          referredCount: Math.max(referralCount, row.invited_count),
-          milestone3Claimed: row.milestone_3_claimed,
-          milestone10Claimed: row.milestone_10_claimed,
-          promoCode: row.promo_code,
-        };
-      } catch (err) {
-        console.error('[server] failed to fetch mission', err);
-      }
-
       res.json({
         userId: resolved,
         balance: wallet?.balance ?? 0,
@@ -302,7 +275,6 @@ export function createServer({ engine, priceCache, bot, rankingEngine, referralM
         yesterdayPnl,
         referralCount,
         history,
-        mission,
         telegramUserId,
       });
     } catch (err) {
@@ -621,8 +593,7 @@ export function createServer({ engine, priceCache, bot, rankingEngine, referralM
 
       if (vErr) throw new Error(`verification update failed: ${vErr.message}`);
 
-      // 2. 승인 시 is_verified 업데이트 + B-13 Promo code 자동 발급 DM
-      let issuedPromo: string | null = null;
+      // Stage 15.1 — 승인 시 is_verified 업데이트. Promo code 자동 발급은 폐기 (래퍼럴 시스템 제거).
       if (status === 'approved') {
         const { error: uErr } = await engine['db']
           .from('users')
@@ -630,22 +601,17 @@ export function createServer({ engine, priceCache, bot, rankingEngine, referralM
           .eq('id', userId);
         if (uErr) throw new Error(`user verify update failed: ${uErr.message}`);
 
-        // Promo 발급 + 텔레그램 DM. 실패해도 승인 흐름은 유지.
-        const promo = issuePromoCode();
-        if (promo.ok) {
-          issuedPromo = promo.code;
-          try {
-            const userRow = await engine.getUserById(userId);
-            if (userRow?.telegram_id) {
-              await bot.api.sendMessage(
-                userRow.telegram_id,
-                `✅ 거래소 UID 인증이 *승인*되었습니다!\n\n1개월 Academy Promo code 를 발송드립니다:\n\n\`${promo.code}\`\n\n구독 봇에서 적용해 주세요.`,
-                { parse_mode: 'Markdown' },
-              );
-            }
-          } catch (dmErr) {
-            console.warn('[server] approval DM failed:', dmErr);
+        try {
+          const userRow = await engine.getUserById(userId);
+          if (userRow?.telegram_id) {
+            await bot.api.sendMessage(
+              userRow.telegram_id,
+              `✅ 거래소 UID 인증이 *승인*되었습니다!\n\n이제 Premium 혜택을 이용하실 수 있습니다.`,
+              { parse_mode: 'Markdown' },
+            );
           }
+        } catch (dmErr) {
+          console.warn('[server] approval DM failed:', dmErr);
         }
       }
 
@@ -668,7 +634,6 @@ export function createServer({ engine, priceCache, bot, rankingEngine, referralM
         userId,
         status,
         message: `verification ${status}`,
-        promoCode: issuedPromo,
       });
     } catch (err) {
       console.error('[server] /admin/verify:', err);

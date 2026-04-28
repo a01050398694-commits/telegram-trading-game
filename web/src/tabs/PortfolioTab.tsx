@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { openStarsInvoice, showAlertSafe } from '../utils/telegram';
+import { openTelegramLinkSafe, hapticImpact } from '../utils/telegram';
 import { formatMoney, formatUSD, calcPnl } from '../lib/format';
 import { getMarket } from '../lib/markets';
 import { ShareROIButton } from '../components/ShareROIButton';
@@ -10,11 +10,9 @@ import { useBinanceFeed } from '../lib/useBinanceFeed';
 import {
   ApiError,
   fetchUserHistory,
-  requestStarsInvoice,
   type HistoryEntry,
   type UserStatus,
 } from '../lib/api';
-import { hapticNotification } from '../utils/telegram';
 
 type PortfolioTabProps = {
   telegramUserId: number | null;
@@ -26,16 +24,15 @@ type PortfolioTabProps = {
 //   · Hero Equity: font-size 6xl, metallic gradient, glassmorphism shell.
 //   · 3-stat 그리드: Balance · Margin · PnL (각 glass cell).
 //   · Position/History 섹션 backdrop-blur-xl + border-white/10 통일.
-const STARTING_SEED = 100_000;
+// Stage 15.1 — 무료 시작 자본 $100K → $10K.
+const STARTING_SEED = 10_000;
 
 export function PortfolioTab({ telegramUserId, status }: PortfolioTabProps) {
   const { t } = useTranslation();
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [referralToast, setReferralToast] = useState(false);
-  const [starsPending, setStarsPending] = useState(false);
-  const [starsError, setStarsError] = useState<string | null>(null);
+  const [rechargeError, setRechargeError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (telegramUserId === null) return;
@@ -93,102 +90,22 @@ export function PortfolioTab({ telegramUserId, status }: PortfolioTabProps) {
   const equityColor = isUp ? 'text-emerald-300' : isDown ? 'text-rose-300' : 'text-white';
   const equityGlow = ''; // Stage 8.12: Android drop-shadow vanishing bug fix
 
-  const handleReferralCopy = () => {
-    const botUsername = import.meta.env.VITE_BOT_USERNAME || 'Tradergames_bot';
-    const url = `https://t.me/${botUsername}?start=${telegramUserId ?? 'demo'}`;
-    // Stage 8.13 — clipboard API 가 거부되는 일부 Android WebView 대비 textarea fallback.
-    void navigator.clipboard?.writeText(url).catch(() => {
-      const ta = document.createElement('textarea');
-      ta.value = url;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      try {
-        document.execCommand('copy');
-      } finally {
-        document.body.removeChild(ta);
-      }
-    });
-    setReferralToast(true);
-    window.setTimeout(() => setReferralToast(false), 1800);
-  };
-
-  // Stage 14.4 + 14.4.1 진단 alert.
-  const handleRecharge = async () => {
-    if (telegramUserId === null) {
-      showAlertSafe(
-        'Telegram 사용자 정보를 불러오지 못했습니다.\n\n텔레그램 봇 안에서 미니앱을 다시 열어주세요.',
-      );
+  // Stage 15.1 — Recharge 결제 = InviteMember 멤버십 페이지 redirect.
+  // 결제 후 InviteMember 가 사용자를 RECHARGE 채널에 자동 초대 → 백엔드 (Stage 15.2)
+  // 가 채널 멤버 진입 감지 시 +$1,000 충전 후 자동 kick. 우리 프론트는 redirect 만.
+  const handleRecharge = () => {
+    setRechargeError(null);
+    hapticImpact('medium');
+    const url = import.meta.env.VITE_INVITEMEMBER_RECHARGE_URL;
+    if (!url) {
+      setRechargeError('Recharge link not configured');
       return;
     }
-    setStarsError(null);
-    setStarsPending(true);
-    try {
-      console.log('[Payment] PortfolioTab handleRecharge clicked, telegramUserId=', telegramUserId);
-      const { invoiceLink } = await requestStarsInvoice(telegramUserId, 'reset');
-      if (!invoiceLink) {
-        showAlertSafe('서버가 invoice link 를 반환하지 않았습니다. 봇 토큰/Stars 결제 설정 확인 필요.');
-        setStarsPending(false);
-        return;
-      }
-      const path = openStarsInvoice(
-        invoiceLink,
-        () => {
-          void load();
-          hapticNotification('success');
-          setStarsPending(false);
-        },
-        (reason) => {
-          showAlertSafe('결제 실패: ' + reason);
-          setStarsError(reason);
-          hapticNotification('error');
-          setStarsPending(false);
-        },
-      );
-      showAlertSafe(
-        `[결제 진단]\n경로: ${path}\nlink: ${invoiceLink}\n\n` +
-          (path === 'native'
-            ? '→ openInvoice 호출됨. Stars 결제 시트가 떠야 합니다.\n안 뜨면 봇파더 Stars 결제 활성화 확인.'
-            : path === 'tg-link'
-              ? '→ openTelegramLink 로 이동.'
-              : '→ location.href redirect.'),
-      );
-      if (path !== 'native') setStarsPending(false);
-    } catch (err) {
-      const msg = err instanceof ApiError ? err.message : (err as Error).message;
-      console.error('[Payment] PortfolioTab handleRecharge error:', err);
-      showAlertSafe('결제 API 호출 실패: ' + msg);
-      setStarsError(msg);
-      hapticNotification('error');
-      setStarsPending(false);
-    }
+    openTelegramLinkSafe(url);
   };
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-y-auto px-3 pb-[150px]">
-      {/* ── REFERRAL CTA ────────────────────────────────
-          Stage 8.16 — 안드로이드 CSS 버그(overflow-hidden + shadow 등 결합 시 높이 찌그러짐)를 원천 차단하기 위해
-          overflow-hidden 과 복잡한 box-shadow 제거. 둥근 테두리 및 단색 위주로 단순화. */}
-      <button
-        type="button"
-        onClick={handleReferralCopy}
-        className="relative mt-2 flex w-full items-center justify-between rounded-2xl border border-indigo-400/40 bg-gradient-to-r from-indigo-500/20 to-fuchsia-500/20 px-4 py-3 transition-transform active:scale-[0.98]"
-      >
-        <div className="flex items-center gap-3">
-          <span className="text-xl shrink-0">🎁</span>
-          <div className="text-left min-w-0">
-            <div className="text-[12px] font-bold text-white break-words">
-              {t('portfolio.referralTitle')}
-            </div>
-            <div className="text-[10px] text-indigo-200 mt-0.5">
-              {t('portfolio.referralSub')}
-            </div>
-          </div>
-        </div>
-        <span className="text-indigo-300 shrink-0 ml-2">→</span>
-      </button>
-
       {/* ── MASSIVE HERO TEXT (CARDLESS) ──────────────────
           Stage 8.16 — 박스/카드/border/backdrop-blur/그라디언트 전면 파기.
           안드로이드 WebView 의 카드 렌더링 버그(높이 collapse, 하단 증발)를 원천 차단하려면
@@ -231,20 +148,17 @@ export function PortfolioTab({ telegramUserId, status }: PortfolioTabProps) {
             <div className="w-full">
               <button
                 type="button"
-                disabled={starsPending}
                 onClick={handleRecharge}
-                className="w-full rounded-xl border border-amber-400/30 bg-gradient-to-r from-amber-500 to-amber-400 px-4 py-3.5 text-slate-900 shadow-lg shadow-amber-500/20 transition-all duration-150 hover:brightness-110 active:scale-[0.98] disabled:cursor-wait disabled:opacity-60"
+                className="w-full rounded-xl border border-amber-400/30 bg-gradient-to-r from-amber-500 to-amber-400 px-4 py-3.5 text-slate-900 shadow-lg shadow-amber-500/20 transition-all duration-150 hover:brightness-110 active:scale-[0.98]"
               >
                 <div className="font-mono text-[10px] font-bold uppercase tracking-widest opacity-70">
                   {t('liquidation.resetCta')}
                 </div>
-                <div className="mt-0.5 text-lg font-extrabold">
-                  {starsPending ? t('common.loading') : `150 ⭐`}
-                </div>
+                <div className="mt-0.5 text-lg font-extrabold">$2.99</div>
               </button>
-              {starsError && (
+              {rechargeError && (
                 <div className="mt-2 rounded-lg border border-rose-500/50 bg-rose-950/80 px-3 py-2 text-center text-[11px] font-medium text-rose-200">
-                  {starsError}
+                  {rechargeError}
                 </div>
               )}
             </div>
@@ -338,13 +252,6 @@ export function PortfolioTab({ telegramUserId, status }: PortfolioTabProps) {
 
       {/* Stage 8.9 — 물리 스페이서. pb-[150px] collapse 방지. */}
       <div className="h-[150px] shrink-0 pointer-events-none" aria-hidden="true" />
-
-      {/* Stage 8.13 — Referral 복사 완료 토스트. */}
-      {referralToast && (
-        <div className="pointer-events-none fixed bottom-32 left-1/2 z-40 -translate-x-1/2 rounded-full border border-indigo-400/40 bg-black/90 px-4 py-2 text-[11px] font-bold text-white backdrop-blur-xl">
-          {t('portfolio.referralCopied')}
-        </div>
-      )}
     </div>
   );
 }

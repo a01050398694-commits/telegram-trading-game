@@ -24,13 +24,6 @@ export type ServerVerification = {
   createdAt: string;
 };
 
-export type MissionStatus = {
-  referredCount: number;
-  milestone3Claimed: boolean;
-  milestone10Claimed: boolean;
-  promoCode: string | null;
-};
-
 export type UserStatus = {
   userId: string;
   balance: number;
@@ -45,7 +38,6 @@ export type UserStatus = {
   referralCount: number;
   telegramUserId: number;
   history: { date: string; pnl: number }[];
-  mission: MissionStatus;
 };
 
 export type OpenTradeInput = {
@@ -148,13 +140,6 @@ export function closeTrade(telegramUserId: number, positionId: string, fallbackP
   return request<CloseTradeResult>('/api/trade/close', {
     method: 'POST',
     body: JSON.stringify({ telegramUserId, positionId, fallbackPrice }),
-  });
-}
-
-export function requestStarsInvoice(telegramUserId: number, productType: 'reset' | 'elite' = 'reset'): Promise<{ ok: true; invoiceLink: string }> {
-  return request<{ ok: true; invoiceLink: string }>('/api/payment/stars', {
-    method: 'POST',
-    body: JSON.stringify({ telegramUserId, productType }),
   });
 }
 

@@ -1,14 +1,9 @@
 import { Bot, InlineKeyboard, type Context } from 'grammy';
 import { env } from './env.js';
 import type { TradingEngine } from './engine/trading.js';
-import type { ReferralMissionEngine } from './engine/referralMission.js';
 import { STARS_PAYLOAD_PREFIX, STARS_ELITE_PREFIX } from './server.js';
 import { setupCommunityFeatures } from './engine/community.js';
 import { botLocales, SupportedLang } from './locales.js';
-
-export type BotContext = {
-  referralMission: ReferralMissionEngine | null;
-};
 
 function formatBalance(n: number): string {
   return `$${n.toLocaleString('en-US')}`;
@@ -32,7 +27,7 @@ async function getLang(ctx: Context, engine?: TradingEngine): Promise<SupportedL
   return 'en';
 }
 
-export function createBot(engine: TradingEngine, context: BotContext): Bot {
+export function createBot(engine: TradingEngine): Bot {
   const bot = new Bot(env.BOT_TOKEN);
 
   setupCommunityFeatures(bot);
@@ -194,13 +189,6 @@ export function createBot(engine: TradingEngine, context: BotContext): Bot {
           console.error('[bot] grantReferralBonus:', bonusErr);
         }
 
-        if (context.referralMission && referrerUserId) {
-          try {
-            await context.referralMission.evaluateMilestones(referrerUserId);
-          } catch (missionErr) {
-            console.error('[bot] referral mission evaluate:', missionErr);
-          }
-        }
       }
       void bonusGranted;
 

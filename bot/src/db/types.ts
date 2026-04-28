@@ -98,10 +98,3 @@ export interface RankingSnapshotRow {
   created_at: string;
 }
 
-export interface ReferralMissionRow {
-  user_id: string;
-  invited_count: number;
-  reward_3_claimed: boolean;
-  reward_10_claimed: boolean;
-  updated_at: string;
-}

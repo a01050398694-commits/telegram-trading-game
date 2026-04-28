@@ -89,6 +89,9 @@ declare global {
     showPopup?: (params: TelegramPopupParams, cb?: (buttonId: string) => void) => void;
     showAlert?: (message: string, cb?: () => void) => void;
     openTelegramLink?: (url: string) => void;
+    // 6.1+ — t.me 외부의 일반 웹 URL 을 인앱 브라우저로 연다.
+    // 우리 코드에선 InviteMember (im.page/...) 같은 외부 결제 페이지 호출용.
+    openLink?: (url: string, options?: { try_instant_view?: boolean }) => void;
     openInvoice?: (url: string, callback?: (status: 'paid' | 'cancelled' | 'failed' | 'pending') => void) => void;
     // Stage 8.11 — viewportChanged 구독. 안드로이드 URL 바 토글 대응.
     onEvent?: (eventType: string, eventHandler: () => void) => void;

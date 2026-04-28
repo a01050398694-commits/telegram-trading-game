@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { EXCHANGES, getExchange, levelLabel, type VerificationLevel } from '../lib/exchanges';
-import { hapticImpact, hapticSelection, openStarsInvoice, showAlertSafe } from '../utils/telegram';
-import { ApiError, submitVerification, requestStarsInvoice, type ServerVerification, type UserStatus } from '../lib/api';
+import { hapticImpact, hapticSelection, openTelegramLinkSafe } from '../utils/telegram';
+import { ApiError, submitVerification, type ServerVerification, type UserStatus } from '../lib/api';
 
 // Stage 8.15 — Payment Modal 전면 폐기 → 인라인 아코디언.
 //
@@ -43,7 +43,6 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
   const { t } = useTranslation();
   const [showForm, setShowForm] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const [isPaying, setIsPaying] = useState(false);
 
   const toggleForm = () => {
     hapticImpact('medium');
@@ -58,62 +57,24 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-y-auto px-3 pt-12 pb-[150px]">
-      {/* ── INVITEMEMBER UPGRADE BUTTON ─────────────────────────
-          Stage 14 — 결제는 미니앱 밖의 InviteMember 봇으로 즉시 리다이렉트.
-          기존 requestStarsInvoice / openInvoice 백엔드 의존을 전면 제거 (Failed to fetch 원천 차단). */}
+      {/* Stage 15.1 — 모든 결제는 InviteMember 멤버십 페이지로 redirect.
+          openInvoice / requestStarsInvoice / 진단 alert 전부 제거.
+          deep link 가 plan 별로 분기되어 사용자가 페이지 안에서 다른 플랜을 잘못 누를 위험 0. */}
       {(!status || !status.isPremium) && (
       <div className="flex flex-col gap-2 w-full">
         <button
           type="button"
-          disabled={isPaying}
-          onClick={async () => {
-            if (!telegramUserId) {
-              showAlertSafe(
-                'Telegram 사용자 정보를 불러오지 못했습니다.\n\n원인: 일반 브라우저로 직접 접속했거나 Telegram WebApp 초기화 전입니다.\n\n해결: 텔레그램 봇 안에서 미니앱을 다시 열어주세요.',
-              );
+          onClick={() => {
+            hapticImpact('medium');
+            const url = import.meta.env.VITE_INVITEMEMBER_PREMIUM_URL;
+            if (!url) {
+              setToast('Premium subscription link not configured');
+              window.setTimeout(() => setToast(null), 2500);
               return;
             }
-            hapticImpact('medium');
-            setIsPaying(true);
-            try {
-              console.log('[Payment] PremiumTab elite button clicked, telegramUserId=', telegramUserId);
-              const res = await requestStarsInvoice(telegramUserId, 'elite');
-              if (!res.invoiceLink) {
-                console.error('[Payment] server returned no invoiceLink:', res);
-                showAlertSafe('서버가 invoice link 를 반환하지 않았습니다.\n\n응답: ' + JSON.stringify(res));
-                setIsPaying(false);
-                return;
-              }
-              // Stage 14.4.1 진단 모드 — 결제창 안 뜨는 원인 사후 추적용. 정상 동작 검증 후 제거.
-              const path = openStarsInvoice(
-                res.invoiceLink,
-                () => {
-                  hapticImpact('heavy');
-                  setToast('✅ Premium activated!');
-                  window.setTimeout(() => window.location.reload(), 1500);
-                },
-                (reason) => {
-                  showAlertSafe('결제 실패: ' + reason);
-                  setIsPaying(false);
-                },
-              );
-              showAlertSafe(
-                `[결제 진단]\n경로: ${path}\nlink: ${res.invoiceLink}\n\n` +
-                  (path === 'native'
-                    ? '→ openInvoice 호출됨. Stars 결제 시트가 떠야 합니다.\n시트가 안 뜨면 봇파더에서 Stars 결제 활성화 확인.'
-                    : path === 'tg-link'
-                      ? '→ openTelegramLink 호출됨. Telegram 결제 대화창으로 이동해야 합니다.'
-                      : '→ location.href 로 redirect. 텔레그램 앱이 deep link 를 잡아채야 합니다.'),
-              );
-              if (path !== 'native') setIsPaying(false);
-            } catch (err) {
-              const msg = err instanceof Error ? err.message : 'Payment failed';
-              console.error('[Payment] PremiumTab error:', err);
-              showAlertSafe('결제 API 호출 실패: ' + msg);
-              setIsPaying(false);
-            }
+            openTelegramLinkSafe(url);
           }}
-          className="group relative flex w-full shrink-0 flex-col rounded-2xl border-2 border-yellow-500/50 bg-gradient-to-b from-slate-900 to-black p-5 text-left shadow-[0_0_60px_rgba(250,204,21,0.2),_0_16px_40px_rgba(0,0,0,0.6)] transition-all active:scale-[0.98] disabled:opacity-50"
+          className="group relative flex w-full shrink-0 flex-col rounded-2xl border-2 border-yellow-500/50 bg-gradient-to-b from-slate-900 to-black p-5 text-left shadow-[0_0_60px_rgba(250,204,21,0.2),_0_16px_40px_rgba(0,0,0,0.6)] transition-all active:scale-[0.98]"
         >
           <div className="pointer-events-none absolute inset-x-6 top-0 h-[1px] bg-gradient-to-r from-transparent via-yellow-400/70 to-transparent" />
           <div className="flex items-start justify-between gap-3">
@@ -123,7 +84,7 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
                   💎
                 </span>
                 <span className="break-words whitespace-normal font-mono text-[13px] font-bold uppercase leading-snug tracking-[0.15em] text-amber-200">
-                  {isPaying ? 'Loading...' : t('academy.hub.upgradeCta')}
+                  {t('academy.hub.upgradeCta')}
                 </span>
               </div>
               <div className="mt-2 break-words whitespace-normal text-[11px] leading-relaxed text-amber-100/70">
@@ -197,15 +158,6 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
           {t('academy.heroSubtitle')}
         </div>
       </div>
-
-      {/* ── REFERRAL MISSION (F-05, F-06) ───────────────────
-          두 단계 마일스톤:
-            · 3명 초대  → +$50,000 연습 자본 (milestone_3_claimed)
-            · 10명 초대 → Academy 1개월 Promo code (milestone_10_claimed) */}
-      <ReferralMissionCard status={status} onCopy={(msg) => {
-        setToast(msg);
-        window.setTimeout(() => setToast(null), 2000);
-      }} />
 
       <div className="relative">
         {(!status || !status.isPremium) && (
@@ -281,129 +233,6 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
   );
 }
 
-function ReferralMissionCard({
-  status,
-  onCopy,
-}: {
-  status: UserStatus | null;
-  onCopy: (msg: string) => void;
-}) {
-  const { t } = useTranslation();
-  const referred = status?.mission?.referredCount ?? status?.referralCount ?? 0;
-  const m3Done = status?.mission?.milestone3Claimed ?? false;
-  const m10Done = status?.mission?.milestone10Claimed ?? false;
-  const promoCode = status?.mission?.promoCode ?? null;
-
-  const progress3 = Math.min(100, (referred / 3) * 100);
-  const progress10 = Math.min(100, (referred / 10) * 100);
-
-  const copyPromo = () => {
-    if (!promoCode) return;
-    navigator.clipboard.writeText(promoCode);
-    onCopy(t('academy.referral.couponCopied'));
-  };
-
-  const copyInvite = () => {
-    if (!status?.telegramUserId) return;
-    const botUsername = import.meta.env.VITE_BOT_USERNAME || 'Tradergames_bot';
-    const link = `https://t.me/${botUsername}?start=${status.telegramUserId}`;
-    navigator.clipboard.writeText(link);
-    onCopy(t('academy.referral.linkCopied'));
-  };
-
-  return (
-    <div className="relative mt-4 mb-4 rounded-3xl border border-emerald-400/20 bg-slate-900 p-5">
-      <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl">
-        <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-emerald-500/10 blur-[30px]" />
-      </div>
-
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-lg">🤝</span>
-          <span className="text-[13px] font-bold tracking-wide text-emerald-300">
-            {t('academy.referral.title')}
-          </span>
-        </div>
-        <span className="rounded-md bg-emerald-500/10 px-2 py-1 font-mono text-[10px] text-emerald-400/80">
-          {t('academy.referral.invitedCount', { count: referred })}
-        </span>
-      </div>
-
-      {/* Milestone 1: 3명 → $50K */}
-      <div className="mb-4">
-        <div className="mb-2 flex items-center justify-between">
-          <span className="text-[11px] font-bold text-slate-200">
-            {t('academy.referral.step1')}
-          </span>
-          <span
-            className={`text-[10px] font-mono ${
-              m3Done ? 'text-emerald-400' : 'text-slate-500'
-            }`}
-          >
-            {m3Done ? t('academy.referral.done') : `${Math.min(referred, 3)}/3`}
-          </span>
-        </div>
-        <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
-          <div
-            className={`h-2 rounded-full transition-all duration-500 ${
-              m3Done ? 'bg-emerald-400' : 'bg-emerald-500'
-            }`}
-            style={{ width: `${progress3}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Milestone 2: 10명 → 1개월 쿠폰 */}
-      <div className="mb-4">
-        <div className="mb-2 flex items-center justify-between">
-          <span className="text-[11px] font-bold text-slate-200">
-            {t('academy.referral.step2')}
-          </span>
-          <span
-            className={`font-mono text-[10px] ${
-              m10Done ? 'text-amber-400' : 'text-slate-500'
-            }`}
-          >
-            {m10Done ? t('academy.referral.issued') : `${Math.min(referred, 10)}/10`}
-          </span>
-        </div>
-        <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
-          <div
-            className={`h-2 rounded-full transition-all duration-500 ${
-              m10Done ? 'bg-amber-400' : 'bg-amber-500/80'
-            }`}
-            style={{ width: `${progress10}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Promo code 노출 — 발급됐을 때만 */}
-      {m10Done && promoCode && (
-        <button
-          type="button"
-          onClick={copyPromo}
-          className="mb-3 w-full rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-center transition-all hover:bg-amber-500/20 active:scale-[0.98]"
-        >
-          <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-amber-300">
-            Academy 1-Month Promo
-          </div>
-          <div className="mt-1 font-mono text-sm font-black text-amber-100">
-            {promoCode}
-          </div>
-          <div className="mt-1 text-[9px] text-amber-400/70">{t('academy.referral.tapToCopy')}</div>
-        </button>
-      )}
-
-      <button
-        type="button"
-        onClick={copyInvite}
-        className="w-full rounded-xl border border-emerald-500/30 bg-emerald-500/20 py-3 text-[12px] font-bold text-emerald-300 transition-all hover:bg-emerald-500/30 active:scale-[0.98]"
-      >
-        {t('academy.referral.copyLink')}
-      </button>
-    </div>
-  );
-}
 
 function LessonCard({ lesson, onClick }: { lesson: Lesson; onClick: () => void }) {
   const { t } = useTranslation();

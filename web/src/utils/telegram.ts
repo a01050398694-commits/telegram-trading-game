@@ -170,102 +170,27 @@ export function isInsideTelegram(): boolean {
   return getTg() !== null;
 }
 
-// Stage 14.4 — 진단/에러용 native popup. setToast 는 작아서 놓치기 쉬움.
-// Telegram WebApp 컨텍스트면 showAlert (네이티브 모달), 일반 브라우저면 window.alert.
-export function showAlertSafe(message: string): void {
-  const tg = getTg();
-  if (tg?.showAlert) {
-    try {
-      tg.showAlert(message);
-      return;
-    } catch {
-      /* 폴백 */
-    }
-  }
-  if (typeof window !== 'undefined' && typeof window.alert === 'function') {
-    window.alert(message);
-  }
-}
-
+// Stage 15.1 — t.me deep link 와 외부 웹 URL 을 안전하게 분기.
+//   · t.me/, tg://  → tg.openTelegramLink (텔레그램 내부 처리)
+//   · 그 외 (im.page 등 외부 결제 페이지) → tg.openLink (인앱 브라우저)
+//   · WebApp 없으면 → window.open
+//
+// 왜 분기가 필요한가: tg.openTelegramLink 는 t.me 가 아닌 URL 을 silent ignore 한다.
+// InviteMember 의 im.page 결제 링크를 그대로 전달하면 화면이 멈춰 결제창이 안 뜬다.
 export function openTelegramLinkSafe(url: string): void {
   const tg = getTg();
-  if (tg?.openTelegramLink) {
-    tg.openTelegramLink(url);
-  } else {
-    window.open(url, '_blank', 'noopener,noreferrer');
-  }
-}
+  const isTgDeepLink = url.startsWith('https://t.me/') || url.startsWith('tg://');
 
-// ---------- Stars Invoice ----------
-//
-// Stage 14.4 — 데스크탑에서 결제창이 한 번도 뜨지 않았던 문제의 종합 해결책.
-//
-// 왜 이 헬퍼가 필요한가:
-//   1) `await` 다음에 `window.open()` 을 호출하면 user-gesture 컨텍스트가 사라져
-//      Chrome/Firefox/Safari 의 popup blocker 가 무조건 차단한다.
-//      → 그래서 같은 탭 redirect (`location.href`) 로 변경. 텔레그램 deep link 는
-//        브라우저가 등록된 프로토콜 핸들러로 OS 의 텔레그램 앱에 위임한다.
-//   2) 모든 분기에 `[Payment]` 콘솔 로그를 남겨 어느 경로로 갔는지 사후 추적 가능.
-//   3) `openInvoice` 콜백의 `cancelled`/`failed`/`pending` 도 명시적으로 처리.
-//      이전에는 `paid` 외 모든 상태가 silent fail.
-//
-// 호출 우선순위:
-//   1) tg.openInvoice — 모바일 텔레그램, 최신 데스크탑 텔레그램 (Bot API 6.1+)
-//   2) tg.openTelegramLink — Telegram WebApp 컨텍스트 안에서 t.me deep link
-//   3) window.location.href — 일반 브라우저 폴백 (popup blocker 우회용 same-tab redirect)
-
-export type StarsInvoicePath = 'native' | 'tg-link' | 'browser-redirect';
-
-export function openStarsInvoice(
-  invoiceLink: string,
-  onPaid: () => void,
-  onError: (reason: string) => void,
-): StarsInvoicePath {
-  const tg = getTg();
-  console.log('[Payment] invoiceLink received:', invoiceLink);
-  console.log('[Payment] openInvoice available:', Boolean(tg?.openInvoice));
-  console.log('[Payment] openTelegramLink available:', Boolean(tg?.openTelegramLink));
-  console.log('[Payment] Telegram platform:', tg?.platform ?? 'none');
-
-  if (tg?.openInvoice) {
-    try {
-      tg.openInvoice(invoiceLink, (status) => {
-        console.log('[Payment] openInvoice callback status:', status);
-        if (status === 'paid') {
-          onPaid();
-        } else if (status === 'failed') {
-          onError('Payment failed. Please try again.');
-        }
-        // cancelled / pending → 사용자가 직접 취소했거나 텔레그램 서버가 처리 중. 추가 알림 불요.
-      });
-      return 'native';
-    } catch (err) {
-      console.warn('[Payment] openInvoice threw, falling through:', err);
+  if (tg) {
+    if (isTgDeepLink && tg.openTelegramLink) {
+      tg.openTelegramLink(url);
+      return;
+    }
+    if (tg.openLink) {
+      tg.openLink(url);
+      return;
     }
   }
-
-  if (tg?.openTelegramLink) {
-    // Stage 14.4 — `openTelegramLink` 는 `https://t.me/` 로 시작하지 않는 URL 을 silent
-    // ignore (throw 도 콜백도 없음). `bot.api.createInvoiceLink` 는 정상 케이스에서
-    // `https://t.me/$<base64>` 형태를 반환하지만, 비정상 URL 이 들어와도 tg-link 분기에
-    // 그대로 갇혀 사용자 화면이 멈추던 문제를 방어한다.
-    if (invoiceLink.startsWith('https://t.me/')) {
-      try {
-        console.log('[Payment] falling back to openTelegramLink');
-        tg.openTelegramLink(invoiceLink);
-        return 'tg-link';
-      } catch (err) {
-        console.warn('[Payment] openTelegramLink threw, falling through:', err);
-      }
-    } else {
-      console.warn(
-        '[Payment] invoiceLink is not a t.me URL — openTelegramLink would silently ignore it. Forcing location.href fallback. invoiceLink=',
-        invoiceLink,
-      );
-    }
-  }
-
-  console.log('[Payment] falling back to location.href redirect');
-  window.location.href = invoiceLink;
-  return 'browser-redirect';
+  window.open(url, '_blank', 'noopener,noreferrer');
 }
+

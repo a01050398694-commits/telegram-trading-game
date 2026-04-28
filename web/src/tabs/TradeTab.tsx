@@ -12,17 +12,16 @@ import { FundingTicker } from '../components/FundingTicker';
 import { useBinanceFeed } from '../lib/useBinanceFeed';
 import { calcPnl } from '../lib/format';
 import { MARKETS, type MarketSymbol } from '../lib/markets';
-import { hapticNotification, openStarsInvoice, showAlertSafe } from '../utils/telegram';
+import { hapticNotification, hapticImpact, openTelegramLinkSafe } from '../utils/telegram';
 import {
   ApiError,
   closeTrade,
   openTrade,
-  requestStarsInvoice,
   type UserStatus,
 } from '../lib/api';
 
-const STARS_COST = 150;
-const RECHARGE_USD = 100_000;
+const RECHARGE_USD = 1_000;
+const RECHARGE_PRICE_LABEL = '$2.99';
 
 type TradeTabProps = {
   telegramUserId: number | null;
@@ -65,8 +64,7 @@ export function TradeTab({
 
   const [tradePending, setTradePending] = useState(false);
   const [tradeError, setTradeError] = useState<string | null>(null);
-  const [starsPending, setStarsPending] = useState(false);
-  const [starsError, setStarsError] = useState<string | null>(null);
+  const [rechargeError, setRechargeError] = useState<string | null>(null);
 
   const serverPosition = status?.position ?? null;
   const positionForPanel: Position | null =
@@ -90,7 +88,7 @@ export function TradeTab({
         )
       : 0;
 
-  const balance = status?.balance ?? 100000;
+  const balance = status?.balance ?? 10000;
   const isLiquidated = status?.isLiquidated ?? false;
 
   const prevLiqRef = useRef(isLiquidated);
@@ -146,55 +144,16 @@ export function TradeTab({
     }
   };
 
-  // Stage 14.4 — openStarsInvoice 헬퍼 + Stage 14.4.1 진단 alert.
-  const handleRecharge = async () => {
-    if (telegramUserId === null) {
-      showAlertSafe(
-        'Telegram 사용자 정보를 불러오지 못했습니다.\n\n텔레그램 봇 안에서 미니앱을 다시 열어주세요.',
-      );
+  // Stage 15.1 — Recharge = InviteMember 멤버십 페이지 redirect.
+  const handleRecharge = () => {
+    setRechargeError(null);
+    hapticImpact('medium');
+    const url = import.meta.env.VITE_INVITEMEMBER_RECHARGE_URL;
+    if (!url) {
+      setRechargeError('Recharge link not configured');
       return;
     }
-    setStarsError(null);
-    setStarsPending(true);
-    try {
-      console.log('[Payment] TradeTab handleRecharge clicked, telegramUserId=', telegramUserId);
-      const { invoiceLink } = await requestStarsInvoice(telegramUserId, 'reset');
-      if (!invoiceLink) {
-        showAlertSafe('서버가 invoice link 를 반환하지 않았습니다. 봇 토큰/Stars 결제 설정 확인 필요.');
-        setStarsPending(false);
-        return;
-      }
-      const path = openStarsInvoice(
-        invoiceLink,
-        () => {
-          void refresh();
-          hapticNotification('success');
-          setStarsPending(false);
-        },
-        (reason) => {
-          showAlertSafe('결제 실패: ' + reason);
-          setStarsError(reason);
-          hapticNotification('error');
-          setStarsPending(false);
-        },
-      );
-      showAlertSafe(
-        `[결제 진단]\n경로: ${path}\nlink: ${invoiceLink}\n\n` +
-          (path === 'native'
-            ? '→ openInvoice 호출됨. Stars 결제 시트가 떠야 합니다.\n안 뜨면 봇파더 Stars 결제 활성화 확인.'
-            : path === 'tg-link'
-              ? '→ openTelegramLink 로 이동.'
-              : '→ location.href redirect.'),
-      );
-      if (path !== 'native') setStarsPending(false);
-    } catch (err) {
-      const msg = err instanceof ApiError ? err.message : (err as Error).message;
-      console.error('[Payment] TradeTab handleRecharge error:', err);
-      showAlertSafe('결제 API 호출 실패: ' + msg);
-      setStarsError(msg);
-      hapticNotification('error');
-      setStarsPending(false);
-    }
+    openTelegramLinkSafe(url);
   };
 
   const panelDisabled = telegramUserId === null || isLiquidated;
@@ -241,9 +200,8 @@ export function TradeTab({
         {isLiquidated && (
           <LiquidationOverlay
             rechargeAmount={RECHARGE_USD}
-            starsCost={STARS_COST}
-            pending={starsPending}
-            errorMessage={starsError}
+            priceLabel={RECHARGE_PRICE_LABEL}
+            errorMessage={rechargeError}
             onRecharge={handleRecharge}
           />
         )}
