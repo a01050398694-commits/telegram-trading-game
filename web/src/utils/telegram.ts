@@ -228,12 +228,23 @@ export function openStarsInvoice(
   }
 
   if (tg?.openTelegramLink) {
-    try {
-      console.log('[Payment] falling back to openTelegramLink');
-      tg.openTelegramLink(invoiceLink);
-      return 'tg-link';
-    } catch (err) {
-      console.warn('[Payment] openTelegramLink threw, falling through:', err);
+    // Stage 14.4 — `openTelegramLink` 는 `https://t.me/` 로 시작하지 않는 URL 을 silent
+    // ignore (throw 도 콜백도 없음). `bot.api.createInvoiceLink` 는 정상 케이스에서
+    // `https://t.me/$<base64>` 형태를 반환하지만, 비정상 URL 이 들어와도 tg-link 분기에
+    // 그대로 갇혀 사용자 화면이 멈추던 문제를 방어한다.
+    if (invoiceLink.startsWith('https://t.me/')) {
+      try {
+        console.log('[Payment] falling back to openTelegramLink');
+        tg.openTelegramLink(invoiceLink);
+        return 'tg-link';
+      } catch (err) {
+        console.warn('[Payment] openTelegramLink threw, falling through:', err);
+      }
+    } else {
+      console.warn(
+        '[Payment] invoiceLink is not a t.me URL — openTelegramLink would silently ignore it. Forcing location.href fallback. invoiceLink=',
+        invoiceLink,
+      );
     }
   }
 
