@@ -28,7 +28,7 @@ type Deps = {
 // 운영 도메인(Vercel) + 로컬 dev (Vite/cloudflared) 만 통과시킨다.
 // -------------------------------------------------------------------------
 const ALLOWED_ORIGINS: ReadonlySet<string> = new Set([
-  'https://web-askbit.vercel.app',
+  'https://telegram-trading-game.vercel.app',
   'http://localhost:5173',
   'http://localhost:3000',
 ]);
