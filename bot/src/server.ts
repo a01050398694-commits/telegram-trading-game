@@ -8,13 +8,9 @@ import { checkIsPremium } from './services/premiumCache.js';
 import type { PriceCache } from './priceCache.js';
 import { tradeLimiter, readLimiter, adminLimiter } from './middleware/rateLimit.js';
 
-// 결제 식별자 — Stars invoice 의 payload 필드.
-// 성공 콜백 시 이 prefix 로 판별해 revivePaidUser 호출.
-export const STARS_PAYLOAD_PREFIX = 'recharge_v1:';
-export const STARS_AMOUNT = 150; // PRD: 150 Stars 재구매
-
-export const STARS_ELITE_PREFIX = 'elite_v1:';
-export const STARS_ELITE_AMOUNT = 500; // 500 Stars for Elite Lifetime Pass
+// Stage 15.1 — Stars 직접 결제 폐기. 모든 결제는 InviteMember 외부 봇 redirect.
+// /api/payment/stars endpoint 와 STARS_* 상수, pre_checkout_query / successful_payment
+// 핸들러 전부 제거. 결제 후 활성화는 Stage 15.2 의 InviteMember 채널 멤버십 폴링이 담당.
 
 type Deps = {
   engine: TradingEngine;
@@ -517,50 +513,6 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
       res.json({ ok: true, pnl: result.pnl, balance: result.newBalance, exitPrice: markPrice });
     } catch (err) {
       console.error('[server] /trade/close:', err);
-      res.status(500).json({ error: (err as Error).message });
-    }
-  });
-
-  // ---- Telegram Stars 인보이스 발행 ----------------------------------------
-  // chat_id = 유저 telegram_id (봇과의 private chat). /start 로 유저가 봇을 연 상태가 전제.
-  // Stars: currency='XTR', provider_token 생략, prices amount = Stars 개수.
-  app.post('/api/payment/stars', async (req, res) => {
-    try {
-      const { telegramUserId, productType = 'reset' } = req.body as { telegramUserId?: number; productType?: 'reset' | 'elite' };
-      const resolved = await resolveUser(engine, req);
-      if (typeof resolved !== 'string') {
-        res.status(resolved.status).json({ error: resolved.error });
-        return;
-      }
-
-      let payload: string;
-      let title: string;
-      let description: string;
-      let amount: number;
-
-      if (productType === 'elite') {
-        payload = `${STARS_ELITE_PREFIX}${resolved}:${Date.now()}`;
-        title = 'Elite Lifetime Pass';
-        description = 'Unlock VIP Analyst Chat, Multi-charts, and lifetime benefits.';
-        amount = STARS_ELITE_AMOUNT;
-      } else {
-        payload = `${STARS_PAYLOAD_PREFIX}${resolved}:${Date.now()}`;
-        title = 'Trading Academy · Risk Management Reset';
-        description = 'Reset practice balance to $100,000 and resume the paper-trading lesson.';
-        amount = STARS_AMOUNT;
-      }
-
-      const invoiceLink = await bot.api.createInvoiceLink(
-        title,
-        description,
-        payload,
-        '', // provider_token must be empty for Telegram Stars
-        'XTR',
-        [{ label: title, amount }],
-      );
-      res.json({ ok: true, invoiceLink });
-    } catch (err) {
-      console.error('[server] /payment/stars:', err);
       res.status(500).json({ error: (err as Error).message });
     }
   });

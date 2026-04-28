@@ -81,15 +81,18 @@ async function main(): Promise<void> {
   await bot.init();
   console.log(`[bot] connected as @${bot.botInfo.username}`);
   
-  // Stage 15: 명령어 타이핑 폐지. 하단 메뉴 버튼을 미니앱으로 고정.
+  // Stage 15.1 — 메뉴 버튼 URL 에 timestamp 박아 텔레그램 클라이언트 캐시 영구 무력화.
+  // 봇 재부팅마다 새 URL → 텔레그램 클라이언트가 옛 캐시 무시하고 새 빌드 가져옴.
   try {
+    const cacheBustedMenuUrl = `${env.WEBAPP_URL}?v=${Date.now()}`;
     await bot.api.setChatMenuButton({
       menu_button: {
         type: 'web_app',
         text: '🎓 아카데미 열기',
-        web_app: { url: env.WEBAPP_URL }
+        web_app: { url: cacheBustedMenuUrl }
       }
     });
+    console.log('[bot] menu button URL set:', cacheBustedMenuUrl);
   } catch (err) {
     console.warn('[bot] setChatMenuButton failed:', err);
   }

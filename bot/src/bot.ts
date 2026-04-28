@@ -1,7 +1,6 @@
 import { Bot, InlineKeyboard, type Context } from 'grammy';
 import { env } from './env.js';
 import type { TradingEngine } from './engine/trading.js';
-import { STARS_PAYLOAD_PREFIX, STARS_ELITE_PREFIX } from './server.js';
 import { setupCommunityFeatures } from './engine/community.js';
 import { botLocales, SupportedLang } from './locales.js';
 
@@ -359,76 +358,9 @@ export function createBot(engine: TradingEngine): Bot {
     await ctx.reply(loc.howItWorks, { parse_mode: 'Markdown' });
   });
 
-  bot.on('pre_checkout_query', async (ctx) => {
-    try {
-      if (ctx.preCheckoutQuery.invoice_payload.startsWith(STARS_PAYLOAD_PREFIX) || 
-          ctx.preCheckoutQuery.invoice_payload.startsWith(STARS_ELITE_PREFIX)) {
-        await ctx.answerPreCheckoutQuery(true);
-      } else {
-        await ctx.answerPreCheckoutQuery(false, 'Invalid payload.');
-      }
-    } catch (err) {
-      console.error('[bot] pre_checkout_query error:', err);
-    }
-  });
-
-  bot.on('message:successful_payment', async (ctx) => {
-    const tgId = ctx.from?.id;
-    const payment = ctx.message.successful_payment;
-    if (!tgId || !payment) return;
-    
-    try {
-      const user = await engine.getUserByTelegramId(tgId);
-      if (!user) return;
-
-      if (payment.invoice_payload.startsWith(STARS_ELITE_PREFIX)) {
-        await engine.grantStarsPremium(user.id);
-        const lang = await getLang(ctx, engine);
-        
-        let inviteLink = '';
-        if (env.PREMIUM_CHAT_ID) {
-          try {
-            const link = await bot.api.createChatInviteLink(env.PREMIUM_CHAT_ID, {
-              member_limit: 1,
-              creates_join_request: false
-            });
-            inviteLink = `\n\nVIP Lounge Access: ${link.invite_link}`;
-          } catch (e) {
-            console.error('[bot] createChatInviteLink failed:', e);
-          }
-        }
-        
-        const lines = [
-          `💎 *Elite Lifetime Pass Unlocked!*`,
-          `Welcome to the VIP club. All premium features have been unlocked in your terminal.`,
-          inviteLink
-        ];
-        await ctx.reply(lines.join('\n'), { parse_mode: 'Markdown' });
-        return;
-      }
-
-      if (payment.invoice_payload.startsWith(STARS_PAYLOAD_PREFIX)) {
-        const wallet = await engine.getWallet(user.id);
-        if (!wallet) return;
-
-        const { balance } = await engine.revivePaidUser(user.id);
-
-        const lang = await getLang(ctx, engine);
-        const loc = botLocales[lang];
-        const lines = [
-          loc.resetRequired.replace('🔴 *', '✅ *').replace('required', 'Complete').replace('필요', '완료'),
-          `Practice balance restored to *${formatBalance(balance)}*.`,
-          'Return to the Mini App to continue your lesson.'
-        ];
-        await ctx.reply(lines.join('\n'), { parse_mode: 'Markdown' });
-        return;
-      }
-    } catch (err) {
-      console.error('[bot] successful_payment failed:', err);
-      const lang = await getLang(ctx, engine);
-      await ctx.reply(botLocales[lang].error, { parse_mode: 'Markdown' });
-    }
-  });
+  // Stage 15.1 — Telegram Stars 직접 결제 폐기.
+  // pre_checkout_query / successful_payment 핸들러 제거. 결제는 InviteMember 가 처리하고
+  // 활성화는 Stage 15.2 의 채널 멤버십 폴링이 담당.
 
   bot.catch((err) => {
     console.error('[bot] error:', err);
