@@ -1,5 +1,6 @@
 import { Bot } from 'grammy';
 import { env } from '../env.js';
+import { webAppUrl } from '../lib/webappUrl.js';
 
 async function main() {
   const bot = new Bot(env.BOT_TOKEN);
@@ -10,7 +11,7 @@ async function main() {
 
 ⚡️ 실시간 마켓 데이터: 실제 코인 시장과 동일한 환경
 🛡️ 리스크 제로: 내 돈 없이 최대 125배 레버리지 연습
-💰 무제한 자본: 가입 즉시 $100,000 연습용 시드 지급
+💰 무제한 자본: 가입 즉시 $10,000 연습용 시드 지급
 🏆 글로벌 리더보드: 전 세계 트레이더들과 경쟁하고 VIP 혜택 쟁취
 
 리스크 0%로 실전 경험을 쌓을 준비가 되셨나요?
@@ -22,7 +23,7 @@ Master the markets without risking your own capital. The ultimate crypto trading
 
 ⚡️ Live Market Data: 100% identical to the real crypto market
 🛡️ Zero Risk: Practice up to 125x leverage safely
-💰 Unlimited Capital: Get $100,000 starting practice seed
+💰 Unlimited Capital: Get $10,000 starting practice seed
 🏆 Global Leaderboard: Compete and unlock VIP benefits
 
 Ready to prove your skills with zero financial risk?
@@ -46,7 +47,7 @@ Ready to prove your skills with zero financial risk?
       menu_button: {
         type: 'web_app',
         text: 'OPEN TERMINAL',
-        web_app: { url: env.WEBAPP_URL }
+        web_app: { url: webAppUrl() }
       }
     });
 

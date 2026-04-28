@@ -1,6 +1,7 @@
 import { Bot, InlineKeyboard } from 'grammy';
 import OpenAI from 'openai';
 import { env } from '../env.js';
+import { webAppUrl } from '../lib/webappUrl.js';
 import type { PriceCache } from '../priceCache.js';
 
 let openai: OpenAI | null = null;
@@ -134,7 +135,7 @@ ${historyText}`;
         let kb: InlineKeyboard | undefined;
         
         if (wantsToShillApp) {
-          kb = new InlineKeyboard().webApp('🚀 Play Trading Game', env.WEBAPP_URL);
+          kb = new InlineKeyboard().webApp('🚀 Play Trading Game', webAppUrl());
         }
 
         await bot.api.sendMessage(env.COMMUNITY_CHAT_ID, reply, {

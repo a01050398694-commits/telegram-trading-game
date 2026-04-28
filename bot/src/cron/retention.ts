@@ -1,6 +1,7 @@
 import type { Bot } from 'grammy';
 import { InlineKeyboard } from 'grammy';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { webAppUrl } from '../lib/webappUrl.js';
 
 export class RetentionCron {
   private timer: NodeJS.Timeout | null = null;
@@ -74,7 +75,7 @@ export class RetentionCron {
       return;
     }
 
-    const appUrl = process.env.FRONTEND_URL || 'https://t.me/Tradergames_bot/app';
+    const appUrl = webAppUrl();
 
     for (const record of topUsers) {
       // @ts-ignore - users table join
@@ -134,7 +135,7 @@ export class RetentionCron {
       return;
     }
 
-    const appUrl = process.env.FRONTEND_URL || 'https://t.me/Tradergames_bot/app';
+    const appUrl = webAppUrl();
 
     for (const user of users) {
       if (!user.telegram_id) continue;
@@ -148,8 +149,8 @@ export class RetentionCron {
       if (count === 0) {
         const isKo = user.language_code?.startsWith('ko');
         const message = isKo
-          ? '앗, 어제 지급받으신 무료 연습 시드 $100K 를 아직 한 번도 안 쓰셨네요! 😅\n\n오늘 비트코인 무빙이 심상치 않은데, 공짜 시드로 리스크 없이 첫 타점을 잡아보시는 건 어떨까요? 제가 도와드릴게요!'
-          : "Hey! I noticed you haven't used your $100K free practice seed yet! 😅\n\nBitcoin's volatility is high today. How about taking your first risk-free trade? I can help you out!";
+          ? '앗, 어제 지급받으신 무료 연습 시드 $10K 를 아직 한 번도 안 쓰셨네요! 😅\n\n오늘 비트코인 무빙이 심상치 않은데, 공짜 시드로 리스크 없이 첫 타점을 잡아보시는 건 어떨까요? 제가 도와드릴게요!'
+          : "Hey! I noticed you haven't used your $10K free practice seed yet! 😅\n\nBitcoin's volatility is high today. How about taking your first risk-free trade? I can help you out!";
         
         const inlineKb = new InlineKeyboard()
           .url(isKo ? '📢 공식 채널 가기' : '📢 Official Channel', 'https://t.me/academy_premium_ch').row()

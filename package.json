@@ -13,6 +13,7 @@
     "dev:web": "npm run dev -w web",
     "dev:bot": "npm run dev -w bot",
     "tunnel": "npx --yes cloudflared tunnel --url http://localhost:5173 --no-autoupdate",
+    "tunnel:bot": "npx --yes cloudflared tunnel --url http://localhost:3001 --no-autoupdate",
     "build": "npm run build -w web && npm run build -w bot",
     "typecheck": "npm run typecheck -w web && npm run typecheck -w bot",
     "start:bot": "npm run start -w bot"
