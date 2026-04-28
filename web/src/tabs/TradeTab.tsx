@@ -12,7 +12,7 @@ import { FundingTicker } from '../components/FundingTicker';
 import { useBinanceFeed } from '../lib/useBinanceFeed';
 import { calcPnl } from '../lib/format';
 import { MARKETS, type MarketSymbol } from '../lib/markets';
-import { hapticNotification, openTelegramLinkSafe } from '../utils/telegram';
+import { hapticNotification, openStarsInvoice } from '../utils/telegram';
 import {
   ApiError,
   closeTrade,
@@ -146,37 +146,41 @@ export function TradeTab({
     }
   };
 
-  // Stage 14.2 — 네이티브 텔레그램 결제창(openInvoice) 복구.
-  // 미니앱 안에서 즉시 결제 시트가 뜨는 게 InviteMember 봇 리다이렉트보다 압도적으로 좋은 UX.
-  // openInvoice 미지원 환경(데스크탑 브라우저 프리뷰)에서만 InviteMember 폴백.
+  // Stage 14.4 — openStarsInvoice 헬퍼로 통일.
+  // 데스크탑 결제창이 안 뜨던 원인: window.open 이 await 후 호출돼 popup blocker 차단.
+  // 헬퍼가 native sheet → openTelegramLink → location.href 순으로 안전하게 폴백.
   const handleRecharge = async () => {
-    if (telegramUserId === null) return;
+    if (telegramUserId === null) {
+      setStarsError('Telegram 사용자 정보 로딩 중. 잠시 후 다시 시도해주세요.');
+      return;
+    }
     setStarsError(null);
     setStarsPending(true);
     try {
+      console.log('[Payment] TradeTab handleRecharge clicked, telegramUserId=', telegramUserId);
       const { invoiceLink } = await requestStarsInvoice(telegramUserId, 'reset');
-      const openInvoice = window.Telegram?.WebApp?.openInvoice;
-      if (openInvoice) {
-        // 모바일: 네이티브 결제 시트
-        openInvoice(invoiceLink, (status) => {
-          if (status === 'paid') {
-            void refresh();
-            hapticNotification('success');
-          }
-          setStarsPending(false);
-        });
-      } else {
-        // 데스크탑: invoiceLink URL을 직접 열어 텔레그램 결제 대화창 실행
-        const openLink = window.Telegram?.WebApp?.openTelegramLink;
-        if (openLink) {
-          openLink(invoiceLink);
-        } else {
-          window.open(invoiceLink, '_blank');
-        }
+      if (!invoiceLink) {
+        setStarsError('Server returned no invoice link. Try again.');
         setStarsPending(false);
+        return;
       }
+      const path = openStarsInvoice(
+        invoiceLink,
+        () => {
+          void refresh();
+          hapticNotification('success');
+          setStarsPending(false);
+        },
+        (reason) => {
+          setStarsError(reason);
+          hapticNotification('error');
+          setStarsPending(false);
+        },
+      );
+      if (path !== 'native') setStarsPending(false);
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : (err as Error).message;
+      console.error('[Payment] TradeTab handleRecharge error:', err);
       setStarsError(msg);
       hapticNotification('error');
       setStarsPending(false);

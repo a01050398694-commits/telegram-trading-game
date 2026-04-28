@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { EXCHANGES, getExchange, levelLabel, type VerificationLevel } from '../lib/exchanges';
-import { hapticImpact, hapticSelection, openTelegramLinkSafe } from '../utils/telegram';
+import { hapticImpact, hapticSelection, openStarsInvoice } from '../utils/telegram';
 import { ApiError, submitVerification, requestStarsInvoice, type ServerVerification, type UserStatus } from '../lib/api';
 
 // Stage 8.15 — Payment Modal 전면 폐기 → 인라인 아코디언.
@@ -67,36 +67,44 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
           type="button"
           disabled={isPaying}
           onClick={async () => {
-            if (!telegramUserId) return;
+            // Stage 14.4 — silent fail 제거. 모든 실패 분기에 사용자 피드백.
+            if (!telegramUserId) {
+              setToast('Telegram 사용자 정보 로딩 중. 잠시 후 다시 시도해주세요.');
+              window.setTimeout(() => setToast(null), 3000);
+              return;
+            }
+            hapticImpact('medium');
+            setIsPaying(true);
             try {
-              hapticImpact('medium');
-              setIsPaying(true);
+              console.log('[Payment] PremiumTab elite button clicked, telegramUserId=', telegramUserId);
               const res = await requestStarsInvoice(telegramUserId, 'elite');
-              if (res.ok && res.invoiceLink) {
-                const openInvoice = window.Telegram?.WebApp?.openInvoice;
-                if (openInvoice) {
-                  // 모바일: 네이티브 결제 시트 팝업
-                  openInvoice(res.invoiceLink, (status) => {
-                    if (status === 'paid') {
-                      hapticImpact('heavy');
-                      setToast('✅ Premium activated!');
-                      setTimeout(() => window.location.reload(), 1500);
-                    }
-                  });
-                } else {
-                  // 데스크탑: invoiceLink URL을 직접 열어서 텔레그램 결제 대화창 실행
-                  const openLink = window.Telegram?.WebApp?.openTelegramLink;
-                  if (openLink) {
-                    openLink(res.invoiceLink);
-                  } else {
-                    window.open(res.invoiceLink, '_blank');
-                  }
-                }
+              if (!res.invoiceLink) {
+                console.error('[Payment] server returned no invoiceLink:', res);
+                setToast('Server returned no invoice link. Try again.');
+                window.setTimeout(() => setToast(null), 3000);
+                setIsPaying(false);
+                return;
               }
-            } catch (err: any) {
-              setToast(err.message || 'Payment failed');
-              setTimeout(() => setToast(null), 3000);
-            } finally {
+              const path = openStarsInvoice(
+                res.invoiceLink,
+                () => {
+                  hapticImpact('heavy');
+                  setToast('✅ Premium activated!');
+                  window.setTimeout(() => window.location.reload(), 1500);
+                },
+                (reason) => {
+                  setToast(reason);
+                  window.setTimeout(() => setToast(null), 3000);
+                  setIsPaying(false);
+                },
+              );
+              // 'native' 분기는 콜백에서 setIsPaying 처리, 'tg-link'/'browser-redirect' 는 즉시 false.
+              if (path !== 'native') setIsPaying(false);
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : 'Payment failed';
+              console.error('[Payment] PremiumTab error:', err);
+              setToast(msg);
+              window.setTimeout(() => setToast(null), 3000);
               setIsPaying(false);
             }
           }}

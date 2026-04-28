@@ -178,3 +178,66 @@ export function openTelegramLinkSafe(url: string): void {
     window.open(url, '_blank', 'noopener,noreferrer');
   }
 }
+
+// ---------- Stars Invoice ----------
+//
+// Stage 14.4 — 데스크탑에서 결제창이 한 번도 뜨지 않았던 문제의 종합 해결책.
+//
+// 왜 이 헬퍼가 필요한가:
+//   1) `await` 다음에 `window.open()` 을 호출하면 user-gesture 컨텍스트가 사라져
+//      Chrome/Firefox/Safari 의 popup blocker 가 무조건 차단한다.
+//      → 그래서 같은 탭 redirect (`location.href`) 로 변경. 텔레그램 deep link 는
+//        브라우저가 등록된 프로토콜 핸들러로 OS 의 텔레그램 앱에 위임한다.
+//   2) 모든 분기에 `[Payment]` 콘솔 로그를 남겨 어느 경로로 갔는지 사후 추적 가능.
+//   3) `openInvoice` 콜백의 `cancelled`/`failed`/`pending` 도 명시적으로 처리.
+//      이전에는 `paid` 외 모든 상태가 silent fail.
+//
+// 호출 우선순위:
+//   1) tg.openInvoice — 모바일 텔레그램, 최신 데스크탑 텔레그램 (Bot API 6.1+)
+//   2) tg.openTelegramLink — Telegram WebApp 컨텍스트 안에서 t.me deep link
+//   3) window.location.href — 일반 브라우저 폴백 (popup blocker 우회용 same-tab redirect)
+
+export type StarsInvoicePath = 'native' | 'tg-link' | 'browser-redirect';
+
+export function openStarsInvoice(
+  invoiceLink: string,
+  onPaid: () => void,
+  onError: (reason: string) => void,
+): StarsInvoicePath {
+  const tg = getTg();
+  console.log('[Payment] invoiceLink received:', invoiceLink);
+  console.log('[Payment] openInvoice available:', Boolean(tg?.openInvoice));
+  console.log('[Payment] openTelegramLink available:', Boolean(tg?.openTelegramLink));
+  console.log('[Payment] Telegram platform:', tg?.platform ?? 'none');
+
+  if (tg?.openInvoice) {
+    try {
+      tg.openInvoice(invoiceLink, (status) => {
+        console.log('[Payment] openInvoice callback status:', status);
+        if (status === 'paid') {
+          onPaid();
+        } else if (status === 'failed') {
+          onError('Payment failed. Please try again.');
+        }
+        // cancelled / pending → 사용자가 직접 취소했거나 텔레그램 서버가 처리 중. 추가 알림 불요.
+      });
+      return 'native';
+    } catch (err) {
+      console.warn('[Payment] openInvoice threw, falling through:', err);
+    }
+  }
+
+  if (tg?.openTelegramLink) {
+    try {
+      console.log('[Payment] falling back to openTelegramLink');
+      tg.openTelegramLink(invoiceLink);
+      return 'tg-link';
+    } catch (err) {
+      console.warn('[Payment] openTelegramLink threw, falling through:', err);
+    }
+  }
+
+  console.log('[Payment] falling back to location.href redirect');
+  window.location.href = invoiceLink;
+  return 'browser-redirect';
+}

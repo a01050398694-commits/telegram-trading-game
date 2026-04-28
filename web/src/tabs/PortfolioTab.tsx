@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { openTelegramLinkSafe } from '../utils/telegram';
+import { openStarsInvoice } from '../utils/telegram';
 import { formatMoney, formatUSD, calcPnl } from '../lib/format';
 import { getMarket } from '../lib/markets';
 import { ShareROIButton } from '../components/ShareROIButton';
@@ -114,35 +114,39 @@ export function PortfolioTab({ telegramUserId, status }: PortfolioTabProps) {
     window.setTimeout(() => setReferralToast(false), 1800);
   };
 
-  // Stage 14.2 — 네이티브 텔레그램 결제창 복구. handleRecharge 동일 패턴.
+  // Stage 14.4 — openStarsInvoice 헬퍼로 통일. TradeTab/PremiumTab 와 100% 동일 경로.
   const handleRecharge = async () => {
-    if (telegramUserId === null) return;
+    if (telegramUserId === null) {
+      setStarsError('Telegram 사용자 정보 로딩 중. 잠시 후 다시 시도해주세요.');
+      return;
+    }
     setStarsError(null);
     setStarsPending(true);
     try {
+      console.log('[Payment] PortfolioTab handleRecharge clicked, telegramUserId=', telegramUserId);
       const { invoiceLink } = await requestStarsInvoice(telegramUserId, 'reset');
-      const openInvoice = window.Telegram?.WebApp?.openInvoice;
-      if (openInvoice) {
-        // 모바일: 네이티브 결제 시트
-        openInvoice(invoiceLink, (status) => {
-          if (status === 'paid') {
-            void load();
-            hapticNotification('success');
-          }
-          setStarsPending(false);
-        });
-      } else {
-        // 데스크탑: invoiceLink URL을 직접 열어 텔레그램 결제 대화창 실행
-        const openLink = window.Telegram?.WebApp?.openTelegramLink;
-        if (openLink) {
-          openLink(invoiceLink);
-        } else {
-          window.open(invoiceLink, '_blank');
-        }
+      if (!invoiceLink) {
+        setStarsError('Server returned no invoice link. Try again.');
         setStarsPending(false);
+        return;
       }
+      const path = openStarsInvoice(
+        invoiceLink,
+        () => {
+          void load();
+          hapticNotification('success');
+          setStarsPending(false);
+        },
+        (reason) => {
+          setStarsError(reason);
+          hapticNotification('error');
+          setStarsPending(false);
+        },
+      );
+      if (path !== 'native') setStarsPending(false);
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : (err as Error).message;
+      console.error('[Payment] PortfolioTab handleRecharge error:', err);
       setStarsError(msg);
       hapticNotification('error');
       setStarsPending(false);
