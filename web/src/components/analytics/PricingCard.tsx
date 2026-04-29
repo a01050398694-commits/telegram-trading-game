@@ -74,7 +74,7 @@ export function PricingCard({ telegramUserId, onPaid }: PricingCardProps) {
         border: `1px solid ${T.borderAccent}`,
         borderTop: `4px solid ${T.borderAccent}`,
         borderRadius: 16,
-        padding: 22,
+        padding: 18,
         boxShadow: '0 0 0 1px rgba(184, 134, 11, 0.18), 0 12px 40px rgba(184, 134, 11, 0.18), 0 4px 16px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(218, 165, 32, 0.25)',
       }}
     >
@@ -181,7 +181,7 @@ export function PricingCard({ telegramUserId, onPaid }: PricingCardProps) {
               fontSize: 13,
               color: T.textPrimary,
               lineHeight: 1.45,
-              wordBreak: 'keep-all',
+              wordBreak: 'break-word',
               overflowWrap: 'anywhere',
             }}>
               {b}

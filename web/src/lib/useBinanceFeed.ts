@@ -203,6 +203,15 @@ export function useBinanceFeed(symbol: string = 'btcusdt', interval: string = '1
       if (cancelled) return;
       if (document.visibilityState !== 'visible') return;
       if (ws && ws.readyState === WebSocket.OPEN) return;
+      
+      if (ws) {
+        ws.onopen = null;
+        ws.onmessage = null;
+        ws.onerror = null;
+        ws.onclose = null;
+        ws.close();
+      }
+      
       if (reconnectTimer) {
         window.clearTimeout(reconnectTimer);
         reconnectTimer = null;

@@ -141,9 +141,10 @@ export function ShareROIButton({ position, markPrice, telegramUserId }: ShareROI
 
       {open && (
         <div
-          className="fixed inset-0 z-50 flex flex-col items-center justify-start gap-3 overflow-y-auto overscroll-contain bg-black/80 px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(2rem,env(safe-area-inset-top))] backdrop-blur-sm"
+          className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-black/80 px-4 backdrop-blur-sm"
           onClick={handleClose}
         >
+          <div className="flex min-h-full flex-col items-center justify-center gap-3 py-[max(2rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))]">
           <div
             ref={cardRef}
             onClick={(e) => e.stopPropagation()}
@@ -252,15 +253,17 @@ export function ShareROIButton({ position, markPrice, telegramUserId }: ShareROI
               </div>
             )}
           </div>
+          </div>
         </div>
       )}
 
       {/* Stage 8.4 — 데스크톱 최종 폴백: 이미지 직접 표시 + 우클릭 유도 모달. */}
       {manualSaveSrc && (
         <div
-          className="fixed inset-0 z-[60] flex flex-col items-center justify-start gap-3 overflow-y-auto overscroll-contain bg-black/90 px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(2rem,env(safe-area-inset-top))] backdrop-blur-sm"
+          className="fixed inset-0 z-[60] overflow-y-auto overscroll-contain bg-black/90 px-4 backdrop-blur-sm"
           onClick={closeManualSave}
         >
+          <div className="flex min-h-full flex-col items-center justify-center gap-3 py-[max(2rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))]">
           <div
             onClick={(e) => e.stopPropagation()}
             className="flex w-full max-w-[360px] flex-col gap-3"
@@ -285,6 +288,7 @@ export function ShareROIButton({ position, markPrice, telegramUserId }: ShareROI
             >
               닫기
             </button>
+          </div>
           </div>
         </div>
       )}

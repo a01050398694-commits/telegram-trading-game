@@ -292,7 +292,7 @@ function TierButton({ selected, credit, price, onClick, liquidated, badge }: Tie
     <button
       type="button"
       onClick={onClick}
-      className={`relative rounded-xl border ${baseClass} px-2 py-3.5 text-center transition active:scale-[0.97]`}
+      className={`relative rounded-xl border ${baseClass} px-1.5 py-3 text-center transition active:scale-[0.97]`}
     >
       {badge && (
         <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-gradient-to-r from-emerald-400 via-emerald-500 to-emerald-400 px-2 py-0.5 font-mono text-[8px] font-black uppercase tracking-wider text-stone-950 shadow-[0_2px_8px_rgba(16,185,129,0.5)]">
@@ -312,7 +312,7 @@ function TierButton({ selected, credit, price, onClick, liquidated, badge }: Tie
         </span>
       )}
       <div
-        className={`font-mono text-[16px] font-black tabular-nums leading-none ${
+        className={`font-mono text-[15px] font-black tabular-nums leading-none ${
           selected
             ? liquidated
               ? 'text-amber-100'

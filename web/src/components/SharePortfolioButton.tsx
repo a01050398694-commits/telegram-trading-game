@@ -107,9 +107,10 @@ export function SharePortfolioButton({ equity, winRate, totalTrades, telegramUse
 
       {open && (
         <div
-          className="fixed inset-0 z-50 flex flex-col items-center justify-start gap-3 overflow-y-auto overscroll-contain bg-black/80 px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(2rem,env(safe-area-inset-top))] backdrop-blur-sm"
+          className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-black/80 px-4 backdrop-blur-sm"
           onClick={handleClose}
         >
+          <div className="flex min-h-full flex-col items-center justify-center gap-3 py-[max(2rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))]">
           <div
             ref={cardRef}
             onClick={(e) => e.stopPropagation()}
@@ -179,14 +180,16 @@ export function SharePortfolioButton({ equity, winRate, totalTrades, telegramUse
               </div>
             )}
           </div>
+          </div>
         </div>
       )}
 
       {manualSaveSrc && (
         <div
-          className="fixed inset-0 z-[60] flex flex-col items-center justify-start gap-3 overflow-y-auto overscroll-contain bg-black/90 px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(2rem,env(safe-area-inset-top))] backdrop-blur-sm"
+          className="fixed inset-0 z-[60] overflow-y-auto overscroll-contain bg-black/90 px-4 backdrop-blur-sm"
           onClick={closeManualSave}
         >
+          <div className="flex min-h-full flex-col items-center justify-center gap-3 py-[max(2rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))]">
           <div
             onClick={(e) => e.stopPropagation()}
             className="flex w-full max-w-[360px] flex-col gap-3"
@@ -209,6 +212,7 @@ export function SharePortfolioButton({ equity, winRate, totalTrades, telegramUse
             >
               닫기
             </button>
+          </div>
           </div>
         </div>
       )}
