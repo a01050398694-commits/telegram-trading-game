@@ -13,13 +13,14 @@
  */
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { hapticImpact, openStarsInvoice } from '../utils/telegram';
-import { createPremiumStarsInvoice, fetchPremiumAnalytics, type PremiumAnalyticsResponse, type UserStatus } from '../lib/api';
+import { fetchPremiumAnalytics, type PremiumAnalyticsResponse, type UserStatus } from '../lib/api';
 import { StatsCard } from '../components/analytics/StatsCard';
 import { HourlyBucketsCard } from '../components/analytics/HourlyBucketsCard';
 import { LeverageCard } from '../components/analytics/LeverageCard';
 import { BehaviorCard } from '../components/analytics/BehaviorCard';
 import { LockOverlay } from '../components/analytics/LockOverlay';
+import { PricingCard } from '../components/analytics/PricingCard';
+import { RechargeCard } from '../components/RechargeCard';
 import { ANALYTICS_TOKENS as T } from '../styles/tokens';
 
 type PremiumTabProps = {
@@ -32,12 +33,10 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
   const [analytics, setAnalytics] = useState<PremiumAnalyticsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [subscriptionPending, setSubscriptionPending] = useState(false);
-  const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
 
   const isPremium = status?.isPremium ?? false;
 
-  // 분석 데이터 재로드 (LockOverlay 결제 성공 시에도 호출 가능하도록 분리)
+  // 분석 데이터 재로드 (PricingCard 결제 성공 시에도 호출 가능하도록 분리)
   const reloadAnalytics = async (): Promise<void> => {
     if (!telegramUserId) return;
     try {
@@ -45,31 +44,6 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
       setAnalytics(data);
     } catch {
       // 갱신 실패해도 무시 — 다음 새로고침에서 반영
-    }
-  };
-
-  // Stage 15.3 — Premium Stars 결제
-  const handleSubscribeCta = async () => {
-    if (!telegramUserId) return;
-    setSubscriptionError(null);
-    setSubscriptionPending(true);
-    try {
-      hapticImpact('medium');
-      const { invoiceLink } = await createPremiumStarsInvoice(telegramUserId);
-      const result = await openStarsInvoice(invoiceLink);
-      if (result === 'paid') {
-        setSubscriptionError(null);
-        await reloadAnalytics();
-      } else if (result === 'failed') {
-        setSubscriptionError(t('payment.failed'));
-      } else if (result === 'unsupported') {
-        setSubscriptionError('Use latest Telegram client');
-      }
-      // cancelled/pending — 무시
-    } catch (err) {
-      setSubscriptionError((err as Error).message);
-    } finally {
-      setSubscriptionPending(false);
     }
   };
 
@@ -109,6 +83,21 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
     >
       {/* ── 구독 상태 카드 ────────────────────────── */}
       <SubscriptionStatusCard isPremium={isPremium} />
+
+      {/* ── 결제 진입점 (사용자 컴플레인 §결제창 위치 명확화) ── */}
+      {!isPremium && (
+        <PricingCard
+          telegramUserId={telegramUserId}
+          onPaid={() => { void reloadAnalytics(); }}
+        />
+      )}
+
+      {/* ── Recharge 카드 — 청산 여부 무관 항상 노출 ── */}
+      <RechargeCard
+        telegramUserId={telegramUserId}
+        onPaid={() => { void reloadAnalytics(); }}
+        variant={status?.isLiquidated ? 'liquidated' : 'idle'}
+      />
 
       {/* ── 로딩 / 에러 상태 ─────────────────────── */}
       {loading && (
@@ -194,52 +183,6 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
         </>
       )}
 
-      {/* ── 하단 CTA ─────────────────────────────── */}
-      {!isPremium && (
-        <div>
-          <button
-            type="button"
-            onClick={handleSubscribeCta}
-            disabled={subscriptionPending}
-            style={{
-              width: '100%',
-              padding: '16px 0',
-              background: subscriptionPending
-                ? `linear-gradient(135deg, ${T.borderAccent}, #B8860B)`
-                : `linear-gradient(135deg, ${T.borderAccent}, #B8860B)`,
-              border: 'none',
-              borderRadius: 12,
-              fontSize: 14,
-              fontWeight: 700,
-              color: '#fff',
-              cursor: subscriptionPending ? 'not-allowed' : 'pointer',
-              letterSpacing: '0.06em',
-              fontFamily: T.numberFont,
-              marginTop: 4,
-              opacity: subscriptionPending ? 0.6 : 1,
-              transition: 'opacity 0.2s ease',
-            }}
-          >
-            {subscriptionPending ? t('payment.processing') : t('premium.subscribeCta')}
-          </button>
-          {subscriptionError && (
-            <div style={{
-              marginTop: 12,
-              padding: '12px',
-              borderRadius: 8,
-              backgroundColor: 'rgba(239, 68, 68, 0.1)',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
-              fontSize: 12,
-              color: '#ef4444',
-              textAlign: 'center',
-              fontFamily: T.bodyFont,
-            }}>
-              {subscriptionError}
-            </div>
-          )}
-        </div>
-      )}
-
       {/* 물리 스페이서 */}
       <div className="h-[150px] shrink-0 pointer-events-none" aria-hidden="true" />
     </div>
@@ -280,7 +223,7 @@ function SubscriptionStatusCard({ isPremium }: { isPremium: boolean }) {
         </svg>
       </div>
 
-      <div>
+      <div style={{ flex: 1 }}>
         <div style={{
           fontSize: 10,
           fontWeight: 700,

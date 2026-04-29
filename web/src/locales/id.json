@@ -40,10 +40,10 @@
   "liquidation": {
     "title": "Risk Management Triggered",
     "body": "Your simulated margin has been depleted. This is a paper-trading lesson — no real funds lost. Reset your practice balance to continue learning.",
-    "resetCta": "Setel Ulang Risiko · 500 ⭐",
+    "resetCta": "Setel Ulang Risiko · 250 ⭐",
     "resetCostSuffix": "Stars",
-    "rechargeCta": "Setel Ulang Risiko · 500 ⭐",
-    "rechargeSubtext": "$6.50 · Pulihkan Kredit Game $1,000"
+    "rechargeCta": "Setel Ulang Risiko · 250 ⭐",
+    "rechargeSubtext": "$2.99 · Pulihkan Kredit Game $1,000"
   },
   "portfolio": {
     "totalEquity": "Total Equity",
@@ -189,7 +189,31 @@
   "premium": {
     "pricePremium": "$39.99/bln",
     "subscribeCta": "Berlangganan dengan Telegram Stars",
-    "subscribeSubtext": "3,099 ⭐ ≈ $39.99/bln · Perpanjang otomatis setiap 30 hari"
+    "subscribeSubtext": "3,099 ⭐ ≈ $39.99/bln · Perpanjang otomatis setiap 30 hari",
+    "plan": {
+      "label": "Paket Premium",
+      "cycle": "bulan",
+      "starsLine": "3,099 ⭐ via Telegram Stars",
+      "cta": "Berlangganan dengan Telegram Stars",
+      "terms": "Perpanjang otomatis setiap 30 hari · Batalkan kapan saja di Telegram",
+      "benefits": {
+        "hourly": "Performa per zona waktu (4 segmen)",
+        "leverage": "Analisis leverage vs tingkat likuidasi",
+        "behavior": "Deteksi revenge trade & mode kunci",
+        "weekly": "Laporan DM mingguan — kekuatan, kelemahan, rekomendasi",
+        "vipRoom": "VIP Trader Room — akses chat analis"
+      }
+    }
+  },
+  "recharge": {
+    "card": {
+      "label": "Isi Ulang",
+      "urgentLabel": "Setel Ulang Risiko Diperlukan",
+      "oneTime": "Sekali",
+      "value": "Pulihkan kredit game $1,000",
+      "cta": "Bayar 250 ⭐ via Telegram Stars",
+      "terms": "Pembayaran tunggal · Bukan berlangganan · Reset likuidasi"
+    }
   },
   "payment": {
     "success": "Pembayaran berhasil! Premium diaktifkan.",

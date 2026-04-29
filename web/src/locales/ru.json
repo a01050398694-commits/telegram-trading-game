@@ -40,10 +40,10 @@
   "liquidation": {
     "title": "Risk Management Triggered",
     "body": "Your simulated margin has been depleted. This is a paper-trading lesson — no real funds lost. Reset your practice balance to continue learning.",
-    "resetCta": "Сброс риска · 500 ⭐",
+    "resetCta": "Сброс риска · 250 ⭐",
     "resetCostSuffix": "Stars",
-    "rechargeCta": "Сброс риска · 500 ⭐",
-    "rechargeSubtext": "$6.50 · Восстановить игровую кредит $1,000"
+    "rechargeCta": "Сброс риска · 250 ⭐",
+    "rechargeSubtext": "$2.99 · Восстановить игровую кредит $1,000"
   },
   "portfolio": {
     "totalEquity": "Total Equity",
@@ -189,7 +189,31 @@
   "premium": {
     "pricePremium": "$39.99/мес",
     "subscribeCta": "Подписаться на Telegram Stars",
-    "subscribeSubtext": "3,099 ⭐ ≈ $39.99/мес · Автоматическое продление каждые 30 дней"
+    "subscribeSubtext": "3,099 ⭐ ≈ $39.99/мес · Автоматическое продление каждые 30 дней",
+    "plan": {
+      "label": "Premium-подписка",
+      "cycle": "месяц",
+      "starsLine": "3,099 ⭐ через Telegram Stars",
+      "cta": "Подписаться через Telegram Stars",
+      "terms": "Автопродление каждые 30 дней · Отмена в любой момент в Telegram",
+      "benefits": {
+        "hourly": "Эффективность по часам (4 интервала)",
+        "leverage": "Анализ кредитного плеча и ликвидаций",
+        "behavior": "Обнаружение revenge-сделок и режим блокировки",
+        "weekly": "Еженедельный DM-отчёт — сильные/слабые стороны, рекомендация",
+        "vipRoom": "VIP Trader Room — чат аналитиков"
+      }
+    }
+  },
+  "recharge": {
+    "card": {
+      "label": "Пополнение",
+      "urgentLabel": "Требуется сброс риска",
+      "oneTime": "Разово",
+      "value": "Восстановить $1,000 игровых средств",
+      "cta": "Оплатить 250 ⭐ через Telegram Stars",
+      "terms": "Разовый платёж · Не подписка · Снимает ликвидацию"
+    }
   },
   "payment": {
     "success": "Платёж успешен! Premium активирован.",

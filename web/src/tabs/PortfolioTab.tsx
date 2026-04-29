@@ -1,16 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { hapticImpact, openStarsInvoice } from '../utils/telegram';
 import { formatMoney, formatUSD, calcPnl } from '../lib/format';
 import { getMarket } from '../lib/markets';
 import { ShareROIButton } from '../components/ShareROIButton';
 import { SharePortfolioButton } from '../components/SharePortfolioButton';
 import { PnLChart } from '../components/PnLChart';
+import { RechargeCard } from '../components/RechargeCard';
 import { useBinanceFeed } from '../lib/useBinanceFeed';
 import {
   ApiError,
   fetchUserHistory,
-  createRechargeStarsInvoice,
   type HistoryEntry,
   type UserStatus,
 } from '../lib/api';
@@ -33,8 +32,6 @@ export function PortfolioTab({ telegramUserId, status }: PortfolioTabProps) {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [rechargeError, setRechargeError] = useState<string | null>(null);
-  const [rechargePending, setRechargePending] = useState(false);
 
   const load = useCallback(async () => {
     if (telegramUserId === null) return;
@@ -92,31 +89,6 @@ export function PortfolioTab({ telegramUserId, status }: PortfolioTabProps) {
   const equityColor = isUp ? 'text-emerald-300' : isDown ? 'text-rose-300' : 'text-white';
   const equityGlow = ''; // Stage 8.12: Android drop-shadow vanishing bug fix
 
-  // Stage 15.3 — Recharge 결제 = Telegram Stars invoice (인앱 결제).
-  // successful_payment 핸들러가 wallet.balance += $1000 + is_liquidated=false 처리.
-  const handleRecharge = async (): Promise<void> => {
-    if (telegramUserId === null || rechargePending) return;
-    setRechargeError(null);
-    setRechargePending(true);
-    try {
-      hapticImpact('medium');
-      const { invoiceLink } = await createRechargeStarsInvoice(telegramUserId);
-      const result = await openStarsInvoice(invoiceLink);
-      if (result === 'paid') {
-        await load();
-      } else if (result === 'failed') {
-        setRechargeError(t('payment.failed'));
-      } else if (result === 'unsupported') {
-        setRechargeError('Use latest Telegram client');
-      }
-      // cancelled / pending — UI 그대로 두고 사용자가 다시 시도
-    } catch (err) {
-      setRechargeError((err as Error).message);
-    } finally {
-      setRechargePending(false);
-    }
-  };
-
   return (
     <div className="flex h-full flex-col gap-4 overflow-y-auto px-3 pb-[150px]">
       {/* ── MASSIVE HERO TEXT (CARDLESS) ──────────────────
@@ -159,24 +131,11 @@ export function PortfolioTab({ telegramUserId, status }: PortfolioTabProps) {
         <div className="mt-4 flex w-full flex-col items-center gap-3">
           {status?.isLiquidated && (
             <div className="w-full">
-              <button
-                type="button"
-                onClick={() => { void handleRecharge(); }}
-                disabled={rechargePending || telegramUserId === null}
-                className="w-full rounded-xl border border-amber-400/30 bg-gradient-to-r from-amber-500 to-amber-400 px-4 py-3.5 text-slate-900 shadow-lg shadow-amber-500/20 transition-all duration-150 hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <div className="font-mono text-[10px] font-bold uppercase tracking-widest opacity-70">
-                  {rechargePending ? t('payment.processing') : t('liquidation.rechargeCta')}
-                </div>
-                <div className="mt-0.5 text-[11px] font-medium opacity-70">
-                  {t('liquidation.rechargeSubtext')}
-                </div>
-              </button>
-              {rechargeError && (
-                <div className="mt-2 rounded-lg border border-rose-500/50 bg-rose-950/80 px-3 py-2 text-center text-[11px] font-medium text-rose-200">
-                  {rechargeError}
-                </div>
-              )}
+              <RechargeCard
+                telegramUserId={telegramUserId}
+                onPaid={() => { void load(); }}
+                variant="liquidated"
+              />
             </div>
           )}
           <SharePortfolioButton equity={liveEquity} winRate={winRate} totalTrades={totalTrades} telegramUserId={status?.telegramUserId} />
@@ -238,6 +197,15 @@ export function PortfolioTab({ telegramUserId, status }: PortfolioTabProps) {
           <div className="py-5 text-center text-[11px] text-slate-500">{t('portfolio.noOpen')}</div>
         )}
       </div>
+
+      {/* ── RECHARGE CARD (평소 노출 — 청산 무관 충전 진입점) ── */}
+      {!status?.isLiquidated && (
+        <RechargeCard
+          telegramUserId={telegramUserId}
+          onPaid={() => { void load(); }}
+          variant="idle"
+        />
+      )}
 
       {/* ── TRADE HISTORY ─────────────────────────────── */}
       <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur-xl">

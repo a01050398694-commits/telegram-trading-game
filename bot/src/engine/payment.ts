@@ -6,8 +6,10 @@ const PREMIUM_STARS = Number(process.env.PREMIUM_STARS || '3099');
 const PREMIUM_USD = Number(process.env.PREMIUM_USD || '39.99');
 const PREMIUM_PERIOD_SECONDS = 30 * 24 * 60 * 60;
 
-const RECHARGE_STARS = Number(process.env.RECHARGE_STARS || '500');
-const RECHARGE_USD = Number(process.env.RECHARGE_USD || '6.50');
+// 지시서 §3.1 — Recharge $2.99 / $1,000 게임머니 / 1회성.
+// $39.99 = 3099⭐ 환율 기준 (~77.5⭐/USD) → $2.99 ≈ 232⭐ → round 250.
+const RECHARGE_STARS = Number(process.env.RECHARGE_STARS || '250');
+const RECHARGE_USD = Number(process.env.RECHARGE_USD || '2.99');
 const RECHARGE_CREDIT_USD = Number(process.env.RECHARGE_CREDIT_USD || '1000');
 
 type PaymentPayload =

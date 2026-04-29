@@ -40,10 +40,10 @@
   "liquidation": {
     "title": "Risk Management Triggered",
     "body": "Your simulated margin has been depleted. This is a paper-trading lesson — no real funds lost. Reset your practice balance to continue learning.",
-    "resetCta": "Risk Sıfırla · 500 ⭐",
+    "resetCta": "Risk Sıfırla · 250 ⭐",
     "resetCostSuffix": "Stars",
-    "rechargeCta": "Risk Sıfırla · 500 ⭐",
-    "rechargeSubtext": "$6.50 · $1,000 Oyun Kredisini Onar"
+    "rechargeCta": "Risk Sıfırla · 250 ⭐",
+    "rechargeSubtext": "$2.99 · $1,000 Oyun Kredisini Onar"
   },
   "portfolio": {
     "totalEquity": "Total Equity",
@@ -189,7 +189,31 @@
   "premium": {
     "pricePremium": "$39.99/ay",
     "subscribeCta": "Telegram Stars ile Abone Ol",
-    "subscribeSubtext": "3,099 ⭐ ≈ $39.99/ay · Her 30 günde otomatik yenileme"
+    "subscribeSubtext": "3,099 ⭐ ≈ $39.99/ay · Her 30 günde otomatik yenileme",
+    "plan": {
+      "label": "Premium Üyelik",
+      "cycle": "ay",
+      "starsLine": "3,099 ⭐ Telegram Stars",
+      "cta": "Telegram Stars ile Abone Ol",
+      "terms": "Her 30 günde otomatik yenileme · Telegram'da istediğin zaman iptal",
+      "benefits": {
+        "hourly": "Saat dilimine göre performans (4 segment)",
+        "leverage": "Kaldıraç vs likidasyon oranı analizi",
+        "behavior": "İntikam ticareti tespiti & kilit modu",
+        "weekly": "Haftalık DM raporu — güçlü/zayıf yönler ve öneri",
+        "vipRoom": "VIP Trader Room — analist sohbet erişimi"
+      }
+    }
+  },
+  "recharge": {
+    "card": {
+      "label": "Yükleme",
+      "urgentLabel": "Risk Sıfırlama Gerekli",
+      "oneTime": "Tek seferlik",
+      "value": "$1,000 oyun kredisini geri yükle",
+      "cta": "250 ⭐ Telegram Stars ile öde",
+      "terms": "Tek ödeme · Abonelik değil · Likidasyonu sıfırlar"
+    }
   },
   "payment": {
     "success": "Ödeme başarılı! Premium etkinleştirildi.",

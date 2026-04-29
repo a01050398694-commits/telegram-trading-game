@@ -40,10 +40,10 @@
   "liquidation": {
     "title": "Risk Management Triggered",
     "body": "Your simulated margin has been depleted. This is a paper-trading lesson — no real funds lost. Reset your practice balance to continue learning.",
-    "resetCta": "Đặt Lại Rủi Ro · 500 ⭐",
+    "resetCta": "Đặt Lại Rủi Ro · 250 ⭐",
     "resetCostSuffix": "Stars",
-    "rechargeCta": "Đặt Lại Rủi Ro · 500 ⭐",
-    "rechargeSubtext": "$6.50 · Khôi Phục $1,000 Tín Dụng Trò Chơi"
+    "rechargeCta": "Đặt Lại Rủi Ro · 250 ⭐",
+    "rechargeSubtext": "$2.99 · Khôi Phục $1,000 Tín Dụng Trò Chơi"
   },
   "portfolio": {
     "totalEquity": "Total Equity",
@@ -189,7 +189,31 @@
   "premium": {
     "pricePremium": "$39.99/tháng",
     "subscribeCta": "Đăng Ký với Telegram Stars",
-    "subscribeSubtext": "3,099 ⭐ ≈ $39.99/tháng · Tự động gia hạn mỗi 30 ngày"
+    "subscribeSubtext": "3,099 ⭐ ≈ $39.99/tháng · Tự động gia hạn mỗi 30 ngày",
+    "plan": {
+      "label": "Gói Premium",
+      "cycle": "tháng",
+      "starsLine": "3,099 ⭐ qua Telegram Stars",
+      "cta": "Đăng Ký với Telegram Stars",
+      "terms": "Tự động gia hạn mỗi 30 ngày · Hủy bất kỳ lúc nào trong Telegram",
+      "benefits": {
+        "hourly": "Hiệu suất theo khung giờ (4 phân đoạn)",
+        "leverage": "Phân tích đòn bẩy vs tỷ lệ thanh lý",
+        "behavior": "Phát hiện giao dịch trả thù & chế độ khóa",
+        "weekly": "Báo cáo DM hàng tuần — điểm mạnh, điểm yếu, đề xuất",
+        "vipRoom": "VIP Trader Room — quyền truy cập chat phân tích"
+      }
+    }
+  },
+  "recharge": {
+    "card": {
+      "label": "Nạp Tiền",
+      "urgentLabel": "Cần Đặt Lại Rủi Ro",
+      "oneTime": "Một lần",
+      "value": "Khôi phục $1,000 tín dụng trò chơi",
+      "cta": "Trả 250 ⭐ qua Telegram Stars",
+      "terms": "Thanh toán đơn lẻ · Không phải đăng ký · Đặt lại thanh lý"
+    }
   },
   "payment": {
     "success": "Thanh toán thành công! Premium được kích hoạt.",

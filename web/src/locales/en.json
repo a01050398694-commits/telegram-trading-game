@@ -40,10 +40,10 @@
   "liquidation": {
     "title": "Risk Management Triggered",
     "body": "Your simulated margin has been depleted. This is a paper-trading lesson — no real funds lost. Reset your practice balance to continue learning.",
-    "resetCta": "Risk Reset · 500 ⭐",
+    "resetCta": "Risk Reset · 250 ⭐",
     "resetCostSuffix": "Stars",
-    "rechargeCta": "Risk Reset · 500 ⭐",
-    "rechargeSubtext": "$6.50 · Restore $1,000 game credit"
+    "rechargeCta": "Risk Reset · 250 ⭐",
+    "rechargeSubtext": "$2.99 · Restore $1,000 game credit"
   },
   "portfolio": {
     "totalEquity": "Total Equity",
@@ -189,7 +189,31 @@
   "premium": {
     "pricePremium": "$39.99/mo",
     "subscribeCta": "Subscribe with Telegram Stars",
-    "subscribeSubtext": "3,099 ⭐ ≈ $39.99/mo · Auto-renews every 30 days"
+    "subscribeSubtext": "3,099 ⭐ ≈ $39.99/mo · Auto-renews every 30 days",
+    "plan": {
+      "label": "Premium Plan",
+      "cycle": "month",
+      "starsLine": "3,099 ⭐ via Telegram Stars",
+      "cta": "Subscribe with Telegram Stars",
+      "terms": "Auto-renews every 30 days · Cancel anytime in Telegram",
+      "benefits": {
+        "hourly": "Time-of-day performance breakdown (4 buckets)",
+        "leverage": "Leverage vs liquidation rate analysis",
+        "behavior": "Revenge-trade detection & lock mode",
+        "weekly": "Weekly DM report — strengths, weaknesses, recommendation",
+        "vipRoom": "VIP Trader Room — analyst chat access"
+      }
+    }
+  },
+  "recharge": {
+    "card": {
+      "label": "Recharge",
+      "urgentLabel": "Risk Reset Required",
+      "oneTime": "One-time",
+      "value": "Restore $1,000 game credit",
+      "cta": "Pay 250 ⭐ via Telegram Stars",
+      "terms": "Single payment · No subscription · Resets liquidation"
+    }
   },
   "payment": {
     "success": "Payment successful! Premium activated.",
