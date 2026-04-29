@@ -40,10 +40,8 @@
   "liquidation": {
     "title": "Risk Management Triggered",
     "body": "Your simulated margin has been depleted. This is a paper-trading lesson — no real funds lost. Reset your practice balance to continue learning.",
-    "resetCta": "Сброс риска · 250 ⭐",
-    "resetCostSuffix": "Stars",
-    "rechargeCta": "Сброс риска · 250 ⭐",
-    "rechargeSubtext": "$2.99 · Восстановить игровую кредит $1,000"
+    "rechargeCta": "Пополнить $2.99",
+    "rechargeSubtext": "Восстановить $1,000 игровых средств · PayPal/Stars"
   },
   "portfolio": {
     "totalEquity": "Total Equity",
@@ -123,9 +121,7 @@
         }
       }
     },
-    "unlock": "Processing payment…",
-    "subscribeCta": "Подписаться на Telegram Stars",
-    "subscribeSubtext": "3,099 ⭐ ≈ $39.99/мес · Автоматическое продление каждые 30 дней"
+    "unlock": "Processing payment…"
   },
   "settings": {
     "title": "Settings",
@@ -188,13 +184,11 @@
   },
   "premium": {
     "pricePremium": "$39.99/мес",
-    "subscribeCta": "Подписаться на Telegram Stars",
-    "subscribeSubtext": "3,099 ⭐ ≈ $39.99/мес · Автоматическое продление каждые 30 дней",
     "plan": {
       "label": "Premium-подписка",
       "cycle": "месяц",
-      "starsLine": "3,099 ⭐ через Telegram Stars",
-      "cta": "Подписаться через Telegram Stars",
+      "starsLine": "PayPal · Telegram Stars поддерживаются",
+      "cta": "Подписаться через InviteMember",
       "terms": "Автопродление каждые 30 дней · Отмена в любой момент в Telegram",
       "benefits": {
         "hourly": "Эффективность по часам (4 интервала)",

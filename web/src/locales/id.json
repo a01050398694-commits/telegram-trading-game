@@ -40,10 +40,8 @@
   "liquidation": {
     "title": "Risk Management Triggered",
     "body": "Your simulated margin has been depleted. This is a paper-trading lesson — no real funds lost. Reset your practice balance to continue learning.",
-    "resetCta": "Setel Ulang Risiko · 250 ⭐",
-    "resetCostSuffix": "Stars",
-    "rechargeCta": "Setel Ulang Risiko · 250 ⭐",
-    "rechargeSubtext": "$2.99 · Pulihkan Kredit Game $1,000"
+    "rechargeCta": "Isi Ulang $2.99",
+    "rechargeSubtext": "Pulihkan kredit game $1,000 · PayPal/Stars"
   },
   "portfolio": {
     "totalEquity": "Total Equity",
@@ -123,9 +121,7 @@
         }
       }
     },
-    "unlock": "Processing payment…",
-    "subscribeCta": "Berlangganan dengan Telegram Stars",
-    "subscribeSubtext": "3,099 ⭐ ≈ $39.99/bln · Perpanjang otomatis setiap 30 hari"
+    "unlock": "Processing payment…"
   },
   "settings": {
     "title": "Settings",
@@ -188,13 +184,11 @@
   },
   "premium": {
     "pricePremium": "$39.99/bln",
-    "subscribeCta": "Berlangganan dengan Telegram Stars",
-    "subscribeSubtext": "3,099 ⭐ ≈ $39.99/bln · Perpanjang otomatis setiap 30 hari",
     "plan": {
       "label": "Paket Premium",
       "cycle": "bulan",
-      "starsLine": "3,099 ⭐ via Telegram Stars",
-      "cta": "Berlangganan dengan Telegram Stars",
+      "starsLine": "PayPal · Telegram Stars didukung",
+      "cta": "Berlangganan via InviteMember",
       "terms": "Perpanjang otomatis setiap 30 hari · Batalkan kapan saja di Telegram",
       "benefits": {
         "hourly": "Performa per zona waktu (4 segmen)",

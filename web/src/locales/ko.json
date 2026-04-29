@@ -40,10 +40,8 @@
   "liquidation": {
     "title": "리스크 관리 리셋 필요",
     "body": "모의 증거금이 소진되었습니다. 실제 자금 손실은 없으며, 학습 과정의 일부입니다. 연습 잔고를 리셋하여 계속 학습하세요",
-    "resetCta": "리스크 리셋 · 250 ⭐",
-    "resetCostSuffix": "Stars",
-    "rechargeCta": "리스크 리셋 · 250 ⭐",
-    "rechargeSubtext": "$2.99 · 게임머니 $1,000 복구"
+    "rechargeCta": "충전 $2.99",
+    "rechargeSubtext": "게임머니 $1,000 복구 · PayPal/Stars"
   },
   "portfolio": {
     "totalEquity": "총 자산",
@@ -123,9 +121,7 @@
         }
       }
     },
-    "unlock": "결제 처리 중…",
-    "subscribeCta": "Telegram Stars로 구독",
-    "subscribeSubtext": "3,099 ⭐ ≈ $39.99/월 · 30일마다 자동 갱신"
+    "unlock": "결제 처리 중…"
   },
   "settings": {
     "title": "설정",
@@ -188,13 +184,11 @@
   },
   "premium": {
     "pricePremium": "$39.99/월",
-    "subscribeCta": "Telegram Stars로 구독",
-    "subscribeSubtext": "3,099 ⭐ ≈ $39.99/월 · 30일마다 자동 갱신",
     "plan": {
       "label": "프리미엄 멤버십",
       "cycle": "월",
-      "starsLine": "3,099 ⭐ · Telegram Stars 결제",
-      "cta": "Telegram Stars로 구독",
+      "starsLine": "PayPal · Telegram Stars 지원",
+      "cta": "InviteMember 로 결제",
       "terms": "30일마다 자동 갱신 · 텔레그램에서 언제든 취소",
       "benefits": {
         "hourly": "시간대별 매매 성과 분석 (4개 구간)",

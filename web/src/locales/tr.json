@@ -40,10 +40,8 @@
   "liquidation": {
     "title": "Risk Management Triggered",
     "body": "Your simulated margin has been depleted. This is a paper-trading lesson — no real funds lost. Reset your practice balance to continue learning.",
-    "resetCta": "Risk Sıfırla · 250 ⭐",
-    "resetCostSuffix": "Stars",
-    "rechargeCta": "Risk Sıfırla · 250 ⭐",
-    "rechargeSubtext": "$2.99 · $1,000 Oyun Kredisini Onar"
+    "rechargeCta": "Yükle $2.99",
+    "rechargeSubtext": "$1,000 oyun kredisini geri yükle · PayPal/Stars"
   },
   "portfolio": {
     "totalEquity": "Total Equity",
@@ -123,9 +121,7 @@
         }
       }
     },
-    "unlock": "Processing payment…",
-    "subscribeCta": "Telegram Stars ile Abone Ol",
-    "subscribeSubtext": "3,099 ⭐ ≈ $39.99/ay · Her 30 günde otomatik yenileme"
+    "unlock": "Processing payment…"
   },
   "settings": {
     "title": "Settings",
@@ -188,13 +184,11 @@
   },
   "premium": {
     "pricePremium": "$39.99/ay",
-    "subscribeCta": "Telegram Stars ile Abone Ol",
-    "subscribeSubtext": "3,099 ⭐ ≈ $39.99/ay · Her 30 günde otomatik yenileme",
     "plan": {
       "label": "Premium Üyelik",
       "cycle": "ay",
-      "starsLine": "3,099 ⭐ Telegram Stars",
-      "cta": "Telegram Stars ile Abone Ol",
+      "starsLine": "PayPal · Telegram Stars destekli",
+      "cta": "InviteMember ile abone ol",
       "terms": "Her 30 günde otomatik yenileme · Telegram'da istediğin zaman iptal",
       "benefits": {
         "hourly": "Saat dilimine göre performans (4 segment)",

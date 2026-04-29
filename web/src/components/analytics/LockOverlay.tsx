@@ -1,19 +1,22 @@
 /**
- * Stage 15.2 — Premium 잠금 오버레이.
- * 흐릿한 배경 + 자물쇠 아이콘 + CTA 버튼.
+ * Stage 15.5 — Premium 잠금 오버레이.
+ *
+ * 흐릿한 배경 + 자물쇠 아이콘 + InviteMember 결제 CTA.
+ * 결제 흐름: PricingCard 와 동일하게 외부 InviteMember URL (PayPal + Stars 둘 다 지원).
  */
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ANALYTICS_TOKENS as T } from '../../styles/tokens';
-import { hapticImpact, openStarsInvoice } from '../../utils/telegram';
-import { createPremiumStarsInvoice } from '../../lib/api';
+import { hapticImpact, openTelegramLinkSafe } from '../../utils/telegram';
+
+const INVITEMEMBER_PREMIUM_URL = import.meta.env.VITE_INVITEMEMBER_PREMIUM_URL ?? '';
 
 interface LockOverlayProps {
   /** 최소 거래 미달인 경우의 메시지 (data 부족) */
   minTradesMessage?: string;
-  /** Telegram 사용자 ID — Stars 결제 호출에 필요 */
+  /** Telegram 사용자 ID — 신호 용 (현재 InviteMember 외부 흐름이라 직접 사용 안 함) */
   telegramUserId: number | null;
-  /** 결제 성공 시 상위에서 데이터 재조회 트리거 */
+  /** 결제 후 상위에서 데이터 재조회 */
   onPaid?: () => void;
   children: React.ReactNode;
 }
@@ -23,22 +26,26 @@ export function LockOverlay({ minTradesMessage, telegramUserId, onPaid, children
   const [pending, setPending] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handleSubscribe = async (): Promise<void> => {
-    if (!telegramUserId || pending) return;
+  const handleSubscribe = (): void => {
+    if (pending) return;
+    if (!INVITEMEMBER_PREMIUM_URL) {
+      setErrorMessage('Payment link not configured. Contact support.');
+      return;
+    }
     hapticImpact('medium');
     setPending(true);
     setErrorMessage(null);
     try {
-      const { invoiceLink } = await createPremiumStarsInvoice(telegramUserId);
-      const result = await openStarsInvoice(invoiceLink);
-      if (result === 'paid') onPaid?.();
-      else if (result === 'failed') setErrorMessage(t('payment.failed'));
-      else if (result === 'unsupported') setErrorMessage('Use latest Telegram client');
+      openTelegramLinkSafe(INVITEMEMBER_PREMIUM_URL);
+      setTimeout(() => {
+        setPending(false);
+        onPaid?.();
+      }, 800);
     } catch (err) {
       setErrorMessage((err as Error).message);
-    } finally {
       setPending(false);
     }
+    void telegramUserId;
   };
 
   return (
@@ -80,8 +87,8 @@ export function LockOverlay({ minTradesMessage, telegramUserId, onPaid, children
             </div>
             <button
               type="button"
-              onClick={() => { void handleSubscribe(); }}
-              disabled={pending || !telegramUserId}
+              onClick={handleSubscribe}
+              disabled={pending}
               style={{
                 marginTop: 4,
                 padding: '10px 24px',
@@ -91,9 +98,9 @@ export function LockOverlay({ minTradesMessage, telegramUserId, onPaid, children
                 fontSize: 12,
                 fontWeight: 700,
                 color: '#fff',
-                cursor: pending || !telegramUserId ? 'not-allowed' : 'pointer',
+                cursor: pending ? 'not-allowed' : 'pointer',
                 letterSpacing: '0.05em',
-                opacity: pending || !telegramUserId ? 0.6 : 1,
+                opacity: pending ? 0.6 : 1,
               }}
             >
               {pending ? t('payment.processing') : `${t('analytics.unlock')} — $39.99/${t('analytics.perMonth')}`}

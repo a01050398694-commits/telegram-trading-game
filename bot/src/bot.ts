@@ -3,7 +3,6 @@ import { env } from './env.js';
 import type { TradingEngine } from './engine/trading.js';
 import { setupCommunityFeatures } from './engine/community.js';
 import { botLocales, SupportedLang } from './locales.js';
-import { handleSuccessfulPayment } from './engine/payment.js';
 import { setupInviteMemberSync } from './handlers/inviteMemberSync.js';
 
 function formatBalance(n: number): string {
@@ -326,25 +325,6 @@ export function createBot(engine: TradingEngine): Bot {
     const loc = botLocales[lang];
     await ctx.answerCallbackQuery();
     await ctx.reply(loc.howItWorks, { parse_mode: 'Markdown' });
-  });
-
-  // Stage 15.3 — Telegram Stars 인앱 결제 부활.
-  // pre_checkout_query 자동 승인 (검증은 invoice 발급 시점에 끝남) + successful_payment
-  // 시 payload type 분기로 Premium 활성화 / Recharge 충전 처리.
-  bot.on('pre_checkout_query', async (ctx) => {
-    try {
-      await ctx.answerPreCheckoutQuery(true);
-    } catch (err) {
-      console.error('[bot] pre_checkout_query:', err);
-    }
-  });
-
-  bot.on('message:successful_payment', async (ctx) => {
-    try {
-      await handleSuccessfulPayment(engine, ctx);
-    } catch (err) {
-      console.error('[bot] successful_payment:', err);
-    }
   });
 
   bot.catch((err) => {

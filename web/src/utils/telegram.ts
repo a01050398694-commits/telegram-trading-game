@@ -192,37 +192,3 @@ export function openTelegramLinkSafe(url: string): void {
   window.open(url, '_blank', 'noopener,noreferrer');
 }
 
-// Stage 15.3 — Telegram Stars Invoice Handler
-// 반환값: 'paid' | 'cancelled' | 'failed' | 'pending' | 'unsupported'
-// - invoiceLink: Telegram Stars 결제 링크 (e.g., https://t.me/$...)
-// - Promise 는 tg.openInvoice 콜백이 실행될 때 resolve
-// - 함수 미지원/에러 시 'unsupported' 반환
-export type InvoiceResult = 'paid' | 'cancelled' | 'failed' | 'pending' | 'unsupported';
-
-export async function openStarsInvoice(invoiceLink: string): Promise<InvoiceResult> {
-  const tg = getTg();
-
-  // Haptic feedback 시각화
-  hapticImpact('medium');
-
-  // openInvoice 함수 미지원 처리
-  if (!tg?.openInvoice || typeof tg.openInvoice !== 'function') {
-    return 'unsupported';
-  }
-
-  return new Promise((resolve) => {
-    try {
-      tg.openInvoice!(invoiceLink, (status: string) => {
-        // Telegram callback status: 'paid' | 'cancelled' | 'failed' | 'pending'
-        if (status === 'paid' || status === 'cancelled' || status === 'failed' || status === 'pending') {
-          resolve(status as InvoiceResult);
-        } else {
-          resolve('unsupported');
-        }
-      });
-    } catch {
-      resolve('unsupported');
-    }
-  });
-}
-

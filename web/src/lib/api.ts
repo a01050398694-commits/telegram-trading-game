@@ -240,32 +240,3 @@ export function toggleLockMode(
   });
 }
 
-// ---------------------------------------------------------------------------
-// Stage 15.3 — Telegram Stars In-App Payment (Premium + Recharge)
-// ---------------------------------------------------------------------------
-
-export type StarsPricing = {
-  stars: number;
-  usd: number;
-  periodSec?: number;
-  creditUsd?: number;
-};
-
-export type StarsInvoiceResponse = {
-  invoiceLink: string;
-  pricing: StarsPricing;
-};
-
-export function createPremiumStarsInvoice(telegramUserId: number): Promise<StarsInvoiceResponse> {
-  return request<StarsInvoiceResponse>('/api/payment/stars/premium-invoice', {
-    method: 'POST',
-    body: JSON.stringify({ telegramUserId }),
-  });
-}
-
-export function createRechargeStarsInvoice(telegramUserId: number): Promise<StarsInvoiceResponse> {
-  return request<StarsInvoiceResponse>('/api/payment/stars/recharge-invoice', {
-    method: 'POST',
-    body: JSON.stringify({ telegramUserId }),
-  });
-}

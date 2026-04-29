@@ -708,42 +708,6 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
     }
   });
 
-  // ---- Stage 15.3 — Telegram Stars Invoice 라우트 ------------------------
-
-  // POST /api/payment/stars/premium-invoice — Stars 구독 invoice 링크 발급
-  app.post('/api/payment/stars/premium-invoice', async (req, res) => {
-    try {
-      const resolved = await resolveUser(engine, req);
-      if (typeof resolved !== 'string') {
-        res.status(resolved.status).json({ error: resolved.error });
-        return;
-      }
-      const { createPremiumInvoiceLink, PAYMENT_PRICING } = await import('./engine/payment.js');
-      const invoiceLink = await createPremiumInvoiceLink(bot, resolved);
-      res.json({ invoiceLink, pricing: PAYMENT_PRICING.premium });
-    } catch (err) {
-      console.error('[server] /payment/stars/premium-invoice:', err);
-      res.status(500).json({ error: (err as Error).message });
-    }
-  });
-
-  // POST /api/payment/stars/recharge-invoice — Stars 일회성 충전 invoice 링크
-  app.post('/api/payment/stars/recharge-invoice', async (req, res) => {
-    try {
-      const resolved = await resolveUser(engine, req);
-      if (typeof resolved !== 'string') {
-        res.status(resolved.status).json({ error: resolved.error });
-        return;
-      }
-      const { createRechargeInvoiceLink, PAYMENT_PRICING } = await import('./engine/payment.js');
-      const invoiceLink = await createRechargeInvoiceLink(bot, resolved);
-      res.json({ invoiceLink, pricing: PAYMENT_PRICING.recharge });
-    } catch (err) {
-      console.error('[server] /payment/stars/recharge-invoice:', err);
-      res.status(500).json({ error: (err as Error).message });
-    }
-  });
-
   // POST /api/cron/weekly-report — 주간 리포트 수동 트리거
   app.post('/api/cron/weekly-report', async (req, res) => {
     try {

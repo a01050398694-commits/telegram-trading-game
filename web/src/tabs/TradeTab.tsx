@@ -12,14 +12,18 @@ import { FundingTicker } from '../components/FundingTicker';
 import { useBinanceFeed } from '../lib/useBinanceFeed';
 import { calcPnl } from '../lib/format';
 import { MARKETS, type MarketSymbol } from '../lib/markets';
-import { hapticNotification, hapticImpact, openStarsInvoice } from '../utils/telegram';
+import { hapticNotification, hapticImpact, openTelegramLinkSafe } from '../utils/telegram';
 import {
   ApiError,
   closeTrade,
-  createRechargeStarsInvoice,
   openTrade,
   type UserStatus,
 } from '../lib/api';
+
+const INVITEMEMBER_RECHARGE_1K_URL =
+  import.meta.env.VITE_INVITEMEMBER_RECHARGE_1K_URL ??
+  import.meta.env.VITE_INVITEMEMBER_RECHARGE_URL ??
+  '';
 
 
 type TradeTabProps = {
@@ -144,27 +148,25 @@ export function TradeTab({
     }
   };
 
-  // Stage 15.3 — Recharge = Telegram Stars Invoice
-  const handleRecharge = async () => {
-    if (!telegramUserId) return;
+  // Stage 15.5 — Recharge = InviteMember 외부 결제 (PayPal + Stars 둘 다)
+  // 청산 직후 빠르게 1K 회복 진입점. 더 큰 패키지는 PortfolioTab/PremiumTab 의 RechargeCard.
+  const handleRecharge = (): void => {
+    if (!INVITEMEMBER_RECHARGE_1K_URL) {
+      setRechargeError('Payment link not configured. Contact support.');
+      return;
+    }
+    hapticImpact('medium');
     setRechargeError(null);
     setRechargePending(true);
     try {
-      const { invoiceLink } = await createRechargeStarsInvoice(telegramUserId);
-      const result = await openStarsInvoice(invoiceLink);
-      if (result === 'paid') {
-        await refresh();
-        hapticNotification('success');
-      } else if (result === 'failed') {
-        setRechargeError(t('payment.failed'));
-        hapticNotification('error');
-      } else if (result === 'unsupported') {
-        setRechargeError('Use latest Telegram client');
-      }
-      // cancelled/pending — 무시
+      openTelegramLinkSafe(INVITEMEMBER_RECHARGE_1K_URL);
+      // 외부 결제 후 채널 가입 → 봇 핸들러가 잔고 적립. 사용자가 앱 복귀 시 refresh.
+      setTimeout(() => {
+        setRechargePending(false);
+        void refresh();
+      }, 800);
     } catch (err) {
       setRechargeError((err as Error).message);
-    } finally {
       setRechargePending(false);
     }
   };

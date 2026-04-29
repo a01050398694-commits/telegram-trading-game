@@ -40,10 +40,8 @@
   "liquidation": {
     "title": "Risk Management Triggered",
     "body": "Your simulated margin has been depleted. This is a paper-trading lesson — no real funds lost. Reset your practice balance to continue learning.",
-    "resetCta": "Risk Reset · 250 ⭐",
-    "resetCostSuffix": "Stars",
-    "rechargeCta": "Risk Reset · 250 ⭐",
-    "rechargeSubtext": "$2.99 · Restore $1,000 game credit"
+    "rechargeCta": "Recharge $2.99",
+    "rechargeSubtext": "Restore $1,000 game credit · PayPal/Stars"
   },
   "portfolio": {
     "totalEquity": "Total Equity",
@@ -123,9 +121,7 @@
         }
       }
     },
-    "unlock": "Processing payment…",
-    "subscribeCta": "Subscribe with Telegram Stars",
-    "subscribeSubtext": "3,099 ⭐ ≈ $39.99/mo · Auto-renews every 30 days"
+    "unlock": "Processing payment…"
   },
   "settings": {
     "title": "Settings",
@@ -188,13 +184,11 @@
   },
   "premium": {
     "pricePremium": "$39.99/mo",
-    "subscribeCta": "Subscribe with Telegram Stars",
-    "subscribeSubtext": "3,099 ⭐ ≈ $39.99/mo · Auto-renews every 30 days",
     "plan": {
       "label": "Premium Plan",
       "cycle": "month",
-      "starsLine": "3,099 ⭐ via Telegram Stars",
-      "cta": "Subscribe with Telegram Stars",
+      "starsLine": "PayPal · Telegram Stars supported",
+      "cta": "Subscribe via InviteMember",
       "terms": "Auto-renews every 30 days · Cancel anytime in Telegram",
       "benefits": {
         "hourly": "Time-of-day performance breakdown (4 buckets)",

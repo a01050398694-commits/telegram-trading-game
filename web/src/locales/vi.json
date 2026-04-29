@@ -40,10 +40,8 @@
   "liquidation": {
     "title": "Risk Management Triggered",
     "body": "Your simulated margin has been depleted. This is a paper-trading lesson — no real funds lost. Reset your practice balance to continue learning.",
-    "resetCta": "Đặt Lại Rủi Ro · 250 ⭐",
-    "resetCostSuffix": "Stars",
-    "rechargeCta": "Đặt Lại Rủi Ro · 250 ⭐",
-    "rechargeSubtext": "$2.99 · Khôi Phục $1,000 Tín Dụng Trò Chơi"
+    "rechargeCta": "Nạp $2.99",
+    "rechargeSubtext": "Khôi phục $1,000 tín dụng trò chơi · PayPal/Stars"
   },
   "portfolio": {
     "totalEquity": "Total Equity",
@@ -123,9 +121,7 @@
         }
       }
     },
-    "unlock": "Processing payment…",
-    "subscribeCta": "Đăng Ký với Telegram Stars",
-    "subscribeSubtext": "3,099 ⭐ ≈ $39.99/tháng · Tự động gia hạn mỗi 30 ngày"
+    "unlock": "Processing payment…"
   },
   "settings": {
     "title": "Settings",
@@ -188,13 +184,11 @@
   },
   "premium": {
     "pricePremium": "$39.99/tháng",
-    "subscribeCta": "Đăng Ký với Telegram Stars",
-    "subscribeSubtext": "3,099 ⭐ ≈ $39.99/tháng · Tự động gia hạn mỗi 30 ngày",
     "plan": {
       "label": "Gói Premium",
       "cycle": "tháng",
-      "starsLine": "3,099 ⭐ qua Telegram Stars",
-      "cta": "Đăng Ký với Telegram Stars",
+      "starsLine": "PayPal · Hỗ trợ Telegram Stars",
+      "cta": "Đăng ký qua InviteMember",
       "terms": "Tự động gia hạn mỗi 30 ngày · Hủy bất kỳ lúc nào trong Telegram",
       "benefits": {
         "hourly": "Hiệu suất theo khung giờ (4 phân đoạn)",
