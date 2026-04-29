@@ -1,5 +1,5 @@
 /**
- * Stage 15.5 — Recharge Card (InviteMember 3패키지 토글)
+ * Stage 15.5 — Recharge Card (Amex/Apple Card 톤 luxurious 업그레이드)
  *
  * 패키지:
  *   · $2.99   → +$1,000 게임머니
@@ -7,19 +7,20 @@
  *   · $13.99  → +$10,000
  *
  * 흐름:
- *   1. 사용자가 패키지 선택 → InviteMember plan URL 외부 링크 (PayPal/Stars 지원)
+ *   1. 사용자가 패키지 선택 → InviteMember plan URL 외부 링크 (PayPal/Stars 둘 다)
  *   2. 결제 성공 → InviteMember 가 패키지 별 채널에 자동 초대
  *   3. 봇 chat_member 핸들러가 채널 ID 보고 credit 매핑 → DB +balance
- *   4. 5분 후 자동 ban+unban → 채널 떠남, 다음 결제 시 재가입 가능
+ *   4. 5분 후 자동 ban+unban → 다음 결제 시 재가입 가능
  *
- * 디자인:
- *   · 선택된 tier 는 emerald(idle) / amber(liquidated) glow + 체크마크.
- *   · 결제 버튼에 선택 가격 + credit 미리보기 ("Pay $7.99 → +$5,000")
- *     → CEO 컴플레인 "결제창 위치/혜택 불명" 해결.
+ * 디자인 (Stage 15.5 폴리시):
+ *   · 메탈릭 골드 강조 (idle) / amber dramatic (liquidated)
+ *   · 토글: 큰 +$X,XXX + 가격 + 체크마크 + glow ring
+ *   · 결제 버튼: "Pay $X.XX → +$Y,YYY" 큰 명조 + 깊은 shadow
+ *   · BEST VALUE 뱃지 emerald gradient
  *
  * variant:
- *   · 'idle'       — 평소 (PortfolioTab 의 디폴트)
- *   · 'liquidated' — 청산 직후 (강조 톤, amber gradient)
+ *   · 'idle'       — 평소 (PortfolioTab 디폴트, gold accent)
+ *   · 'liquidated' — 청산 직후 (amber dramatic)
  */
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -69,7 +70,6 @@ export function RechargeCard({ telegramUserId, onPaid, variant = 'idle' }: Recha
     setErrorMessage(null);
     try {
       openTelegramLinkSafe(url);
-      // 외부 결제 후 채널 가입 → 봇 핸들러가 잔고 적립 → 사용자가 앱 복귀 시 onPaid 로 새 잔고 fetch.
       setTimeout(() => {
         setPending(false);
         onPaid?.();
@@ -87,26 +87,40 @@ export function RechargeCard({ telegramUserId, onPaid, variant = 'idle' }: Recha
     <div
       className={
         liquidated
-          ? 'rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-950/40 via-amber-900/20 to-amber-950/40 p-5 shadow-lg shadow-amber-500/10 backdrop-blur-xl'
-          : 'rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/60 via-slate-900/40 to-slate-900/60 p-5 shadow-lg shadow-emerald-500/5 backdrop-blur-xl'
+          ? 'relative w-full max-w-full overflow-hidden rounded-2xl border border-amber-300/60 bg-gradient-to-br from-amber-950 via-stone-950 to-amber-950 p-5 shadow-[0_8px_32px_rgba(217,119,6,0.25),inset_0_1px_0_rgba(252,211,77,0.15)] backdrop-blur-xl'
+          : 'relative w-full max-w-full overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-br from-stone-900 via-stone-950 to-stone-900 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(217,119,6,0.15)] backdrop-blur-xl'
       }
     >
+      {/* 배경 액센트 — 우상단 골드 글로우 */}
+      <div
+        className={`pointer-events-none absolute -top-12 -right-12 h-32 w-32 rounded-full blur-3xl ${
+          liquidated ? 'bg-amber-400/30' : 'bg-amber-500/15'
+        }`}
+        aria-hidden="true"
+      />
+
       {/* ── 헤더 ── */}
-      <div className="mb-3 flex items-center justify-between">
+      <div className="relative mb-4 flex items-center justify-between">
         <span
-          className={`font-mono text-[10px] font-bold uppercase tracking-[0.18em] ${
-            liquidated ? 'text-amber-300' : 'text-emerald-300/90'
+          className={`font-mono text-[10px] font-black uppercase tracking-[0.22em] ${
+            liquidated ? 'text-amber-200' : 'text-amber-400/90'
           }`}
         >
           {liquidated ? t('recharge.card.urgentLabel') : t('recharge.card.label')}
         </span>
-        <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-white/40">
+        <span
+          className={`rounded-full border px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider ${
+            liquidated
+              ? 'border-amber-200/40 bg-amber-200/10 text-amber-100'
+              : 'border-white/10 bg-white/[0.04] text-white/50'
+          }`}
+        >
           {t('recharge.card.oneTime')}
         </span>
       </div>
 
       {/* ── 패키지 토글 (3옵션) ── */}
-      <div className="mb-4 grid grid-cols-3 gap-2">
+      <div className="relative mb-4 grid grid-cols-3 gap-2">
         <TierButton
           selected={selectedTier === '1k'}
           credit={TIER_CREDIT['1k']}
@@ -131,27 +145,29 @@ export function RechargeCard({ telegramUserId, onPaid, variant = 'idle' }: Recha
         />
       </div>
 
-      {/* ── 결제 버튼 — 선택된 가격 + credit 명시 ── */}
+      {/* ── 결제 버튼 — 메탈릭 그라디언트 + 큰 명조 ── */}
       <button
         type="button"
         onClick={handlePay}
         disabled={pending}
         className={
           liquidated
-            ? 'w-full rounded-xl border border-amber-300/60 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 px-4 py-3.5 text-slate-900 shadow-lg shadow-amber-500/40 transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60'
-            : 'w-full rounded-xl border border-emerald-400/40 bg-gradient-to-r from-emerald-600 via-emerald-500 to-emerald-600 px-4 py-3.5 text-white shadow-lg shadow-emerald-500/30 transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60'
+            ? 'relative w-full overflow-hidden rounded-xl border border-amber-200/60 bg-gradient-to-br from-amber-300 via-amber-500 to-amber-600 px-4 py-4 text-stone-950 shadow-[0_8px_24px_rgba(217,119,6,0.5),inset_0_1px_0_rgba(255,255,255,0.4)] transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60'
+            : 'relative w-full overflow-hidden rounded-xl border border-emerald-300/40 bg-gradient-to-br from-emerald-500 via-emerald-600 to-emerald-700 px-4 py-4 text-white shadow-[0_8px_24px_rgba(16,185,129,0.4),inset_0_1px_0_rgba(255,255,255,0.25)] transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60'
         }
       >
+        {/* shine */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent" aria-hidden="true" />
         {pending ? (
-          <span className="font-mono text-[12px] font-bold uppercase tracking-[0.08em]">
+          <span className="relative font-mono text-[12px] font-bold uppercase tracking-[0.08em]">
             {t('payment.processing')}
           </span>
         ) : (
-          <div className="flex items-center justify-center gap-2 font-mono">
-            <span className="text-[14px] font-black tabular-nums">
+          <div className="relative flex items-center justify-center gap-2 font-mono">
+            <span className={`text-[15px] font-black tabular-nums ${liquidated ? 'text-stone-950' : 'text-white'}`}>
               Pay {TIER_PRICE[selectedTier]}
             </span>
-            <span className={`text-[14px] font-black tabular-nums ${liquidated ? 'text-emerald-900' : 'text-emerald-200'}`}>
+            <span className={`text-[15px] font-black tabular-nums ${liquidated ? 'text-emerald-900' : 'text-emerald-100'}`}>
               → {TIER_CREDIT[selectedTier]}
             </span>
           </div>
@@ -160,8 +176,8 @@ export function RechargeCard({ telegramUserId, onPaid, variant = 'idle' }: Recha
 
       {/* ── 약관 ── */}
       <div
-        className={`mt-2.5 text-center text-[11px] ${
-          liquidated ? 'text-amber-100/60' : 'text-white/45'
+        className={`mt-3 text-center text-[11px] leading-relaxed ${
+          liquidated ? 'text-amber-100/70' : 'text-white/45'
         }`}
       >
         {t('recharge.card.terms')}
@@ -188,46 +204,46 @@ interface TierButtonProps {
 function TierButton({ selected, credit, price, onClick, liquidated, badge }: TierButtonProps) {
   const baseClass = selected
     ? liquidated
-      ? 'border-amber-300 bg-amber-500/20 shadow-md shadow-amber-500/30 ring-2 ring-amber-300/50'
-      : 'border-emerald-400/80 bg-emerald-500/15 shadow-md shadow-emerald-500/30 ring-2 ring-emerald-400/40'
-    : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.04]';
+      ? 'border-amber-200 bg-gradient-to-b from-amber-400/30 to-amber-600/20 shadow-[0_4px_12px_rgba(217,119,6,0.4),inset_0_1px_0_rgba(252,211,77,0.4)] ring-2 ring-amber-200/60'
+      : 'border-emerald-400/80 bg-gradient-to-b from-emerald-500/20 to-emerald-700/10 shadow-[0_4px_12px_rgba(16,185,129,0.35),inset_0_1px_0_rgba(110,231,183,0.3)] ring-2 ring-emerald-400/50'
+    : 'border-white/10 bg-gradient-to-b from-white/[0.03] to-transparent hover:from-white/[0.05]';
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`relative rounded-xl border ${baseClass} px-2 py-3 text-center transition active:scale-[0.97]`}
+      className={`relative rounded-xl border ${baseClass} px-2 py-3.5 text-center transition active:scale-[0.97]`}
     >
       {badge && (
-        <span className="absolute -top-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-gradient-to-r from-emerald-400 to-emerald-500 px-2 py-0.5 font-mono text-[8px] font-black uppercase tracking-wider text-black shadow-md shadow-emerald-500/40">
+        <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-gradient-to-r from-emerald-400 via-emerald-500 to-emerald-400 px-2 py-0.5 font-mono text-[8px] font-black uppercase tracking-wider text-stone-950 shadow-[0_2px_8px_rgba(16,185,129,0.5)]">
           {badge}
         </span>
       )}
-      {/* 선택 표시 체크 */}
+      {/* 선택 표시 체크 (우상단) */}
       {selected && (
         <span
-          className={`absolute right-1.5 top-1.5 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full ${
-            liquidated ? 'bg-amber-300' : 'bg-emerald-400'
-          }`}
+          className={`absolute right-1.5 top-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full ${
+            liquidated ? 'bg-amber-200' : 'bg-emerald-400'
+          } shadow-md`}
         >
-          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="20 6 9 17 4 12" />
           </svg>
         </span>
       )}
       <div
-        className={`font-mono text-[16px] font-black tabular-nums ${
+        className={`font-mono text-[16px] font-black tabular-nums leading-none ${
           selected
             ? liquidated
               ? 'text-amber-100'
-              : 'text-emerald-200'
-            : 'text-white/70'
+              : 'text-emerald-100'
+            : 'text-white/75'
         }`}
       >
         {credit}
       </div>
       <div
-        className={`mt-0.5 font-mono text-[10px] font-bold tabular-nums ${
+        className={`mt-1 font-mono text-[10px] font-bold tabular-nums ${
           selected
             ? liquidated
               ? 'text-amber-300'

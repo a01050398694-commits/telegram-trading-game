@@ -189,32 +189,45 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
   );
 }
 
-// ── 구독 상태 카드 ──────────────────────────────────────
+// ── 구독 상태 카드 (Stage 15.5 Amex 톤) ──────────────────
 function SubscriptionStatusCard({ isPremium }: { isPremium: boolean }) {
   const { t } = useTranslation();
 
   return (
     <div style={{
-      background: isPremium ? 'rgba(139, 105, 20, 0.1)' : T.bgCard,
+      position: 'relative',
+      overflow: 'hidden',
+      background: isPremium
+        ? 'linear-gradient(135deg, rgba(184, 134, 11, 0.18) 0%, #0F0F0F 60%)'
+        : `linear-gradient(135deg, ${T.bgCard} 0%, #050505 100%)`,
       border: `1px solid ${isPremium ? T.borderAccent : T.border}`,
-      borderRadius: 12,
-      padding: 16,
+      borderRadius: 14,
+      padding: 18,
       display: 'flex',
       alignItems: 'center',
-      gap: 12,
+      gap: 14,
+      boxShadow: isPremium
+        ? '0 0 0 1px rgba(184, 134, 11, 0.18), 0 8px 24px rgba(184, 134, 11, 0.15), inset 0 1px 0 rgba(218, 165, 32, 0.2)'
+        : '0 4px 12px rgba(0, 0, 0, 0.5)',
     }}>
       {/* 아이콘 */}
       <div style={{
-        width: 40,
-        height: 40,
-        borderRadius: 10,
-        background: isPremium ? 'rgba(139, 105, 20, 0.2)' : 'rgba(115, 115, 115, 0.1)',
+        position: 'relative',
+        width: 44,
+        height: 44,
+        borderRadius: 12,
+        background: isPremium
+          ? 'linear-gradient(135deg, #FFD700 0%, #DAA520 50%, #8B6914 100%)'
+          : 'rgba(115, 115, 115, 0.1)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         flexShrink: 0,
+        boxShadow: isPremium
+          ? '0 4px 12px rgba(218, 165, 32, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.4)'
+          : 'none',
       }}>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={isPremium ? T.borderAccent : T.textMuted} strokeWidth="2">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill={isPremium ? '#0A0A0A' : 'none'} stroke={isPremium ? '#0A0A0A' : T.textMuted} strokeWidth="2" strokeLinejoin="round">
           {isPremium ? (
             <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
           ) : (
@@ -223,18 +236,26 @@ function SubscriptionStatusCard({ isPremium }: { isPremium: boolean }) {
         </svg>
       </div>
 
-      <div style={{ flex: 1 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
           fontSize: 10,
-          fontWeight: 700,
+          fontWeight: 800,
           textTransform: 'uppercase',
-          letterSpacing: '0.15em',
-          color: isPremium ? T.borderAccent : T.textMuted,
+          letterSpacing: '0.2em',
+          color: isPremium ? '#DAA520' : T.textMuted,
           fontFamily: T.numberFont,
+          marginBottom: 3,
         }}>
           {isPremium ? t('analytics.status.premium') : t('analytics.status.free')}
         </div>
-        <div style={{ fontSize: 13, color: T.textPrimary, marginTop: 2, fontFamily: T.bodyFont }}>
+        <div style={{
+          fontSize: 13,
+          color: T.textPrimary,
+          fontFamily: T.bodyFont,
+          lineHeight: 1.4,
+          wordBreak: 'keep-all',
+          overflowWrap: 'anywhere',
+        }}>
           {isPremium ? t('analytics.status.premiumDesc') : t('analytics.status.freeDesc')}
         </div>
       </div>

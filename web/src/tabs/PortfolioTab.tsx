@@ -90,7 +90,7 @@ export function PortfolioTab({ telegramUserId, status }: PortfolioTabProps) {
   const equityGlow = ''; // Stage 8.12: Android drop-shadow vanishing bug fix
 
   return (
-    <div className="flex h-full flex-col gap-4 overflow-y-auto px-3 pb-[150px]">
+    <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto overscroll-contain px-3 pb-[200px]">
       {/* ── MASSIVE HERO TEXT (CARDLESS) ──────────────────
           Stage 8.16 — 박스/카드/border/backdrop-blur/그라디언트 전면 파기.
           안드로이드 WebView 의 카드 렌더링 버그(높이 collapse, 하단 증발)를 원천 차단하려면

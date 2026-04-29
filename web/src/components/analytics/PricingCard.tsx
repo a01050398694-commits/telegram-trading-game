@@ -1,16 +1,14 @@
 /**
- * Stage 15.5 — Premium Pricing Card (InviteMember 결제 전환)
+ * Stage 15.5 — Premium Pricing Card (Amex Black Card 톤)
  *
- * 왜 InviteMember 로 다시 돌아갔는가:
- *   · Stage 15.3 에서 텔레그램 Stars 직접 invoice 로 갔다가 PayPal 미지원 → 스타 강제 → 비싼 결제 단가.
- *   · InviteMember SaaS 는 PayPal + Stars 양쪽 지원 + 결제 후 채널 자동 초대까지 처리.
- *   · 우리 봇은 채널 멤버십만 폴링 (premiumSync) 해서 is_premium 판정. 결제 자체는 우리 코드 밖.
+ * 결제 흐름: tg.openLink(InviteMember Premium URL).
+ *   InviteMember 페이지에서 PayPal + Telegram Stars 둘 다 결제 옵션 노출.
  *
- * Bloomberg/Linear 톤 paywall pattern 유지:
- *   · 가격 모노스페이스 강조
- *   · 혜택 5개 체크리스트
- *   · 30일 자동갱신 약관 명시
- *   · 큰 결제 버튼 (CTA) — tg.openLink(InviteMember URL)
+ * 디자인:
+ *   · 카드 bg: 검정 + 골드 그라디언트 — Amex Black 레퍼런스
+ *   · 큰 가격 ($39.99) + 골드 글로우
+ *   · 라벨 + PRO 뱃지 + 5혜택 체크리스트
+ *   · 결제 버튼: 메탈릭 골드 + 깊은 shadow
  */
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -40,10 +38,7 @@ export function PricingCard({ telegramUserId, onPaid }: PricingCardProps) {
     setErrorMessage(null);
     try {
       openTelegramLinkSafe(INVITEMEMBER_PREMIUM_URL);
-      // InviteMember 결제 후 채널 자동 초대까지 외부에서 처리되므로,
-      // 여기서는 onPaid 콜백을 즉시 호출하지 않고 사용자가 채널 가입 후
-      // premiumSync cron 이 5분 내에 잡아주는 흐름을 기다린다.
-      // 사용자는 결제 후 앱 재진입 시 Premium 상태 자동 반영.
+      // 결제 후 채널 가입 → premiumSync cron 으로 5분 내 반영. 사용자 앱 복귀 시 자동.
       setTimeout(() => {
         setPending(false);
         onPaid?.();
@@ -66,23 +61,38 @@ export function PricingCard({ telegramUserId, onPaid }: PricingCardProps) {
   return (
     <div
       style={{
-        background: `linear-gradient(135deg, rgba(139, 105, 20, 0.08), ${T.bgCard} 60%)`,
-        border: `1px solid ${T.borderAccent}`,
-        borderTop: `4px solid ${T.borderAccent}`,
-        borderRadius: 14,
-        padding: 22,
-        boxShadow: '0 0 0 1px rgba(139, 105, 20, 0.15), 0 8px 24px rgba(184, 134, 11, 0.12), 0 4px 12px rgba(0, 0, 0, 0.5)',
         position: 'relative',
         overflow: 'hidden',
+        background: `linear-gradient(135deg, rgba(184, 134, 11, 0.18) 0%, ${T.bgCard} 45%, #050505 100%)`,
+        border: `1px solid ${T.borderAccent}`,
+        borderTop: `4px solid ${T.borderAccent}`,
+        borderRadius: 16,
+        padding: 22,
+        boxShadow: '0 0 0 1px rgba(184, 134, 11, 0.18), 0 12px 40px rgba(184, 134, 11, 0.18), 0 4px 16px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(218, 165, 32, 0.25)',
       }}
     >
+      {/* 우상단 골드 글로우 */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          top: -40,
+          right: -40,
+          width: 140,
+          height: 140,
+          background: 'radial-gradient(circle, rgba(218, 165, 32, 0.4) 0%, transparent 70%)',
+          filter: 'blur(20px)',
+          pointerEvents: 'none',
+        }}
+      />
+
       {/* ── 라벨 + PRO 뱃지 ── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+      <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
         <span style={{
           fontSize: 10,
-          fontWeight: 700,
-          letterSpacing: '0.18em',
-          color: T.borderAccent,
+          fontWeight: 800,
+          letterSpacing: '0.22em',
+          color: '#DAA520',
           textTransform: 'uppercase',
           fontFamily: T.numberFont,
         }}>
@@ -90,36 +100,37 @@ export function PricingCard({ telegramUserId, onPaid }: PricingCardProps) {
         </span>
         <span style={{
           fontSize: 9,
-          fontWeight: 800,
-          letterSpacing: '0.15em',
-          color: '#000',
+          fontWeight: 900,
+          letterSpacing: '0.18em',
+          color: '#0A0A0A',
           textTransform: 'uppercase',
           fontFamily: T.numberFont,
-          background: `linear-gradient(135deg, ${T.borderAccent}, #B8860B)`,
-          padding: '3px 8px',
-          borderRadius: 4,
+          background: 'linear-gradient(135deg, #FFD700 0%, #DAA520 50%, #8B6914 100%)',
+          padding: '4px 9px',
+          borderRadius: 5,
+          boxShadow: '0 2px 8px rgba(218, 165, 32, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.4)',
         }}>
           PRO
         </span>
       </div>
 
-      {/* ── 가격 (큰 모노스페이스 골드) ── */}
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 4 }}>
+      {/* ── 가격 (큰 모노스페이스 골드 + 글로우) ── */}
+      <div style={{ position: 'relative', display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: 6, marginBottom: 4 }}>
         <span style={{
           fontFamily: T.numberFont,
-          fontSize: 44,
-          fontWeight: 800,
+          fontSize: 46,
+          fontWeight: 900,
           color: T.textPrimary,
-          letterSpacing: '-0.03em',
+          letterSpacing: '-0.035em',
           lineHeight: 1,
-          textShadow: '0 0 24px rgba(184, 134, 11, 0.3)',
+          textShadow: '0 0 28px rgba(218, 165, 32, 0.4), 0 2px 4px rgba(0, 0, 0, 0.6)',
         }}>
           $39.99
         </span>
         <span style={{
           fontFamily: T.bodyFont,
           fontSize: 13,
-          color: T.textMuted,
+          color: '#A0A0A0',
           fontWeight: 500,
         }}>
           / {t('premium.plan.cycle')}
@@ -127,37 +138,44 @@ export function PricingCard({ telegramUserId, onPaid }: PricingCardProps) {
       </div>
 
       <div style={{
+        position: 'relative',
         fontFamily: T.numberFont,
         fontSize: 11,
-        color: T.borderAccent,
-        marginBottom: 16,
-        letterSpacing: '0.05em',
+        fontWeight: 600,
+        color: '#DAA520',
+        marginBottom: 18,
+        letterSpacing: '0.06em',
       }}>
         {t('premium.plan.starsLine')}
       </div>
 
       {/* ── 혜택 체크리스트 ── */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
+      <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 11, marginBottom: 20 }}>
         {benefits.map((b, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke={T.positive}
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{ flexShrink: 0, marginTop: 2 }}
-            >
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
+          <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 11 }}>
+            <span style={{
+              flexShrink: 0,
+              marginTop: 1,
+              width: 18,
+              height: 18,
+              borderRadius: 5,
+              background: 'linear-gradient(135deg, rgba(218, 165, 32, 0.25), rgba(184, 134, 11, 0.1))',
+              border: '1px solid rgba(218, 165, 32, 0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#DAA520" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </span>
             <span style={{
               fontFamily: T.bodyFont,
               fontSize: 13,
               color: T.textPrimary,
-              lineHeight: 1.4,
+              lineHeight: 1.45,
+              wordBreak: 'keep-all',
+              overflowWrap: 'anywhere',
             }}>
               {b}
             </span>
@@ -165,22 +183,23 @@ export function PricingCard({ telegramUserId, onPaid }: PricingCardProps) {
         ))}
       </div>
 
-      {/* ── 결제 버튼 ── */}
+      {/* ── 결제 버튼 (메탈릭 골드) ── */}
       <button
         type="button"
         onClick={handleSubscribe}
         disabled={pending}
         style={{
+          position: 'relative',
           width: '100%',
           padding: '16px 0',
           background: pending
             ? 'rgba(115,115,115,0.4)'
-            : `linear-gradient(135deg, #DAA520, ${T.borderAccent} 50%, #B8860B)`,
-          border: '1px solid rgba(218, 165, 32, 0.5)',
+            : 'linear-gradient(135deg, #FFD700 0%, #DAA520 35%, #B8860B 70%, #8B6914 100%)',
+          border: '1px solid rgba(255, 215, 0, 0.6)',
           borderRadius: 12,
           fontSize: 15,
-          fontWeight: 800,
-          color: '#fff',
+          fontWeight: 900,
+          color: '#0A0A0A',
           cursor: pending ? 'not-allowed' : 'pointer',
           letterSpacing: '0.06em',
           fontFamily: T.bodyFont,
@@ -188,19 +207,35 @@ export function PricingCard({ telegramUserId, onPaid }: PricingCardProps) {
           transition: 'opacity 0.2s ease, transform 0.1s ease',
           boxShadow: pending
             ? 'none'
-            : '0 4px 16px rgba(184, 134, 11, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
-          textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
+            : '0 8px 24px rgba(218, 165, 32, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.5), inset 0 -1px 0 rgba(0, 0, 0, 0.2)',
+          textShadow: '0 1px 1px rgba(255, 255, 255, 0.3)',
+          overflow: 'hidden',
         }}
       >
-        {pending ? t('payment.processing') : t('premium.plan.cta')}
+        {/* shine */}
+        <span
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            top: 0,
+            height: '50%',
+            background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.35) 0%, transparent 100%)',
+            pointerEvents: 'none',
+          }}
+        />
+        <span style={{ position: 'relative' }}>
+          {pending ? t('payment.processing') : t('premium.plan.cta')}
+        </span>
       </button>
 
       {/* ── 약관 ── */}
       <div style={{
+        position: 'relative',
         fontFamily: T.bodyFont,
         fontSize: 11,
-        color: T.textMuted,
-        marginTop: 10,
+        color: '#888888',
+        marginTop: 12,
         textAlign: 'center',
         lineHeight: 1.4,
       }}>
@@ -209,6 +244,7 @@ export function PricingCard({ telegramUserId, onPaid }: PricingCardProps) {
 
       {errorMessage && (
         <div style={{
+          position: 'relative',
           marginTop: 12,
           padding: '10px 12px',
           borderRadius: 8,

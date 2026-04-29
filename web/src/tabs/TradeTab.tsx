@@ -175,7 +175,7 @@ export function TradeTab({
   const panelError = tradeError ?? statusError;
 
   return (
-    <div className="flex h-full flex-col gap-3 overflow-y-auto px-3 pb-[150px]">
+    <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain px-3 pb-[200px]">
       <Header
         symbol={feed.symbol}
         price={feed.price}
