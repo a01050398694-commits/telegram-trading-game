@@ -40,8 +40,10 @@
   "liquidation": {
     "title": "리스크 관리 리셋 필요",
     "body": "모의 증거금이 소진되었습니다. 실제 자금 손실은 없으며, 학습 과정의 일부입니다. 연습 잔고를 리셋하여 계속 학습하세요",
-    "resetCta": "연습 잔고 리셋",
-    "resetCostSuffix": "Stars"
+    "resetCta": "리스크 리셋 · 500 ⭐",
+    "resetCostSuffix": "Stars",
+    "rechargeCta": "리스크 리셋 · 500 ⭐",
+    "rechargeSubtext": "$6.50 · 게임머니 $1,000 복구"
   },
   "portfolio": {
     "totalEquity": "총 자산",
@@ -70,7 +72,7 @@
     "planPremium": "Academy",
     "planLifetime": "프리미엄 월간",
     "priceFree": "$0",
-    "pricePremium": "$29.99",
+    "pricePremium": "$39.99",
     "priceLifetime": "$39.99",
     "subtitleFree": "데모",
     "subtitlePremium": "/월",
@@ -121,7 +123,9 @@
         }
       }
     },
-    "unlock": "결제 처리 중…"
+    "unlock": "결제 처리 중…",
+    "subscribeCta": "Telegram Stars로 구독",
+    "subscribeSubtext": "3,099 ⭐ ≈ $39.99/월 · 30일마다 자동 갱신"
   },
   "settings": {
     "title": "설정",
@@ -136,5 +140,61 @@
     "footer": "Perpetual Futures",
     "active": "선택됨",
     "empty": "검색 결과 없음"
+  },
+  "analytics": {
+    "noTrades": "아직 매매 없음",
+    "minTrades": "최소 10건 매매 후 분석 가능 (현재 {{current}}건)",
+    "unlock": "Premium 잠금 해제",
+    "perMonth": "월",
+    "unlockPremium": "Premium 분석기 잠금 해제 — $39.99/월",
+    "status": {
+      "free": "무료 플랜",
+      "freeDesc": "기본 통계만 제공. 전체 분석은 Premium으로.",
+      "premium": "PREMIUM",
+      "premiumDesc": "모든 분석 모듈 활성화됨."
+    },
+    "stats": {
+      "title": "매매 통계",
+      "subtitle": "최근 {{days}}일",
+      "footer": "분석 기준: 최근 {{days}}일, {{trades}}건",
+      "totalPnl": "누적 손익",
+      "winRate": "승률",
+      "rrRatio": "평균 손익비",
+      "maxLossStreak": "최대 연패",
+      "liquidations": "청산 횟수",
+      "avgHoldTime": "평균 보유시간"
+    },
+    "hourly": {
+      "title": "시간대별 성과",
+      "timeSlot": "시간대",
+      "winRate": "승률",
+      "trades": "거래"
+    },
+    "leverage": {
+      "title": "레버리지 vs 청산률"
+    },
+    "behavior": {
+      "title": "거래 행동 패턴",
+      "afterWin": "이익 후",
+      "afterLoss": "손실 후",
+      "avgSize": "평균 사이즈",
+      "avgLev": "평균 레버리지",
+      "nextWinRate": "다음 승률",
+      "sizeChange": "손실 후 사이즈 변화",
+      "revengeWarning": "경고: 손실 후 포지션 사이즈가 50% 이상 증가합니다. 복수매매 패턴이 감지되었습니다.",
+      "lockMode": "매매 잠금 모드",
+      "lockModeDesc": "손실 후 30분 자동 잠금"
+    }
+  },
+  "premium": {
+    "pricePremium": "$39.99/월",
+    "subscribeCta": "Telegram Stars로 구독",
+    "subscribeSubtext": "3,099 ⭐ ≈ $39.99/월 · 30일마다 자동 갱신"
+  },
+  "payment": {
+    "success": "결제 완료! Premium 활성화됐어요.",
+    "rechargeSuccess": "충전 완료. $1,000 입금됐어요.",
+    "failed": "결제 실패. 다시 시도해줘.",
+    "processing": "결제 처리 중..."
   }
 }

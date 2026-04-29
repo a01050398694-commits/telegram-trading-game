@@ -10,7 +10,6 @@ export const botLocales: Record<SupportedLang, any> = {
     resetRequired: '🔴 *Reset required* — risk management lesson triggered',
     active: '🟢 Active',
     balance: '*💼 Practice Wallet*\nBalance: *{{balance}}*\nStatus: {{status}}\nOpen Positions: {{count}}',
-    referralBonus: '🎉 Someone joined the *Trading Academy* via your invite link!\n\n*+$10,000* bonus has been added to your practice wallet. (Balance: ${{balance}})',
     howItWorks: `📖 *How Trading Academy Works*
 
 1️⃣ /start — Get a $100K virtual balance.
@@ -45,7 +44,6 @@ If you run out of virtual balance, you can reset it for 150⭐ — no extra free
     resetRequired: '🔴 *리셋 필요* — 리스크 관리 수업이 발동되었습니다',
     active: '🟢 활성',
     balance: '*💼 연습 지갑*\n잔고: *{{balance}}*\n상태: {{status}}\n오픈 포지션: {{count}}건',
-    referralBonus: '🎉 누군가 당신의 초대 링크로 *트레이딩 아카데미* 에 가입했습니다!\n\n연습 지갑에 *+$10,000* 보너스가 반영됐어요. (현재 잔고: ${{balance}})',
     howItWorks: `📖 *트레이딩 아카데미 사용법*
 
 1️⃣ /start — 가입 시 최초 1회 $100K의 모의 투자금이 지급됩니다.
@@ -80,7 +78,6 @@ If you run out of virtual balance, you can reset it for 150⭐ — no extra free
     resetRequired: '🔴 *Требуется сброс* — активирован урок управления рисками',
     active: '🟢 Активен',
     balance: '*💼 Учебный кошелек*\nБаланс: *{{balance}}*\nСтатус: {{status}}\nОткрытые позиции: {{count}}',
-    referralBonus: '🎉 Кто-то присоединился к *Trading Academy* по вашей ссылке!\n\nБонус *+$10,000* добавлен в ваш кошелек. (Баланс: ${{balance}})',
     howItWorks: `📖 *Как работает Trading Academy*
 
 1️⃣ /start — Получите виртуальный баланс $100K.
@@ -115,7 +112,6 @@ If you run out of virtual balance, you can reset it for 150⭐ — no extra free
     resetRequired: '🔴 *Sıfırlama gerekli* — risk yönetimi dersi tetiklendi',
     active: '🟢 Aktif',
     balance: '*💼 Deneme Cüzdanı*\nBakiye: *{{balance}}*\nDurum: {{status}}\nAçık Pozisyonlar: {{count}}',
-    referralBonus: '🎉 Biri davet bağlantınızla *Trading Academy*\'ye katıldı!\n\nDeneme cüzdanınıza *+$10,000* bonus eklendi. (Bakiye: ${{balance}})',
     howItWorks: `📖 *Trading Academy Nasıl Çalışır*
 
 1️⃣ /start — 100.000$ sanal bakiye kazanın.
@@ -150,7 +146,6 @@ Sanal bakiyeniz tükenirse, 150⭐ karşılığında sıfırlayabilirsiniz — e
     resetRequired: '🔴 *Cần đặt lại* — bài học quản lý rủi ro đã được kích hoạt',
     active: '🟢 Hoạt động',
     balance: '*💼 Ví Thực Hành*\nSố dư: *{{balance}}*\nTrạng thái: {{status}}\nVị thế đang mở: {{count}}',
-    referralBonus: '🎉 Có người đã tham gia *Trading Academy* qua liên kết của bạn!\n\nTiền thưởng *+$10,000* đã được thêm vào ví. (Số dư: ${{balance}})',
     howItWorks: `📖 *Cách Trading Academy Hoạt Động*
 
 1️⃣ /start — Nhận số dư ảo $100K.
@@ -185,7 +180,6 @@ Nếu bạn hết số dư ảo, bạn có thể đặt lại với giá 150⭐ 
     resetRequired: '🔴 *Perlu diatur ulang* — pelajaran manajemen risiko terpicu',
     active: '🟢 Aktif',
     balance: '*💼 Dompet Latihan*\nSaldo: *{{balance}}*\nStatus: {{status}}\nPosisi Terbuka: {{count}}',
-    referralBonus: '🎉 Seseorang bergabung dengan *Trading Academy* melalui tautan Anda!\n\nBonus *+$10,000* telah ditambahkan ke dompet latihan Anda. (Saldo: ${{balance}})',
     howItWorks: `📖 *Cara Kerja Trading Academy*
 
 1️⃣ /start — Dapatkan saldo virtual $100K.

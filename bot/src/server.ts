@@ -171,7 +171,6 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
       let isPremium = false;
       let rank = 0;
       let yesterdayPnl = 0;
-      let referralCount = 0;
       let history: { date: string; pnl: number }[] = [];
 
       if (telegramUserId) {
@@ -219,19 +218,12 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
             .eq('user_id', resolved)
             .gte('date', past7Str)
             .order('date', { ascending: true });
-            
+
           if (histData) {
             history = histData.map(d => ({ date: d.date, pnl: Number(d.daily_pnl) }));
           }
         } catch (err) {
           console.error('[server] failed to fetch history', err);
-        }
-
-        // 4. referralCount
-        try {
-          referralCount = await engine.getReferralCount(resolved);
-        } catch (err) {
-          console.error('[server] failed to fetch referralCount', err);
         }
       }
 
@@ -269,7 +261,6 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
         isPremium,
         rank,
         yesterdayPnl,
-        referralCount,
         history,
         telegramUserId,
       });
@@ -464,8 +455,11 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
       res.json({ ok: true, positionId: position.id, entryPrice: markPrice });
     } catch (err) {
       // 엔진의 비즈니스 에러(LIQUIDATED / INSUFFICIENT_BALANCE) 는 400 으로.
+      // LOCK_MODE 는 423 (Locked) 으로.
       const msg = (err as Error).message;
-      const status = /^(LIQUIDATED|INSUFFICIENT_BALANCE|spot|size)/.test(msg) ? 400 : 500;
+      const status = /^LOCK_MODE/.test(msg) ? 423
+        : /^(LIQUIDATED|INSUFFICIENT_BALANCE|spot|size)/.test(msg) ? 400
+        : 500;
       console.error('[server] /trade/open:', msg);
       res.status(status).json({ error: msg });
     }
@@ -630,6 +624,141 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
       });
     } catch (err) {
       console.error('[server] /admin/metrics:', err);
+      res.status(500).json({ error: (err as Error).message });
+    }
+  });
+
+  // ---- Stage 15.2 — Premium 매매 분석기 API --------------------------------
+
+  // 분석 데이터 캐시 (userId → {data, expiresAt})
+  const analyticsCache = new Map<string, { data: unknown; expiresAt: number }>();
+  const CACHE_TTL = Number(process.env.ANALYTICS_CACHE_SECONDS || '300') * 1000;
+
+  // GET /api/premium/analytics — 모듈 A~D 데이터 한 번에 반환
+  app.get('/api/premium/analytics', async (req, res) => {
+    try {
+      const resolved = await resolveUser(engine, req);
+      if (typeof resolved !== 'string') {
+        res.status(resolved.status).json({ error: resolved.error });
+        return;
+      }
+
+      // 캐시 체크
+      const cached = analyticsCache.get(resolved);
+      if (cached && cached.expiresAt > Date.now()) {
+        res.json(cached.data);
+        return;
+      }
+
+      // Premium 상태 확인
+      const userRow = await engine.getUserById(resolved);
+      const telegramUserId = userRow?.telegram_id;
+      let isPremium = false;
+      let lockModeEnabled = false;
+
+      if (telegramUserId) {
+        const isStarsPremium = await engine.hasStarsPremium(resolved);
+        isPremium = isStarsPremium || await checkIsPremium(bot, telegramUserId);
+      }
+
+      // users 테이블에서 lock_mode_enabled 조회
+      const { data: lockData } = await engine['db']
+        .from('users')
+        .select('lock_mode_enabled')
+        .eq('id', resolved)
+        .single();
+      if (lockData) {
+        lockModeEnabled = (lockData as { lock_mode_enabled: boolean }).lock_mode_enabled;
+      }
+
+      // 동적 import 로 순환 참조 방지
+      const { computeAnalytics } = await import('./services/analytics.js');
+      const result = await computeAnalytics(engine['db'], resolved, isPremium, lockModeEnabled);
+
+      // 캐시 저장
+      analyticsCache.set(resolved, { data: result, expiresAt: Date.now() + CACHE_TTL });
+
+      res.json(result);
+    } catch (err) {
+      console.error('[server] /premium/analytics:', err);
+      res.status(500).json({ error: (err as Error).message });
+    }
+  });
+
+  // POST /api/premium/lock-mode — 매매 잠금 토글
+  app.post('/api/premium/lock-mode', async (req, res) => {
+    try {
+      const resolved = await resolveUser(engine, req);
+      if (typeof resolved !== 'string') {
+        res.status(resolved.status).json({ error: resolved.error });
+        return;
+      }
+
+      const { enabled } = req.body as { enabled?: boolean };
+      if (typeof enabled !== 'boolean') {
+        res.status(400).json({ error: 'enabled (boolean) required' });
+        return;
+      }
+
+      const result = await engine.toggleLockMode(resolved, enabled);
+      res.json({ ok: true, ...result });
+    } catch (err) {
+      console.error('[server] /premium/lock-mode:', err);
+      res.status(500).json({ error: (err as Error).message });
+    }
+  });
+
+  // ---- Stage 15.3 — Telegram Stars Invoice 라우트 ------------------------
+
+  // POST /api/payment/stars/premium-invoice — Stars 구독 invoice 링크 발급
+  app.post('/api/payment/stars/premium-invoice', async (req, res) => {
+    try {
+      const resolved = await resolveUser(engine, req);
+      if (typeof resolved !== 'string') {
+        res.status(resolved.status).json({ error: resolved.error });
+        return;
+      }
+      const { createPremiumInvoiceLink, PAYMENT_PRICING } = await import('./engine/payment.js');
+      const invoiceLink = await createPremiumInvoiceLink(bot, resolved);
+      res.json({ invoiceLink, pricing: PAYMENT_PRICING.premium });
+    } catch (err) {
+      console.error('[server] /payment/stars/premium-invoice:', err);
+      res.status(500).json({ error: (err as Error).message });
+    }
+  });
+
+  // POST /api/payment/stars/recharge-invoice — Stars 일회성 충전 invoice 링크
+  app.post('/api/payment/stars/recharge-invoice', async (req, res) => {
+    try {
+      const resolved = await resolveUser(engine, req);
+      if (typeof resolved !== 'string') {
+        res.status(resolved.status).json({ error: resolved.error });
+        return;
+      }
+      const { createRechargeInvoiceLink, PAYMENT_PRICING } = await import('./engine/payment.js');
+      const invoiceLink = await createRechargeInvoiceLink(bot, resolved);
+      res.json({ invoiceLink, pricing: PAYMENT_PRICING.recharge });
+    } catch (err) {
+      console.error('[server] /payment/stars/recharge-invoice:', err);
+      res.status(500).json({ error: (err as Error).message });
+    }
+  });
+
+  // POST /api/cron/weekly-report — 주간 리포트 수동 트리거
+  app.post('/api/cron/weekly-report', async (req, res) => {
+    try {
+      const adminSecret = req.headers['x-admin-secret'];
+      if (!adminSecret || adminSecret !== process.env.ADMIN_SECRET) {
+        res.status(401).json({ error: 'unauthorized admin' });
+        return;
+      }
+
+      const { WeeklyReportCron } = await import('./cron/weeklyReport.js');
+      const cron = new WeeklyReportCron(bot, engine['db']);
+      const result = await cron.sendAllReports();
+      res.json({ ok: true, ...result });
+    } catch (err) {
+      console.error('[server] /cron/weekly-report:', err);
       res.status(500).json({ error: (err as Error).message });
     }
   });

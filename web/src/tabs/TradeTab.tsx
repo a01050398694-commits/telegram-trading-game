@@ -12,16 +12,15 @@ import { FundingTicker } from '../components/FundingTicker';
 import { useBinanceFeed } from '../lib/useBinanceFeed';
 import { calcPnl } from '../lib/format';
 import { MARKETS, type MarketSymbol } from '../lib/markets';
-import { hapticNotification, hapticImpact, openTelegramLinkSafe } from '../utils/telegram';
+import { hapticNotification, hapticImpact, openStarsInvoice } from '../utils/telegram';
 import {
   ApiError,
   closeTrade,
+  createRechargeStarsInvoice,
   openTrade,
   type UserStatus,
 } from '../lib/api';
 
-const RECHARGE_USD = 1_000;
-const RECHARGE_PRICE_LABEL = '$2.99';
 
 type TradeTabProps = {
   telegramUserId: number | null;
@@ -64,6 +63,7 @@ export function TradeTab({
 
   const [tradePending, setTradePending] = useState(false);
   const [tradeError, setTradeError] = useState<string | null>(null);
+  const [rechargePending, setRechargePending] = useState(false);
   const [rechargeError, setRechargeError] = useState<string | null>(null);
 
   const serverPosition = status?.position ?? null;
@@ -144,16 +144,29 @@ export function TradeTab({
     }
   };
 
-  // Stage 15.1 — Recharge = InviteMember 멤버십 페이지 redirect.
-  const handleRecharge = () => {
+  // Stage 15.3 — Recharge = Telegram Stars Invoice
+  const handleRecharge = async () => {
+    if (!telegramUserId) return;
     setRechargeError(null);
-    hapticImpact('medium');
-    const url = import.meta.env.VITE_INVITEMEMBER_RECHARGE_URL;
-    if (!url) {
-      setRechargeError('Recharge link not configured');
-      return;
+    setRechargePending(true);
+    try {
+      const { invoiceLink } = await createRechargeStarsInvoice(telegramUserId);
+      const result = await openStarsInvoice(invoiceLink);
+      if (result === 'paid') {
+        await refresh();
+        hapticNotification('success');
+      } else if (result === 'failed') {
+        setRechargeError(t('payment.failed'));
+        hapticNotification('error');
+      } else if (result === 'unsupported') {
+        setRechargeError('Use latest Telegram client');
+      }
+      // cancelled/pending — 무시
+    } catch (err) {
+      setRechargeError((err as Error).message);
+    } finally {
+      setRechargePending(false);
     }
-    openTelegramLinkSafe(url);
   };
 
   const panelDisabled = telegramUserId === null || isLiquidated;
@@ -199,10 +212,9 @@ export function TradeTab({
         />
         {isLiquidated && (
           <LiquidationOverlay
-            rechargeAmount={RECHARGE_USD}
-            priceLabel={RECHARGE_PRICE_LABEL}
-            errorMessage={rechargeError}
             onRecharge={handleRecharge}
+            pending={rechargePending}
+            errorMessage={rechargeError}
           />
         )}
       </div>

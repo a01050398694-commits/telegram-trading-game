@@ -5,8 +5,7 @@
   "description": "Telegram real-time virtual trading competition game",
   "workspaces": [
     "web",
-    "bot",
-    "apps/landing"
+    "bot"
   ],
   "scripts": {
     "dev": "concurrently -n web,bot -c cyan,magenta \"npm run dev -w web\" \"npm run dev -w bot\"",

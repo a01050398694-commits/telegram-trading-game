@@ -12,8 +12,6 @@ export interface UserRow {
   username: string | null;
   first_name: string | null;
   language_code: string | null;
-  // Stage 9 — 레퍼럴 트래킹. 초대자의 users.id(uuid) 저장. 본인은 null.
-  referred_by: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -52,8 +50,6 @@ export interface UserInsert {
   username?: string | null;
   first_name?: string | null;
   language_code?: string | null;
-  // Stage 9 — 신규 insert 시에만 설정. 기존 유저 재접속 시엔 무시.
-  referred_by?: string | null;
 }
 
 // Stage 9 — 거래소 UID 인증 신청 상태.

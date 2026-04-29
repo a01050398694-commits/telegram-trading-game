@@ -297,3 +297,17 @@
 - **MUST NOT** fall back to text-only clipboard 없이 곧장 `'none'` 반환 — 모든 브라우저 폴백 체인이 끊어지면 유저가 "버튼 눌렀는데 아무 반응 없다" 컴플레인. clipboard 라도 성공시켜야 한다.
 - **MUST NOT** use a relative `<a download>` URL for blob downloads — 반드시 `URL.createObjectURL(blob)` 로 블롭 URL 생성. `canvas.toDataURL` 로 base64 하면 대용량에서 Chrome 이 "too long URL" 에러.
 - **MUST NOT** attempt `navigator.clipboard.writeText` in non-secure origin (http://) 없이 try/catch — Safari/Chrome 은 non-HTTPS 에서 throw. 반드시 try 로 감싸고 실패해도 다음 단계로 진행.
+
+## Stage 15.3 Telegram Stars Payment
+
+### MUST
+- **MUST** cross-verify `ctx.from?.id` (Telegram sender) ↔ `payload.userId` in `bot.on('message:successful_payment')` — Telegram API 가 메시지 출처를 보증하더라도 payload 구조가 미래에 바뀌어도 사칭이 통하지 않도록 명시적 검증을 둔다. 누락 시 silent discard.
+- **MUST** distinguish `already_processed:` 에러 (조용히 return) vs 그 외 에러 (사용자에게 `ctx.reply()` 로 "결제는 받았지만 활성화 실패" 안내) in payment handler catch 블록. silent `console.error` 는 결제했는데 아무 일도 안 일어난 듯한 UX 를 만든다.
+- **MUST** check `.error` on idempotent UNIQUE-constraint follow-up query — fallback 으로 합성 값 (`periodEnd.toISOString()`) 을 만들면 권한 거부/DB offline 같은 진짜 실패가 숨겨진다.
+- **MUST** set `subscription_period: 2592000` 인자를 `bot.api.createInvoiceLink` 의 7번째 파라미터(options) 로 전달 — Stars 자동 갱신 30일은 그 옵션으로만 작동.
+- **MUST** use currency `'XTR'` + `provider_token: ''` 로 Telegram Stars 결제. 다른 currency 면 일반 invoice 가 되고 provider_token 이 필요해진다.
+
+### MUST NOT
+- **MUST NOT** trust the invoice payload `userId` without re-resolving via `engine.getUserByTelegramId(ctx.from.id)`. payload 는 invoice 발급 시점 데이터일 뿐 결제 시점 발신자 보증이 아님.
+- **MUST NOT** restore `seeded_at` or 시드 재발급 in Recharge flow — 1계정 1회 시드 정책 보존. Recharge 는 `wallets.balance += $1000` + `is_liquidated=false` 만.
+- **MUST NOT** redirect 결제를 외부 페이지(im.page 등) 로. 모든 결제는 `tg.openInvoice(invoiceLink)` 인앱 흐름. 외부 redirect 는 텔레그램 인앱 브라우저로 열려도 우리 미니앱 상태 sync 가 끊긴다.

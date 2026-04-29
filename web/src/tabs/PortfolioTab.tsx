@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { openTelegramLinkSafe, hapticImpact } from '../utils/telegram';
+import { hapticImpact, openStarsInvoice } from '../utils/telegram';
 import { formatMoney, formatUSD, calcPnl } from '../lib/format';
 import { getMarket } from '../lib/markets';
 import { ShareROIButton } from '../components/ShareROIButton';
@@ -10,6 +10,7 @@ import { useBinanceFeed } from '../lib/useBinanceFeed';
 import {
   ApiError,
   fetchUserHistory,
+  createRechargeStarsInvoice,
   type HistoryEntry,
   type UserStatus,
 } from '../lib/api';
@@ -33,6 +34,7 @@ export function PortfolioTab({ telegramUserId, status }: PortfolioTabProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rechargeError, setRechargeError] = useState<string | null>(null);
+  const [rechargePending, setRechargePending] = useState(false);
 
   const load = useCallback(async () => {
     if (telegramUserId === null) return;
@@ -90,18 +92,29 @@ export function PortfolioTab({ telegramUserId, status }: PortfolioTabProps) {
   const equityColor = isUp ? 'text-emerald-300' : isDown ? 'text-rose-300' : 'text-white';
   const equityGlow = ''; // Stage 8.12: Android drop-shadow vanishing bug fix
 
-  // Stage 15.1 — Recharge 결제 = InviteMember 멤버십 페이지 redirect.
-  // 결제 후 InviteMember 가 사용자를 RECHARGE 채널에 자동 초대 → 백엔드 (Stage 15.2)
-  // 가 채널 멤버 진입 감지 시 +$1,000 충전 후 자동 kick. 우리 프론트는 redirect 만.
-  const handleRecharge = () => {
+  // Stage 15.3 — Recharge 결제 = Telegram Stars invoice (인앱 결제).
+  // successful_payment 핸들러가 wallet.balance += $1000 + is_liquidated=false 처리.
+  const handleRecharge = async (): Promise<void> => {
+    if (telegramUserId === null || rechargePending) return;
     setRechargeError(null);
-    hapticImpact('medium');
-    const url = import.meta.env.VITE_INVITEMEMBER_RECHARGE_URL;
-    if (!url) {
-      setRechargeError('Recharge link not configured');
-      return;
+    setRechargePending(true);
+    try {
+      hapticImpact('medium');
+      const { invoiceLink } = await createRechargeStarsInvoice(telegramUserId);
+      const result = await openStarsInvoice(invoiceLink);
+      if (result === 'paid') {
+        await load();
+      } else if (result === 'failed') {
+        setRechargeError(t('payment.failed'));
+      } else if (result === 'unsupported') {
+        setRechargeError('Use latest Telegram client');
+      }
+      // cancelled / pending — UI 그대로 두고 사용자가 다시 시도
+    } catch (err) {
+      setRechargeError((err as Error).message);
+    } finally {
+      setRechargePending(false);
     }
-    openTelegramLinkSafe(url);
   };
 
   return (
@@ -148,13 +161,16 @@ export function PortfolioTab({ telegramUserId, status }: PortfolioTabProps) {
             <div className="w-full">
               <button
                 type="button"
-                onClick={handleRecharge}
-                className="w-full rounded-xl border border-amber-400/30 bg-gradient-to-r from-amber-500 to-amber-400 px-4 py-3.5 text-slate-900 shadow-lg shadow-amber-500/20 transition-all duration-150 hover:brightness-110 active:scale-[0.98]"
+                onClick={() => { void handleRecharge(); }}
+                disabled={rechargePending || telegramUserId === null}
+                className="w-full rounded-xl border border-amber-400/30 bg-gradient-to-r from-amber-500 to-amber-400 px-4 py-3.5 text-slate-900 shadow-lg shadow-amber-500/20 transition-all duration-150 hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <div className="font-mono text-[10px] font-bold uppercase tracking-widest opacity-70">
-                  {t('liquidation.resetCta')}
+                  {rechargePending ? t('payment.processing') : t('liquidation.rechargeCta')}
                 </div>
-                <div className="mt-0.5 text-lg font-extrabold">$2.99</div>
+                <div className="mt-0.5 text-[11px] font-medium opacity-70">
+                  {t('liquidation.rechargeSubtext')}
+                </div>
               </button>
               {rechargeError && (
                 <div className="mt-2 rounded-lg border border-rose-500/50 bg-rose-950/80 px-3 py-2 text-center text-[11px] font-medium text-rose-200">

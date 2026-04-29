@@ -1,570 +1,320 @@
+/**
+ * Stage 15.2 — PremiumTab 전면 재구성.
+ *
+ * 새 구조:
+ *   [상단] 구독 상태 카드 (무료 / Premium)
+ *   [모듈 A] 매매 통계 — 항상 표시
+ *   [모듈 B] 시간대 성과 — Premium 아니면 잠금 오버레이
+ *   [모듈 C] 레버리지 분석 — 잠금
+ *   [모듈 D] 거래 행동 — 잠금
+ *   [하단] CTA: "Premium 잠금 해제 — $39.99/월"
+ *
+ * 디자인: Bloomberg Terminal 톤. 이모지 금지 (분석 카드 내부).
+ */
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { EXCHANGES, getExchange, levelLabel, type VerificationLevel } from '../lib/exchanges';
-import { hapticImpact, hapticSelection, openTelegramLinkSafe } from '../utils/telegram';
-import { ApiError, submitVerification, type ServerVerification, type UserStatus } from '../lib/api';
-
-// Stage 8.15 — Payment Modal 전면 폐기 → 인라인 아코디언.
-//
-// 왜 모달을 부쉈나 (Android Telegram WebView 버그):
-//   · body { overflow:hidden } 걸고 fixed inset-0 overlay 열면 Android Chromium 은
-//     overflow-y-auto 자식까지 얼어붙어 폼 하단 submit 버튼이 접근 불가.
-//   · Esc/backdrop-click 닫기 로직은 데스크탑 전제. 텔레그램 WebView 는 Esc 키 자체가 없음.
-//
-// 새 구조:
-//   · "Upgrade" 버튼 → showForm 토글 → 배너 바로 아래 UID 폼이 네이티브 흐름 안에서 인라인 확장.
-//   · 부모 <div className="overflow-y-auto"> 의 기본 스크롤을 그대로 쓰므로 Android 에서도 100% 작동.
-//   · body scroll lock / Esc 리스너 전부 제거.
-
-type SubmitState =
-  | { kind: 'idle' }
-  | { kind: 'submitting' }
-  | { kind: 'pending'; exchange: string; uid: string; level: VerificationLevel }
-  | { kind: 'approved'; exchange: string };
+import { hapticImpact, openStarsInvoice } from '../utils/telegram';
+import { createPremiumStarsInvoice, fetchPremiumAnalytics, type PremiumAnalyticsResponse, type UserStatus } from '../lib/api';
+import { StatsCard } from '../components/analytics/StatsCard';
+import { HourlyBucketsCard } from '../components/analytics/HourlyBucketsCard';
+import { LeverageCard } from '../components/analytics/LeverageCard';
+import { BehaviorCard } from '../components/analytics/BehaviorCard';
+import { LockOverlay } from '../components/analytics/LockOverlay';
+import { ANALYTICS_TOKENS as T } from '../styles/tokens';
 
 type PremiumTabProps = {
   telegramUserId: number | null;
   status: UserStatus | null;
 };
 
-type LessonKey = 'beginner' | 'leverage' | 'risk' | 'psych';
-type Lesson = { key: LessonKey; icon: string; accent: string };
-
-const LESSONS: readonly Lesson[] = [
-  { key: 'beginner', icon: '📘', accent: 'from-sky-400/20 to-slate-900' },
-  { key: 'leverage', icon: '⚡', accent: 'from-amber-400/20 to-slate-900' },
-  { key: 'risk', icon: '🛡️', accent: 'from-emerald-400/20 to-slate-900' },
-  { key: 'psych', icon: '🧠', accent: 'from-fuchsia-400/20 to-slate-900' },
-];
-
-const FEATURE_KEYS = ['multiChart', 'dailySeed', 'eliteChat', 'tournament', 'resetDiscount', 'lifetimeDiscount'] as const;
-
 export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
   const { t } = useTranslation();
-  const [showForm, setShowForm] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
-
-  const toggleForm = () => {
-    hapticImpact('medium');
-    setShowForm((prev) => !prev);
-  };
-
-  const showComingSoon = () => {
-    hapticSelection();
-    setToast(t('academy.hub.comingSoon'));
-    window.setTimeout(() => setToast(null), 1800);
-  };
-
-  return (
-    <div className="flex h-full flex-col gap-4 overflow-y-auto px-3 pt-12 pb-[150px]">
-      {/* Stage 15.1 — 모든 결제는 InviteMember 멤버십 페이지로 redirect.
-          openInvoice / requestStarsInvoice / 진단 alert 전부 제거.
-          deep link 가 plan 별로 분기되어 사용자가 페이지 안에서 다른 플랜을 잘못 누를 위험 0. */}
-      {(!status || !status.isPremium) && (
-      <div className="flex flex-col gap-2 w-full">
-        <button
-          type="button"
-          onClick={() => {
-            hapticImpact('medium');
-            const url = import.meta.env.VITE_INVITEMEMBER_PREMIUM_URL;
-            if (!url) {
-              setToast('Premium subscription link not configured');
-              window.setTimeout(() => setToast(null), 2500);
-              return;
-            }
-            openTelegramLinkSafe(url);
-          }}
-          className="group relative flex w-full shrink-0 flex-col rounded-2xl border-2 border-yellow-500/50 bg-gradient-to-b from-slate-900 to-black p-5 text-left shadow-[0_0_60px_rgba(250,204,21,0.2),_0_16px_40px_rgba(0,0,0,0.6)] transition-all active:scale-[0.98]"
-        >
-          <div className="pointer-events-none absolute inset-x-6 top-0 h-[1px] bg-gradient-to-r from-transparent via-yellow-400/70 to-transparent" />
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-start gap-2">
-                <span className="shrink-0 text-xl drop-shadow-[0_0_12px_rgba(250,204,21,0.6)]">
-                  💎
-                </span>
-                <span className="break-words whitespace-normal font-mono text-[13px] font-bold uppercase leading-snug tracking-[0.15em] text-amber-200">
-                  {t('academy.hub.upgradeCta')}
-                </span>
-              </div>
-              <div className="mt-2 break-words whitespace-normal text-[11px] leading-relaxed text-amber-100/70">
-                {t('academy.hub.upgradeSub')}
-              </div>
-            </div>
-            <span className="shrink-0 text-xl text-amber-300/70 transition-transform duration-200">
-              →
-            </span>
-          </div>
-        </button>
-
-
-      </div>
-      )}
-
-      {/* ── EXCHANGE UID VERIFICATION (ACCORDION) ─────────────
-          Stage 8.10 — 단일 CTA 버튼. 클릭 시 결제 모달.
-          Stage 8.14 — Liquid layout.
-            · 고정 높이/overflow-hidden 제약 해제. 컨텐츠가 wrap 되면서 세로 자동 확장.
-            · 한글 라벨이 한 줄에 안 맞을 수 있으니 break-words + whitespace-normal 로 강제 줄바꿈.
-            · WebkitBackgroundClip:text 는 안드로이드 크롬에서 텍스트를 증발시키므로 solid amber-200 로 복귀. */}
-      <button
-        type="button"
-        onClick={toggleForm}
-        aria-expanded={showForm}
-        className="group relative mt-3 flex w-full shrink-0 flex-col rounded-2xl border border-indigo-500/30 bg-slate-900/50 p-4 text-left transition-all hover:bg-slate-800/50 active:scale-[0.98]"
-      >
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <span className="shrink-0 text-lg">🎁</span>
-            <span className="break-words whitespace-normal font-mono text-[12px] font-bold uppercase tracking-widest text-indigo-300">
-              {t('academy.verify.title')}
-            </span>
-          </div>
-          <span
-            className={`shrink-0 text-lg text-indigo-400 transition-transform duration-200 ${
-              showForm ? 'rotate-90' : ''
-            }`}
-          >
-            →
-          </span>
-        </div>
-      </button>
-
-
-      {/* ── INLINE UID VERIFICATION FORM (ACCORDION) ─────
-          Stage 8.15 — 모달 폐기. 업그레이드 버튼 아래에 네이티브 flow 안에서 인라인으로 확장.
-          Stage 9 — 서버 /api/verify 실제 연동. 이전 Pending 있으면 자동 복원. */}
-      {showForm && (
-        <InlineUpgradeForm
-          telegramUserId={telegramUserId}
-          existingVerification={status?.verification ?? null}
-        />
-      )}
-
-      {/* ── HERO CARD ────────────────────────────────────
-          Stage 8.16 — 안드로이드 WebView GPU 버그(overflow-hidden + shadow 결합 시 컨텐츠 잘림) 차단을 위해
-          overflow-hidden 과 복잡한 blur 이펙트를 제거하고 둥근 테두리 및 단색 테마로 심플하게 구성. */}
-      <div className="rounded-3xl border border-indigo-400/20 bg-slate-900 p-6">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-indigo-500/20 text-xl shadow-[0_0_15px_rgba(99,102,241,0.2)]">
-            🎓
-          </div>
-          <div className="text-[11px] font-black uppercase tracking-widest text-indigo-300">
-            {t('academy.heroTitle')}
-          </div>
-        </div>
-        
-        <div className="mt-4 break-keep text-[14px] font-medium leading-relaxed tracking-tight text-slate-200">
-          {t('academy.heroSubtitle')}
-        </div>
-      </div>
-
-      <div className="relative">
-        {(!status || !status.isPremium) && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-3xl bg-slate-950/40 backdrop-blur-[6px]">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-900 shadow-[0_0_30px_rgba(250,204,21,0.2)] mb-4">
-              <span className="text-3xl">🔒</span>
-            </div>
-            <div className="font-mono text-[14px] font-bold text-white uppercase tracking-widest">
-              Premium Only
-            </div>
-            <div className="mt-2 text-[11px] text-slate-300">
-              Upgrade to access educational library
-            </div>
-          </div>
-        )}
-
-      {/* ── EDUCATION LIBRARY ─────────────────────────── */}
-      <div>
-        <div className="flex items-center gap-3 pb-3">
-          <div className="h-px flex-1 bg-gradient-to-r from-transparent to-white/20" />
-          <span className="text-[10px] font-black uppercase tracking-[0.4em] text-white/50">
-            {t('academy.hub.library')}
-          </span>
-          <div className="h-px flex-1 bg-gradient-to-l from-transparent to-white/20" />
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {LESSONS.map((l) => (
-            <LessonCard key={l.key} lesson={l} onClick={showComingSoon} />
-          ))}
-        </div>
-      </div>
-
-      {/* EXCHANGES LIST — 간단 배지 그리드 유지 (정보성). */}
-      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur-xl">
-        <div className="flex items-center justify-between pb-2.5">
-          <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
-            Partner Exchanges · {EXCHANGES.length}+
-          </span>
-          <span className="text-[9px] text-slate-600">we add 2+ / month</span>
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          {EXCHANGES.map((x) => {
-            const levelColor =
-              x.level === 1
-                ? 'border-emerald-400/30 text-emerald-200'
-                : x.level === 2
-                  ? 'border-amber-400/30 text-amber-200'
-                  : 'border-slate-500/30 text-slate-300';
-            return (
-              <span
-                key={x.id}
-                className={`rounded-full border bg-slate-800/60 px-2.5 py-1 text-[10px] font-bold ${levelColor}`}
-              >
-                {x.name}
-              </span>
-            );
-          })}
-        </div>
-      </div>
-      </div>
-
-      {/* Stage 8.9 — 물리 스페이서. */}
-      <div className="h-[150px] shrink-0 pointer-events-none" aria-hidden="true" />
-
-      {/* ── TOAST ──────────────────────────────────────── */}
-      {toast && (
-        <div className="pointer-events-none fixed bottom-32 left-1/2 z-40 -translate-x-1/2 rounded-full border border-white/10 bg-black/90 px-4 py-2 text-[11px] font-bold text-white backdrop-blur-xl">
-          {toast}
-        </div>
-      )}
-    </div>
-  );
-}
-
-
-function LessonCard({ lesson, onClick }: { lesson: Lesson; onClick: () => void }) {
-  const { t } = useTranslation();
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`group relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br ${lesson.accent} p-4 text-left backdrop-blur-xl transition-all hover:border-white/25 active:scale-[0.98]`}
-    >
-      <div className="flex items-start gap-3">
-        <span className="text-2xl">{lesson.icon}</span>
-        <div className="flex-1">
-          <div className="font-mono text-[13px] font-black text-white">
-            {t(`academy.hub.lessons.${lesson.key}.title`)}
-          </div>
-          <div className="mt-1 break-keep text-[11px] leading-relaxed text-slate-300/80">
-            {t(`academy.hub.lessons.${lesson.key}.desc`)}
-          </div>
-        </div>
-      </div>
-      <div className="mt-3 inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-slate-400">
-        {t('academy.hub.comingSoon')}
-      </div>
-    </button>
-  );
-}
-
-// ─────────────────────────────────────────────────────────
-// InlineUpgradeForm — 부모 탭 스크롤 흐름 안에서 펼쳐지는 아코디언 폼.
-// Stage 8.15: 이전 PaymentModal (fixed inset-0 overlay) 가 Android WebView 에서
-// body scroll-lock 때문에 submit 버튼까지 못 닿는 문제를 뿌리째 해결.
-// Stage 9: handleSubmit 이 더 이상 mock 이 아니라 실제 POST /api/verify 호출.
-//          status 폴링 응답으로 내려온 기존 Pending 이 있으면 즉시 복원.
-// ─────────────────────────────────────────────────────────
-function InlineUpgradeForm({
-  telegramUserId,
-  existingVerification,
-}: {
-  telegramUserId: number | null;
-  existingVerification: ServerVerification | null;
-}) {
-  const { t } = useTranslation();
-
-  // 기존 Pending/Approved 상태 복원 — 서버가 이미 가진 이력을 폼 대신 보여줌.
-  const initialState: SubmitState = (() => {
-    if (!existingVerification) return { kind: 'idle' };
-    const ex = getExchange(existingVerification.exchangeId);
-    const level: VerificationLevel = ex?.level ?? 3;
-    const name = ex?.name ?? existingVerification.exchangeId;
-    if (existingVerification.status === 'approved') {
-      return { kind: 'approved', exchange: name };
-    }
-    if (existingVerification.status === 'pending') {
-      return {
-        kind: 'pending',
-        exchange: name,
-        uid: existingVerification.uid,
-        level,
-      };
-    }
-    return { kind: 'idle' };
-  })();
-
-  const [exchangeId, setExchangeId] = useState<string>(
-    existingVerification?.exchangeId ?? EXCHANGES[0]!.id,
-  );
-  const [uid, setUid] = useState(existingVerification?.uid ?? '');
-  const [email, setEmail] = useState(existingVerification?.email ?? '');
-  const [submit, setSubmit] = useState<SubmitState>(initialState);
+  const [analytics, setAnalytics] = useState<PremiumAnalyticsResponse | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [subscriptionPending, setSubscriptionPending] = useState(false);
+  const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
 
-  // 서버 status 폴링으로 새로운 verification 이 도착하면 폼 상태 재동기화.
-  useEffect(() => {
-    if (!existingVerification) return;
-    const ex = getExchange(existingVerification.exchangeId);
-    if (existingVerification.status === 'approved') {
-      setSubmit({ kind: 'approved', exchange: ex?.name ?? existingVerification.exchangeId });
-    } else if (existingVerification.status === 'pending') {
-      setSubmit({
-        kind: 'pending',
-        exchange: ex?.name ?? existingVerification.exchangeId,
-        uid: existingVerification.uid,
-        level: ex?.level ?? 3,
-      });
-    }
-  }, [existingVerification?.id, existingVerification?.status]);
+  const isPremium = status?.isPremium ?? false;
 
-  const selectedExchange = getExchange(exchangeId);
-  const canSubmit =
-    uid.trim().length >= 3 &&
-    selectedExchange !== null &&
-    submit.kind === 'idle' &&
-    telegramUserId !== null;
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedExchange) {
-      setError(t('academy.verify.errSelectExchange'));
-      return;
-    }
-    if (uid.trim().length < 3) {
-      setError(t('academy.verify.errUidShort'));
-      return;
-    }
-    if (telegramUserId === null) {
-      setError(t('academy.verify.errNoTelegram'));
-      return;
-    }
-
-    setError(null);
-    hapticImpact('medium');
-    setSubmit({ kind: 'submitting' });
-
+  // 분석 데이터 재로드 (LockOverlay 결제 성공 시에도 호출 가능하도록 분리)
+  const reloadAnalytics = async (): Promise<void> => {
+    if (!telegramUserId) return;
     try {
-      const res = await submitVerification({
-        telegramUserId,
-        exchangeId: selectedExchange.id,
-        uid: uid.trim(),
-        email: email.trim() ? email.trim() : null,
-      });
-      const v = res.verification;
-      if (v.status === 'approved') {
-        setSubmit({ kind: 'approved', exchange: selectedExchange.name });
-      } else {
-        setSubmit({
-          kind: 'pending',
-          exchange: selectedExchange.name,
-          uid: v.uid,
-          level: selectedExchange.level,
-        });
-      }
-    } catch (err) {
-      const msg = err instanceof ApiError ? err.message : (err as Error).message;
-      setError(msg);
-      setSubmit({ kind: 'idle' });
+      const data = await fetchPremiumAnalytics(telegramUserId);
+      setAnalytics(data);
+    } catch {
+      // 갱신 실패해도 무시 — 다음 새로고침에서 반영
     }
   };
 
-  return (
-    <div className="flex flex-col gap-4">
-      {/* Premium Subscription Card */}
-      <div className="relative overflow-visible rounded-3xl border-2 border-yellow-500/50 bg-gradient-to-b from-slate-900 to-black p-6 shadow-[0_0_60px_rgba(250,204,21,0.2),_0_20px_50px_rgba(0,0,0,0.7)]">
-          <div className="pointer-events-none absolute inset-x-6 top-0 h-[1px] bg-gradient-to-r from-transparent via-yellow-400/70 to-transparent" />
-          <div className="text-[10px] font-black uppercase tracking-[0.35em] text-amber-300/90">
-            {t('academy.planLifetime')}
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span
-              className="font-mono text-5xl font-black tabular-nums tracking-tight text-transparent drop-shadow-[0_0_16px_rgba(250,204,21,0.4)]"
-              style={{
-                backgroundImage: 'linear-gradient(180deg, #fef3c7 0%, #fbbf24 55%, #b45309 100%)',
-                WebkitBackgroundClip: 'text',
-                backgroundClip: 'text',
-              }}
-            >
-              {t('academy.priceLifetime')}
-            </span>
-            <span className="font-mono text-sm font-semibold text-amber-200/60">
-              {t('academy.subtitleLifetime')}
-            </span>
-          </div>
-          <ul className="mt-5 flex flex-col gap-2 border-t border-amber-400/20 pt-4">
-            {FEATURE_KEYS.map((k) => (
-              <li key={k} className="flex items-start gap-2 text-[12px] leading-snug text-slate-100">
-                <span className="mt-[1px] font-black text-emerald-400">✓</span>
-                <span>{t(`academy.features.${k}`)}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+  // Stage 15.3 — Premium Stars 결제
+  const handleSubscribeCta = async () => {
+    if (!telegramUserId) return;
+    setSubscriptionError(null);
+    setSubscriptionPending(true);
+    try {
+      hapticImpact('medium');
+      const { invoiceLink } = await createPremiumStarsInvoice(telegramUserId);
+      const result = await openStarsInvoice(invoiceLink);
+      if (result === 'paid') {
+        setSubscriptionError(null);
+        await reloadAnalytics();
+      } else if (result === 'failed') {
+        setSubscriptionError(t('payment.failed'));
+      } else if (result === 'unsupported') {
+        setSubscriptionError('Use latest Telegram client');
+      }
+      // cancelled/pending — 무시
+    } catch (err) {
+      setSubscriptionError((err as Error).message);
+    } finally {
+      setSubscriptionPending(false);
+    }
+  };
 
-        {/* UID Form / Pending / Approved — Stage 9 실제 서버 상태 반영. */}
-        {submit.kind === 'pending' ? (
-          <PendingCard
-            exchange={submit.exchange}
-            uid={submit.uid}
-            level={submit.level}
-            onReset={() => setSubmit({ kind: 'idle' })}
+  // 분석 데이터 로딩
+  useEffect(() => {
+    if (!telegramUserId) {
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const load = async () => {
+      try {
+        setLoading(true);
+        const data = await fetchPremiumAnalytics(telegramUserId);
+        if (!cancelled) {
+          setAnalytics(data);
+          setError(null);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError((err as Error).message);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    void load();
+    return () => { cancelled = true; };
+  }, [telegramUserId]);
+
+  return (
+    <div
+      className="flex h-full flex-col gap-3 overflow-y-auto px-3 pt-12 pb-[150px]"
+      style={{ background: T.bg }}
+    >
+      {/* ── 구독 상태 카드 ────────────────────────── */}
+      <SubscriptionStatusCard isPremium={isPremium} />
+
+      {/* ── 로딩 / 에러 상태 ─────────────────────── */}
+      {loading && (
+        <div style={{ textAlign: 'center', padding: '40px 0', color: T.textMuted, fontSize: 13, fontFamily: T.numberFont }}>
+          {t('common.loading')}
+        </div>
+      )}
+
+      {error && !loading && (
+        <div style={{ textAlign: 'center', padding: '24px 0', color: T.negative, fontSize: 13 }}>
+          {error}
+        </div>
+      )}
+
+      {/* ── 분석 모듈들 ──────────────────────────── */}
+      {analytics && !loading && (
+        <>
+          {/* 모듈 A — 매매 통계 (항상 표시) */}
+          <StatsCard
+            stats={analytics.stats}
+            totalTrades={analytics.totalTrades}
+            windowDays={analytics.windowDays}
           />
-        ) : submit.kind === 'approved' ? (
-          <ApprovedCard exchange={submit.exchange} />
-        ) : (
-          <form
-            onSubmit={handleSubmit}
-            className="relative mt-4 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur-xl"
+
+          {/* 모듈 B — 시간대별 성과 */}
+          {analytics.totalTrades < 10 ? (
+            <LockOverlay telegramUserId={telegramUserId} onPaid={() => { void reloadAnalytics(); }} minTradesMessage={t('analytics.minTrades', { current: analytics.totalTrades })}>
+              <PlaceholderCard title={t('analytics.hourly.title')} />
+            </LockOverlay>
+          ) : !isPremium ? (
+            <LockOverlay telegramUserId={telegramUserId} onPaid={() => { void reloadAnalytics(); }}>
+              <PlaceholderCard title={t('analytics.hourly.title')} />
+            </LockOverlay>
+          ) : analytics.hourly ? (
+            <HourlyBucketsCard data={analytics.hourly} />
+          ) : null}
+
+          {/* 모듈 C — 레버리지 분석 */}
+          {analytics.totalTrades < 10 ? (
+            <LockOverlay telegramUserId={telegramUserId} onPaid={() => { void reloadAnalytics(); }} minTradesMessage={t('analytics.minTrades', { current: analytics.totalTrades })}>
+              <PlaceholderCard title={t('analytics.leverage.title')} />
+            </LockOverlay>
+          ) : !isPremium ? (
+            <LockOverlay telegramUserId={telegramUserId} onPaid={() => { void reloadAnalytics(); }}>
+              <PlaceholderCard title={t('analytics.leverage.title')} />
+            </LockOverlay>
+          ) : analytics.leverage ? (
+            <LeverageCard data={analytics.leverage} />
+          ) : null}
+
+          {/* 모듈 D — 거래 행동 */}
+          {analytics.totalTrades < 10 ? (
+            <LockOverlay telegramUserId={telegramUserId} onPaid={() => { void reloadAnalytics(); }} minTradesMessage={t('analytics.minTrades', { current: analytics.totalTrades })}>
+              <PlaceholderCard title={t('analytics.behavior.title')} />
+            </LockOverlay>
+          ) : !isPremium ? (
+            <LockOverlay telegramUserId={telegramUserId} onPaid={() => { void reloadAnalytics(); }}>
+              <PlaceholderCard title={t('analytics.behavior.title')} />
+            </LockOverlay>
+          ) : analytics.behavior ? (
+            <BehaviorCard data={analytics.behavior} telegramUserId={telegramUserId} />
+          ) : null}
+        </>
+      )}
+
+      {/* ── telegramUserId 없는 경우 (브라우저 미리보기) — 빈 통계 + 잠금 프리뷰 ── */}
+      {!analytics && !loading && !error && (
+        <>
+          <StatsCard
+            stats={{ pnlUsd: 0, winRate: 0, rrRatio: 0, maxLossStreak: 0, liquidations: 0, avgHoldMinutes: 0 }}
+            totalTrades={0}
+            windowDays={30}
+          />
+          <LockOverlay telegramUserId={telegramUserId} onPaid={() => { void reloadAnalytics(); }}>
+            <PlaceholderCard title={t('analytics.hourly.title')} />
+          </LockOverlay>
+          <LockOverlay telegramUserId={telegramUserId} onPaid={() => { void reloadAnalytics(); }}>
+            <PlaceholderCard title={t('analytics.leverage.title')} />
+          </LockOverlay>
+          <LockOverlay telegramUserId={telegramUserId} onPaid={() => { void reloadAnalytics(); }}>
+            <PlaceholderCard title={t('analytics.behavior.title')} />
+          </LockOverlay>
+        </>
+      )}
+
+      {/* ── 하단 CTA ─────────────────────────────── */}
+      {!isPremium && (
+        <div>
+          <button
+            type="button"
+            onClick={handleSubscribeCta}
+            disabled={subscriptionPending}
+            style={{
+              width: '100%',
+              padding: '16px 0',
+              background: subscriptionPending
+                ? `linear-gradient(135deg, ${T.borderAccent}, #B8860B)`
+                : `linear-gradient(135deg, ${T.borderAccent}, #B8860B)`,
+              border: 'none',
+              borderRadius: 12,
+              fontSize: 14,
+              fontWeight: 700,
+              color: '#fff',
+              cursor: subscriptionPending ? 'not-allowed' : 'pointer',
+              letterSpacing: '0.06em',
+              fontFamily: T.numberFont,
+              marginTop: 4,
+              opacity: subscriptionPending ? 0.6 : 1,
+              transition: 'opacity 0.2s ease',
+            }}
           >
-            <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-indigo-400/60 via-fuchsia-400/60 to-transparent" />
-            <div className="text-[11px] font-black uppercase tracking-[0.3em] text-indigo-200">
-              {t('academy.verify.title')}
+            {subscriptionPending ? t('payment.processing') : t('premium.subscribeCta')}
+          </button>
+          {subscriptionError && (
+            <div style={{
+              marginTop: 12,
+              padding: '12px',
+              borderRadius: 8,
+              backgroundColor: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              fontSize: 12,
+              color: '#ef4444',
+              textAlign: 'center',
+              fontFamily: T.bodyFont,
+            }}>
+              {subscriptionError}
             </div>
-            <div className="mt-2 text-[12px] leading-relaxed text-slate-200">
-              {t('academy.verify.hint')}
-            </div>
+          )}
+        </div>
+      )}
 
-            <label className="mt-4 block">
-              <span className="text-[10px] font-black uppercase tracking-wider text-white/50">
-                {t('academy.verify.exchange')}
-              </span>
-              <div className="relative mt-1">
-                <select
-                  value={exchangeId}
-                  onChange={(e) => {
-                    hapticSelection();
-                    setExchangeId(e.target.value);
-                  }}
-                  className="w-full appearance-none rounded-xl border border-white/10 bg-slate-800/80 px-3 py-2.5 pr-10 font-mono text-sm font-bold text-white focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/30"
-                >
-                  {EXCHANGES.map((x) => (
-                    <option key={x.id} value={x.id}>
-                      {x.name} · {levelLabel(x.level)}
-                    </option>
-                  ))}
-                </select>
-                <svg
-                  className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-            </label>
-
-            <label className="mt-3 block">
-              <span className="text-[10px] font-black uppercase tracking-wider text-white/50">
-                {t('academy.verify.uid')} <span className="text-rose-400">*</span>
-              </span>
-              <input
-                type="text"
-                value={uid}
-                onChange={(e) => setUid(e.target.value)}
-                placeholder="e.g. 12345678"
-                className="mt-1 w-full rounded-xl border border-white/10 bg-slate-800/80 px-3 py-2.5 font-mono text-sm text-white placeholder:text-slate-600 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/30"
-                inputMode="numeric"
-              />
-            </label>
-
-            <label className="mt-3 block">
-              <span className="text-[10px] font-black uppercase tracking-wider text-white/50">
-                Email (optional)
-              </span>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="partial exchange email"
-                className="mt-1 w-full rounded-xl border border-white/10 bg-slate-800/80 px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/30"
-              />
-            </label>
-
-            {error && (
-              <div className="mt-3 rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-[11px] font-medium text-rose-300">
-                {error}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={!canSubmit}
-              className="mt-4 w-full rounded-xl bg-gradient-to-r from-indigo-500 via-indigo-400 to-fuchsia-400 py-4 text-[14px] font-black uppercase tracking-wider text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.35),_0_6px_20px_rgba(99,102,241,0.45)] transition-all duration-100 hover:brightness-110 active:scale-[0.97] disabled:cursor-not-allowed disabled:bg-none disabled:bg-slate-700 disabled:text-slate-500 disabled:shadow-none"
-            >
-              {submit.kind === 'submitting' ? '...' : t('academy.verify.submit')}
-            </button>
-          </form>
-        )}
+      {/* 물리 스페이서 */}
+      <div className="h-[150px] shrink-0 pointer-events-none" aria-hidden="true" />
     </div>
   );
 }
 
-function PendingCard({
-  exchange,
-  uid,
-  level,
-  onReset,
-}: {
-  exchange: string;
-  uid: string;
-  level: VerificationLevel;
-  onReset: () => void;
-}) {
+// ── 구독 상태 카드 ──────────────────────────────────────
+function SubscriptionStatusCard({ isPremium }: { isPremium: boolean }) {
   const { t } = useTranslation();
+
   return (
-    <div className="relative mt-4 overflow-hidden rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-500/15 via-slate-900 to-slate-900 p-4 shadow-[0_8px_32px_rgba(0,0,0,0.5),_0_0_25px_rgba(251,191,36,0.2)] backdrop-blur-2xl">
-      <div className="flex items-center gap-3">
-        <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-400/20 text-xl">
-          ⏳
-        </span>
-        <div>
-          <div className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-300">
-            Under Review
-          </div>
-          <div className="font-mono text-sm font-bold text-white">
-            {exchange} · UID {uid}
-          </div>
+    <div style={{
+      background: isPremium ? 'rgba(139, 105, 20, 0.1)' : T.bgCard,
+      border: `1px solid ${isPremium ? T.borderAccent : T.border}`,
+      borderRadius: 12,
+      padding: 16,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 12,
+    }}>
+      {/* 아이콘 */}
+      <div style={{
+        width: 40,
+        height: 40,
+        borderRadius: 10,
+        background: isPremium ? 'rgba(139, 105, 20, 0.2)' : 'rgba(115, 115, 115, 0.1)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+      }}>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={isPremium ? T.borderAccent : T.textMuted} strokeWidth="2">
+          {isPremium ? (
+            <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
+          ) : (
+            <circle cx="12" cy="12" r="10" />
+          )}
+        </svg>
+      </div>
+
+      <div>
+        <div style={{
+          fontSize: 10,
+          fontWeight: 700,
+          textTransform: 'uppercase',
+          letterSpacing: '0.15em',
+          color: isPremium ? T.borderAccent : T.textMuted,
+          fontFamily: T.numberFont,
+        }}>
+          {isPremium ? t('analytics.status.premium') : t('analytics.status.free')}
+        </div>
+        <div style={{ fontSize: 13, color: T.textPrimary, marginTop: 2, fontFamily: T.bodyFont }}>
+          {isPremium ? t('analytics.status.premiumDesc') : t('analytics.status.freeDesc')}
         </div>
       </div>
-      <div className="mt-3 rounded-xl bg-white/[0.03] px-3 py-2 text-[11px] leading-relaxed text-amber-100/80">
-        {t('academy.verify.pending')} · Level:{' '}
-        <span className="font-bold">
-          {level === 1 ? 'Auto' : level === 2 ? 'Semi-auto (~2h)' : 'Manual (~24h)'}
-        </span>
-      </div>
-      <button
-        type="button"
-        onClick={onReset}
-        className="mt-3 w-full rounded-xl border border-white/10 bg-transparent py-2.5 text-[11px] font-black uppercase tracking-wider text-slate-300 hover:bg-white/5"
-      >
-        {t('common.cancel')}
-      </button>
     </div>
   );
 }
 
-// Stage 9 — 승인 완료 배지. VIP 평생 혜택 활성화를 시각적으로 알림.
-function ApprovedCard({ exchange }: { exchange: string }) {
-  const { t } = useTranslation();
+// ── 플레이스홀더 카드 (잠금/부족 시 배경용) ──────────────
+function PlaceholderCard({ title }: { title: string }) {
   return (
-    <div className="relative mt-4 rounded-2xl border border-emerald-400/40 bg-gradient-to-br from-emerald-500/15 via-slate-900 to-slate-900 p-4 shadow-[0_0_25px_rgba(16,185,129,0.2)]">
-      <div className="flex items-center gap-3">
-        <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-400/20 text-xl">
-          ✅
-        </span>
-        <div>
-          <div className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-300">
-            {t('academy.verify.approvedTitle')}
-          </div>
-          <div className="font-mono text-sm font-bold text-white">{exchange}</div>
-        </div>
-      </div>
-      <div className="mt-3 rounded-xl bg-white/[0.03] px-3 py-2 text-[11px] leading-relaxed text-emerald-100/80">
-        {t('academy.verify.approvedHint')}
+    <div style={{
+      background: T.bgCard,
+      border: `1px solid ${T.border}`,
+      borderTop: `2px solid ${T.borderAccent}`,
+      borderRadius: 12,
+      padding: 16,
+      minHeight: 140,
+    }}>
+      <div style={{ fontSize: 16, fontWeight: 700, color: T.textPrimary, marginBottom: 12 }}>{title}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} style={{ height: 16, background: T.border, borderRadius: 4, width: `${70 + Math.random() * 30}%` }} />
+        ))}
       </div>
     </div>
   );

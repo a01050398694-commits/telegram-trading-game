@@ -1,6 +1,51 @@
 # PROGRESS
 
-## Latest Session — 2026-04-22 (런칭 체크리스트 일괄 정리 · Stage 12 프로덕션 하드닝)
+## Latest Session — 2026-04-28 (Antigravity 인수인계 · 전체 정상화)
+
+### Done
+
+**P0 — 즉시 처리 (인수인계 문서 00~07 기반)**
+
+1. **`.env` DAILY_ALLOWANCE 100000 → 10000** — Stage 15.1 정책($10K 무료 시드) 적용. 이전 값이 남아있어 신규 가입자에게 $100K 지급되는 문제 수정.
+
+2. **cache-bust 통합 헬퍼 `bot/src/lib/webappUrl.ts` 신규 생성** — `env.WEBAPP_URL` 에 `?v=Date.now()` 자동 부착. localhost dev 는 cache-bust 안 함.
+
+3. **cache-bust 누락 6개 파일 패치** (텔레그램 WebView 캐시 우회):
+   - `bot/src/index.ts` — BTC 변동성 알림 인라인 버튼
+   - `bot/src/cron/marketBrief.ts` — 마켓 브리프 인라인 버튼
+   - `bot/src/engine/community.ts` — AI 커뮤니티 매니저 4곳
+   - `bot/src/cron/retention.ts` — 리텐션 DM 2곳
+   - `bot/src/engine/shillEngine.ts` — Shill 봇 인라인 버튼
+   - `bot/src/scripts/setupBotProfile.ts` — 봇 프로필 메뉴 URL
+
+4. **하드코딩 금액 수정 ($100K → $10K)**:
+   - `bot/src/cron/retention.ts` — 비활동 유저 넛지 DM 메시지 (한국어/영어)
+   - `bot/src/scripts/setupBotProfile.ts` — 봇 설명 텍스트 (한국어/영어)
+
+5. **`package.json`에 `tunnel:bot` 스크립트 추가** — `npx cloudflared tunnel --url http://localhost:3001`
+
+**서버 기동 + 검증**
+- 기존 봇 프로세스 (PID 7780) 종료 → 새 봇 서버 `PORT=3001` 기동 성공
+- cloudflared 터널 신규 생성: `https://eric-rehabilitation-lots-href.trycloudflare.com`
+- `web/.env.production` 터널 URL 갱신
+- Git commit + push → Vercel 자동 배포 트리거
+
+### 검증 게이트
+- ✅ `npm run typecheck` (web + bot) — EXIT=0
+- ✅ 봇 서버 기동 — `@Tradergames_bot` polling 시작, menu button URL set (cache-busted)
+- ✅ Binance 5개 심볼 연결, 랭킹 엔진 캐시 갱신
+- ✅ `/health` 로컬 — `{ ok: true, env: "development" }`
+- ✅ `/health` 터널 — `{ ok: true, env: "development" }`
+- ✅ GitHub push 완료 (`8a68781`), Vercel 자동 배포 트리거됨
+
+### 남은 작업 (CEO 직접 or 다음 세션)
+- **텔레그램 미니앱 캐시 잠금** — CEO 가 BotFather → Configure Mini App 에서 URL 확인/교체 필요 (01-current-issue.md 참고)
+- **Vercel Dashboard 환경변수** — `VITE_API_URL` 을 새 터널 URL 로 갱신 (현재 `web/.env.production` 은 갱신 완료, Dashboard 도 동기화 권장)
+- **Stage 15.2~15.5** — DB subscriptions 테이블, InviteMember 폴링 cron, PremiumTab UI 재설계, 포트폴리오 코칭
+
+---
+
+## Archive — 2026-04-22 (런칭 체크리스트 일괄 정리 · Stage 12 프로덕션 하드닝)
 
 ### Done
 

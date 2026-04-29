@@ -3,6 +3,7 @@ import { env } from './env.js';
 import type { TradingEngine } from './engine/trading.js';
 import { setupCommunityFeatures } from './engine/community.js';
 import { botLocales, SupportedLang } from './locales.js';
+import { handleSuccessfulPayment } from './engine/payment.js';
 
 function formatBalance(n: number): string {
   return `$${n.toLocaleString('en-US')}`;
@@ -144,52 +145,15 @@ export function createBot(engine: TradingEngine): Bot {
       return;
     }
 
-    const rawMatch = typeof ctx.match === 'string' ? ctx.match.trim() : '';
-    const parsedReferrer = rawMatch ? Number(rawMatch) : NaN;
-    const referrerTgId = Number.isInteger(parsedReferrer) && parsedReferrer > 0 && parsedReferrer !== tgUser.id
-        ? parsedReferrer : null;
-
     try {
-      let referrerUserId: string | null = null;
-      if (referrerTgId !== null) {
-        const ref = await engine.getUserByTelegramId(referrerTgId);
-        referrerUserId = ref?.id ?? null;
-      }
-
       const { user, isNew } = await engine.upsertUser({
         telegram_id: tgUser.id,
         username: tgUser.username ?? null,
         first_name: tgUser.first_name ?? null,
         language_code: lang,
-        referred_by: referrerUserId,
       });
 
       const { granted, balance: seedBalance } = await engine.grantInitialSeed(user.id);
-      let balance = seedBalance;
-
-      let bonusGranted = false;
-      if (isNew && referrerTgId !== null && referrerUserId !== null) {
-        try {
-          const bonus = await engine.grantReferralBonus(user.id, referrerTgId);
-          if (bonus) {
-            bonusGranted = true;
-            balance = bonus.newBalance;
-            try {
-              const refLang = await getLang({ from: { id: bonus.referrerTelegramId } } as any, engine);
-              const refLoc = botLocales[refLang];
-              await bot.api.sendMessage(
-                bonus.referrerTelegramId,
-                refLoc.referralBonus.replace('{{balance}}', formatBalance(bonus.referrerBalance)),
-                { parse_mode: 'Markdown' },
-              );
-            } catch (notifyErr) {}
-          }
-        } catch (bonusErr) {
-          console.error('[bot] grantReferralBonus:', bonusErr);
-        }
-
-      }
-      void bonusGranted;
 
       const isGroup = ctx.chat.type === 'group' || ctx.chat.type === 'supergroup';
       const isHttps = env.WEBAPP_URL.startsWith('https://');
@@ -261,8 +225,7 @@ export function createBot(engine: TradingEngine): Bot {
           telegram_id: ctx.from.id,
           username: ctx.from.username ?? null,
           first_name: ctx.from.first_name ?? null,
-          language_code: lang,
-          referred_by: null
+          language_code: lang
         });
       }
     } catch(e) {}
@@ -358,9 +321,24 @@ export function createBot(engine: TradingEngine): Bot {
     await ctx.reply(loc.howItWorks, { parse_mode: 'Markdown' });
   });
 
-  // Stage 15.1 — Telegram Stars 직접 결제 폐기.
-  // pre_checkout_query / successful_payment 핸들러 제거. 결제는 InviteMember 가 처리하고
-  // 활성화는 Stage 15.2 의 채널 멤버십 폴링이 담당.
+  // Stage 15.3 — Telegram Stars 인앱 결제 부활.
+  // pre_checkout_query 자동 승인 (검증은 invoice 발급 시점에 끝남) + successful_payment
+  // 시 payload type 분기로 Premium 활성화 / Recharge 충전 처리.
+  bot.on('pre_checkout_query', async (ctx) => {
+    try {
+      await ctx.answerPreCheckoutQuery(true);
+    } catch (err) {
+      console.error('[bot] pre_checkout_query:', err);
+    }
+  });
+
+  bot.on('message:successful_payment', async (ctx) => {
+    try {
+      await handleSuccessfulPayment(engine, ctx);
+    } catch (err) {
+      console.error('[bot] successful_payment:', err);
+    }
+  });
 
   bot.catch((err) => {
     console.error('[bot] error:', err);

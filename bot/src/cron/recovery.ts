@@ -1,8 +1,14 @@
 import type { Bot } from 'grammy';
 import type { TradingEngine } from '../engine/trading.js';
 
-// Stage 15.1 — Stars 직접 결제 폐기. 청산 시 InviteMember Recharge 봇 링크 DM 으로 변경.
-// 결제 자체는 InviteMember 가 처리. 우리 봇은 액션 트리거링만.
+/**
+ * Stage 15.2 — 청산 DM을 inline_keyboard web_app 버튼으로 변경.
+ *
+ * 왜 web_app 버튼인가:
+ *   · 기존 마크다운 링크는 외부 브라우저로 열려 PayPal만 보임.
+ *   · web_app 버튼은 텔레그램 in-app WebView로 열림 → Stars 결제 가능.
+ *   · parse_mode 제거 (web_app 버튼과 호환 안 됨).
+ */
 export function setupLiquidationRecovery(bot: Bot, engine: TradingEngine) {
   engine.on('liquidated', async (userId: string) => {
     try {
@@ -14,15 +20,19 @@ export function setupLiquidationRecovery(bot: Bot, engine: TradingEngine) {
         process.env.INVITEMEMBER_RECHARGE_URL ||
         'https://im.page/viptraderx/plan?planId=375d3420-42cd-11f1-aecf-19beb80868b2';
 
-      const message =
-        '🔴 시장에서 청산당했습니다.\n\n' +
-        '$2.99 로 즉시 $1,000 게임머니를 충전해 매매를 이어가세요.\n\n' +
-        `[💳 충전하기](${rechargeUrl})`;
-
-      await bot.api.sendMessage(tgId, message, {
-        parse_mode: 'Markdown',
-        link_preview_options: { is_disabled: true },
-      });
+      // web_app 버튼 (in-app Stars 결제) + 외부 브라우저 fallback (PayPal)
+      await bot.api.sendMessage(
+        tgId,
+        '시장에서 청산당했습니다.\n\n$2.99로 즉시 $1,000 충전합니다.',
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '💳 $2.99 충전하기', web_app: { url: rechargeUrl } }],
+              [{ text: '🌐 브라우저로 결제', url: rechargeUrl }],
+            ],
+          },
+        },
+      );
 
       console.log(`[recovery] sent recharge DM to user ${userId} (${tgId})`);
     } catch (err) {

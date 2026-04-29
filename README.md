@@ -5,13 +5,18 @@
 ## Structure
 ```
 telegram-trading-game/
-├── web/            # Telegram Web App (Vite + React 19 + TS + Tailwind v4)
+├── web/            # Telegram Mini App (Vite + React 19 + TS + Tailwind v4)
 ├── bot/            # Telegram Bot + API server (Node + TS + grammY + Express)
 ├── PRD.md          # Product requirements
 ├── CLAUDE.md       # Project coding/communication rules
 ├── PROGRESS.md     # Session progress log
 └── GOTCHAS.md      # Accumulated MUST/MUST NOT rules
 ```
+
+## Deployment
+- **Telegram Mini App**: Deployed to Vercel via `web/dist` (root `vercel.json`)
+- **Telegram Bot**: Deployed to Render
+- **Database**: Supabase (PostgreSQL + RLS + Auth)
 
 ## Setup
 1. `npm install` (root에서 실행, workspaces가 web/bot 동시 설치)

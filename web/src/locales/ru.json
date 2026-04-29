@@ -40,8 +40,10 @@
   "liquidation": {
     "title": "Risk Management Triggered",
     "body": "Your simulated margin has been depleted. This is a paper-trading lesson — no real funds lost. Reset your practice balance to continue learning.",
-    "resetCta": "Reset Practice Balance",
-    "resetCostSuffix": "Stars"
+    "resetCta": "Сброс риска · 500 ⭐",
+    "resetCostSuffix": "Stars",
+    "rechargeCta": "Сброс риска · 500 ⭐",
+    "rechargeSubtext": "$6.50 · Восстановить игровую кредит $1,000"
   },
   "portfolio": {
     "totalEquity": "Total Equity",
@@ -70,7 +72,7 @@
     "planPremium": "Academy",
     "planLifetime": "Premium Monthly",
     "priceFree": "$0",
-    "pricePremium": "$29.99",
+    "pricePremium": "$39.99",
     "priceLifetime": "$39.99",
     "subtitleFree": "Demo",
     "subtitlePremium": "/mo",
@@ -121,7 +123,9 @@
         }
       }
     },
-    "unlock": "Processing payment…"
+    "unlock": "Processing payment…",
+    "subscribeCta": "Подписаться на Telegram Stars",
+    "subscribeSubtext": "3,099 ⭐ ≈ $39.99/мес · Автоматическое продление каждые 30 дней"
   },
   "settings": {
     "title": "Settings",
@@ -136,5 +140,61 @@
     "footer": "Perpetual Futures",
     "active": "Active",
     "empty": "No markets match"
+  },
+  "analytics": {
+    "noTrades": "No trades yet.",
+    "minTrades": "Minimum 10 trades required for analysis (currently {{current}})",
+    "unlock": "Unlock Premium",
+    "perMonth": "mo",
+    "unlockPremium": "Unlock Premium Analytics — $39.99/mo",
+    "status": {
+      "free": "FREE PLAN",
+      "freeDesc": "Basic stats only. Upgrade for full analysis.",
+      "premium": "PREMIUM",
+      "premiumDesc": "All analytics modules unlocked."
+    },
+    "stats": {
+      "title": "Trade Statistics",
+      "subtitle": "Last {{days}} days",
+      "footer": "Analysis period: Last {{days}} days, {{trades}} trades",
+      "totalPnl": "Cumulative PnL",
+      "winRate": "Win Rate",
+      "rrRatio": "Risk/Reward Ratio",
+      "maxLossStreak": "Max Loss Streak",
+      "liquidations": "Liquidations",
+      "avgHoldTime": "Avg Hold Time"
+    },
+    "hourly": {
+      "title": "Performance by Time",
+      "timeSlot": "Time Slot",
+      "winRate": "Win %",
+      "trades": "Trades"
+    },
+    "leverage": {
+      "title": "Leverage vs Liquidation"
+    },
+    "behavior": {
+      "title": "Trading Behavior",
+      "afterWin": "After Win",
+      "afterLoss": "After Loss",
+      "avgSize": "Avg Size",
+      "avgLev": "Avg Leverage",
+      "nextWinRate": "Next Win Rate",
+      "sizeChange": "Size Change After Loss",
+      "revengeWarning": "Warning: Position size increases 50%+ after losses. This is a revenge trading pattern.",
+      "lockMode": "Trade Lock Mode",
+      "lockModeDesc": "Auto-lock 30min after a loss trade"
+    }
+  },
+  "premium": {
+    "pricePremium": "$39.99/мес",
+    "subscribeCta": "Подписаться на Telegram Stars",
+    "subscribeSubtext": "3,099 ⭐ ≈ $39.99/мес · Автоматическое продление каждые 30 дней"
+  },
+  "payment": {
+    "success": "Платёж успешен! Premium активирован.",
+    "rechargeSuccess": "Пополнение завершено. Добавлено $1,000.",
+    "failed": "Платёж не удался. Попробуй снова.",
+    "processing": "Обработка платежа..."
   }
 }

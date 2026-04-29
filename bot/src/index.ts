@@ -11,6 +11,7 @@ import { RetentionCron } from './cron/retention.js';
 import { AffiliateReconcileCron } from './cron/affiliateReconcile.js';
 import { setupLiquidationRecovery } from './cron/recovery.js';
 import { MarketBriefCron } from './cron/marketBrief.js';
+import { WeeklyReportCron } from './cron/weeklyReport.js';
 import { shillEngine } from './engine/shillEngine.js';
 import { BinancePriceFeed, type PriceUpdate } from './services/binance.js';
 import { PriceCache } from './priceCache.js';
@@ -30,6 +31,7 @@ async function main(): Promise<void> {
   const retentionCron = new RetentionCron(bot, db);
   const affiliateReconcileCron = new AffiliateReconcileCron(db);
   const marketBriefCron = new MarketBriefCron(bot, priceCache);
+  const weeklyReportCron = new WeeklyReportCron(bot, db);
   
   // Set up liquidation recovery DMs
   setupLiquidationRecovery(bot, engine);
@@ -126,6 +128,7 @@ async function main(): Promise<void> {
   retentionCron.start();
   affiliateReconcileCron.start();
   marketBriefCron.start();
+  weeklyReportCron.start();
   shillEngine.setPriceCache(priceCache);
   void shillEngine.start();
 
@@ -139,6 +142,7 @@ async function main(): Promise<void> {
   // graceful shutdown
   const shutdown = async (signal: string): Promise<void> => {
     console.log(`[bot] received ${signal}, shutting down`);
+    weeklyReportCron.stop();
     marketBriefCron.stop();
     shillEngine.stop();
     retentionCron.stop();

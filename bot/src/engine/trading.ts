@@ -12,8 +12,12 @@ import type {
 } from '../db/types.js';
 import { env } from '../env.js';
 
-// Stage 9 — 레퍼럴 보너스 고정값. $10,000 = 10_000 (USD 정수 달러 단위).
-const REFERRAL_BONUS = 10_000;
+// Stage 15.2 — INITIAL_SEED_USD 환경변수 우선, DAILY_ALLOWANCE fallback.
+const INITIAL_SEED_USD = Number(process.env.INITIAL_SEED_USD || env.DAILY_ALLOWANCE);
+
+// Stage 15.2 — 잠금 모드 지속시간 (분)
+const LOCK_MODE_DURATION_MIN = Number(process.env.LOCK_MODE_DURATION_MINUTES || '30');
+
 import {
   calculateLiquidationPrice,
   calculatePnl,
@@ -32,15 +36,12 @@ export class TradingEngine extends EventEmitter {
 
   // -------------------------------------------------------------------------
   // 유저/지갑 upsert — /start 시 호출
-  //
-  // Stage 9: {user, isNew} 반환. 신규 유저일 때만 referred_by 를 DB 에 기록하고,
-  // 재접속 유저의 referred_by 를 덮어쓰지 않는다 (레퍼럴 재귀 악용 차단).
   // -------------------------------------------------------------------------
   async upsertUser(payload: UserInsert): Promise<{ user: UserRow; isNew: boolean }> {
     const existing = await this.getUserByTelegramId(payload.telegram_id);
 
     if (existing) {
-      // 재접속: 프로필 필드만 최신화, referred_by 는 절대 덮어쓰지 않음.
+      // 재접속: 프로필 필드만 최신화
       const { data, error } = await this.db
         .from('users')
         .update({
@@ -63,7 +64,6 @@ export class TradingEngine extends EventEmitter {
         username: payload.username ?? null,
         first_name: payload.first_name ?? null,
         language_code: payload.language_code ?? null,
-        referred_by: payload.referred_by ?? null,
       })
       .select()
       .single();
@@ -73,66 +73,6 @@ export class TradingEngine extends EventEmitter {
     return { user: data as UserRow, isNew: true };
   }
 
-  // -------------------------------------------------------------------------
-  // Stage 9 — 레퍼럴 보너스. 신규 유저 + 유효 초대자 둘 다 +$10,000.
-  //   · 이미 referred_by 가 설정된 유저(=보너스 수령 이력) 는 재지급 안 함.
-  //   · 본인 초대는 차단.
-  //   · 성공 시 {referrerId, referrerTelegramId, newBalance, referrerBalance} 반환.
-  //   · 실패(초대자 없음/자기자신/이미 지급) 는 null.
-  // -------------------------------------------------------------------------
-  async grantReferralBonus(
-    newUserId: string,
-    referrerTelegramId: number,
-  ): Promise<{
-    referrerId: string;
-    referrerTelegramId: number;
-    newBalance: number;
-    referrerBalance: number;
-  } | null> {
-    const referrer = await this.getUserByTelegramId(referrerTelegramId);
-    if (!referrer) return null;
-    if (referrer.id === newUserId) return null;
-
-    const [newWallet, refWallet] = await Promise.all([
-      this.getWallet(newUserId),
-      this.getWallet(referrer.id),
-    ]);
-    if (!newWallet || !refWallet) return null;
-
-    // newUser 의 referred_by 컬럼이 이번 초대자로 세팅된 경우에만 지급.
-    // (upsertUser 가 신규 insert 시에만 referred_by 를 썼으므로 자연스럽게 1회성 보장.)
-    const newUser = await this.db
-      .from('users')
-      .select('id,referred_by')
-      .eq('id', newUserId)
-      .single();
-    if (newUser.error) throw new Error(`grantReferralBonus(lookup): ${newUser.error.message}`);
-    if ((newUser.data as { referred_by: string | null }).referred_by !== referrer.id) {
-      // referred_by 미일치 = 이미 보너스 처리됐거나 기록 불일치. 스킵.
-      return null;
-    }
-
-    const newBalance = newWallet.balance + REFERRAL_BONUS;
-    const referrerBalance = refWallet.balance + REFERRAL_BONUS;
-
-    const [newRes, refRes] = await Promise.all([
-      this.db.from('wallets').update({ balance: newBalance }).eq('user_id', newUserId),
-      this.db.from('wallets').update({ balance: referrerBalance }).eq('user_id', referrer.id),
-    ]);
-    if (newRes.error) throw new Error(`grantReferralBonus(new): ${newRes.error.message}`);
-    if (refRes.error) throw new Error(`grantReferralBonus(ref): ${refRes.error.message}`);
-
-    // 지급 완료 표시: referred_by 는 그대로 두되, 재지급을 막기 위해 별도 플래그가 필요하면
-    // 추후 `referral_bonus_granted_at` 컬럼으로 분리. MVP 는 wallet update 1회로 충분
-    // (다음 호출 시 newUser.referred_by 가 여전히 일치하므로 중복 방지는 서버 레벨에서만
-    // 보장됨 — 동일 /start 플로우에서만 호출되므로 실질 재발 안 남).
-    return {
-      referrerId: referrer.id,
-      referrerTelegramId: referrer.telegram_id,
-      newBalance,
-      referrerBalance,
-    };
-  }
 
   // -------------------------------------------------------------------------
   // Stage 9 — 거래소 UID 인증 신청. PremiumTab POST /api/verify 에서 호출.
@@ -219,14 +159,6 @@ export class TradingEngine extends EventEmitter {
     return (data as { telegram_id: number }[]).map((r) => r.telegram_id);
   }
 
-  async getReferralCount(userId: string): Promise<number> {
-    const { count, error } = await this.db
-      .from('users')
-      .select('*', { count: 'exact', head: true })
-      .eq('referred_by', userId);
-    if (error) throw new Error(`getReferralCount: ${error.message}`);
-    return count ?? 0;
-  }
 
   async getUserById(userId: string): Promise<UserRow | null> {
     const { data, error } = await this.db
@@ -249,39 +181,50 @@ export class TradingEngine extends EventEmitter {
   }
 
   // -------------------------------------------------------------------------
-  // Stage 10 — 최초 1회 시드 지급 (Hard Paywall)
-  //   - last_credited_at === null → 신규 지갑 → $100K 시드 지급 후 flag 기록.
-  //   - last_credited_at !== null → 이미 수령 이력 있음 → no-op.
-  //   - 청산 유저는 절대 자동 복구 안 됨. Stars 결제(revivePaidUser) 만이 유일 경로.
-  //
-  // 과거 grantDailyAllowance 와의 차이:
-  //   · todayUtc 비교 제거 — 날짜 상관없이 "수령 여부" 만 본다.
-  //   · last_credited_at 을 ISO 타임스탬프(timestamptz 안전) 로 기록. 날짜만 필요한 게 아니라
-  //     "언제 한 번 받았는가" 의 영구 기록으로 의미가 전환됨. DB 컬럼 타입은 date 라 ISO 10자
-  //     슬라이스로 맞추되, null 여부만 판정에 사용.
+  // Stage 15.2 — 최초 1회 시드 지급 (seeded_at 기반)
+  //   - users.seeded_at IS NULL → 신규 유저 → $10K 시드 지급 후 seeded_at = now().
+  //   - seeded_at NOT NULL → 이미 수령 → no-op.
+  //   - 청산 유저는 절대 자동 복구 안 됨. Recharge 결제만이 유일 경로.
   // -------------------------------------------------------------------------
   async grantInitialSeed(userId: string): Promise<{ granted: boolean; balance: number }> {
     const wallet = await this.getWallet(userId);
     if (!wallet) throw new Error(`wallet not found for user ${userId}`);
 
-    if (wallet.last_credited_at !== null) {
-      // 이미 최초 시드 수령 완료 — 남은 잔고 그대로 반환.
+    // seeded_at 체크 (users 테이블)
+    const { data: userRow, error: userErr } = await this.db
+      .from('users')
+      .select('seeded_at')
+      .eq('id', userId)
+      .single();
+    if (userErr) throw new Error(`grantInitialSeed(userCheck): ${userErr.message}`);
+
+    if ((userRow as { seeded_at: string | null }).seeded_at !== null) {
+      // 이미 최초 시드 수령 완료
       return { granted: false, balance: wallet.balance };
     }
 
-    const seed = Number(env.DAILY_ALLOWANCE);
-    const todayIso = new Date().toISOString().slice(0, 10);
+    const seed = INITIAL_SEED_USD;
+    const now = new Date().toISOString();
+
+    // 지갑에 시드 충전
     const { data, error } = await this.db
       .from('wallets')
       .update({
         balance: seed,
         is_liquidated: false,
-        last_credited_at: todayIso,
+        last_credited_at: now.slice(0, 10),
       })
       .eq('user_id', userId)
       .select()
       .single();
-    if (error) throw new Error(`grantInitialSeed: ${error.message}`);
+    if (error) throw new Error(`grantInitialSeed(wallet): ${error.message}`);
+
+    // seeded_at 기록 (재지급 방지)
+    const { error: seedErr } = await this.db
+      .from('users')
+      .update({ seeded_at: now })
+      .eq('id', userId);
+    if (seedErr) throw new Error(`grantInitialSeed(seeded_at): ${seedErr.message}`);
 
     return { granted: true, balance: (data as WalletRow).balance };
   }
@@ -306,6 +249,9 @@ export class TradingEngine extends EventEmitter {
       throw new Error('spot position must use leverage=1');
     }
     if (size <= 0) throw new Error('size must be positive');
+
+    // Stage 15.2 — 매매 잠금 모드 가드
+    await this.checkLockMode(userId);
 
     const wallet = await this.getWallet(userId);
     if (!wallet) throw new Error('wallet missing');
@@ -539,7 +485,7 @@ export class TradingEngine extends EventEmitter {
   // 호출 경로: bot.on('message:successful_payment') → revivePaidUser(userId)
   // -------------------------------------------------------------------------
   async revivePaidUser(userId: string): Promise<{ balance: number }> {
-    const allowance = Number(env.DAILY_ALLOWANCE);
+    const allowance = INITIAL_SEED_USD;
     const { data, error } = await this.db
       .from('wallets')
       .update({ balance: allowance, is_liquidated: false })
@@ -548,5 +494,208 @@ export class TradingEngine extends EventEmitter {
       .single();
     if (error) throw new Error(`revivePaidUser: ${error.message}`);
     return { balance: (data as WalletRow).balance };
+  }
+
+  // -------------------------------------------------------------------------
+  // Stage 15.2 — 매매 잠금 모드 체크
+  //   · lock_mode_enabled && 직전 거래가 손실 → 30분 자동 잠금
+  //   · 잠금 중 매매 시도 → 423 에러
+  // -------------------------------------------------------------------------
+  private async checkLockMode(userId: string): Promise<void> {
+    const { data: userRow, error } = await this.db
+      .from('users')
+      .select('lock_mode_enabled, lock_mode_until')
+      .eq('id', userId)
+      .single();
+
+    if (error || !userRow) return;
+
+    const user = userRow as { lock_mode_enabled: boolean; lock_mode_until: string | null };
+    if (!user.lock_mode_enabled) return;
+
+    // 잠금 시간이 아직 남아 있으면 차단
+    if (user.lock_mode_until) {
+      const until = new Date(user.lock_mode_until).getTime();
+      const now = Date.now();
+      if (until > now) {
+        const remainMin = Math.ceil((until - now) / 60000);
+        throw new Error(`LOCK_MODE: 매매 잠금 중. ${remainMin}분 후 해제.`);
+      }
+      // 잠금 만료 → 해제
+      await this.db
+        .from('users')
+        .update({ lock_mode_until: null })
+        .eq('id', userId);
+    }
+
+    // 직전 거래가 손실인지 확인 → 자동 잠금 설정
+    const { data: lastTrade } = await this.db
+      .from('positions')
+      .select('pnl')
+      .eq('user_id', userId)
+      .in('status', ['closed', 'liquidated'])
+      .order('closed_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (lastTrade && (lastTrade as { pnl: number }).pnl < 0) {
+      // 직전 손실 + 잠금 모드 활성 → 30분 잠금 설정
+      const lockUntil = new Date(Date.now() + LOCK_MODE_DURATION_MIN * 60 * 1000).toISOString();
+      await this.db
+        .from('users')
+        .update({ lock_mode_until: lockUntil })
+        .eq('id', userId);
+      throw new Error(`LOCK_MODE: 직전 거래 손실 감지. ${LOCK_MODE_DURATION_MIN}분 매매 잠금 활성화.`);
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Stage 15.2 — 매매 잠금 모드 토글
+  // -------------------------------------------------------------------------
+  async toggleLockMode(userId: string, enabled: boolean): Promise<{ lockModeEnabled: boolean }> {
+    const update: Record<string, unknown> = { lock_mode_enabled: enabled };
+    if (!enabled) {
+      // 잠금 해제 시 lock_mode_until 도 초기화
+      update.lock_mode_until = null;
+    }
+    const { error } = await this.db
+      .from('users')
+      .update(update)
+      .eq('id', userId);
+    if (error) throw new Error(`toggleLockMode: ${error.message}`);
+    return { lockModeEnabled: enabled };
+  }
+
+  // -------------------------------------------------------------------------
+  // Stage 15.3 — Telegram Stars Premium 구독 활성화
+  //   · subscription_txns insert (idempotent: telegram_payment_charge_id UNIQUE)
+  //   · users.is_premium=true, premium_until=now()+30d, subscription_id=chargeId
+  //   · 중복 결제(같은 chargeId 재수신)는 silent no-op
+  // -------------------------------------------------------------------------
+  async activatePremium(
+    userId: string,
+    chargeId: string,
+    amountStars: number,
+    amountUsd: number,
+  ): Promise<{ premiumUntil: string }> {
+    const now = new Date();
+    const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+    const { error: txError } = await this.db.from('subscription_txns').insert({
+      user_id: userId,
+      subscription_id: chargeId,
+      amount_stars: amountStars,
+      amount_usd: amountUsd,
+      currency: 'XTR',
+      status: 'active',
+      period_start: now.toISOString(),
+      period_end: periodEnd.toISOString(),
+    });
+
+    if (txError) {
+      const msg = txError.message ?? '';
+      if (msg.includes('duplicate key') || msg.includes('unique constraint')) {
+        const { data: existing, error: queryErr } = await this.db
+          .from('subscription_txns')
+          .select('period_end')
+          .eq('subscription_id', chargeId)
+          .single();
+        if (queryErr) throw new Error(`activatePremium(idempotent query): ${queryErr.message}`);
+        const pe = (existing as { period_end: string } | null)?.period_end;
+        if (!pe) throw new Error('activatePremium(duplicate): existing record missing period_end');
+        throw new Error(`already_processed:${pe}`);
+      }
+      throw new Error(`activatePremium(tx): ${msg}`);
+    }
+
+    const { error: userErr } = await this.db
+      .from('users')
+      .update({
+        is_premium: true,
+        premium_until: periodEnd.toISOString(),
+        subscription_id: chargeId,
+      })
+      .eq('id', userId);
+    if (userErr) throw new Error(`activatePremium(user): ${userErr.message}`);
+
+    return { premiumUntil: periodEnd.toISOString() };
+  }
+
+  // -------------------------------------------------------------------------
+  // Stage 15.3 — Telegram Stars Recharge ($1,000 게임머니 충전)
+  //   · recharge_txns insert (idempotent)
+  //   · wallets.balance += creditUsd, is_liquidated=false
+  //   · seeded_at 은 절대 건드리지 않음 (1회 시드 정책 보존)
+  // -------------------------------------------------------------------------
+  async creditRecharge(
+    userId: string,
+    chargeId: string,
+    amountStars: number,
+    amountUsd: number,
+    creditUsd: number,
+  ): Promise<{ balance: number }> {
+    const { error: txError } = await this.db.from('recharge_txns').insert({
+      user_id: userId,
+      telegram_payment_charge_id: chargeId,
+      amount_stars: amountStars,
+      amount_usd: amountUsd,
+      credit_amount: creditUsd,
+      currency: 'XTR',
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+    });
+
+    if (txError) {
+      const msg = txError.message ?? '';
+      if (msg.includes('duplicate key') || msg.includes('unique constraint')) {
+        const wallet = await this.getWallet(userId);
+        if (!wallet) throw new Error('creditRecharge(duplicate): wallet missing for idempotent lookup');
+        throw new Error(`already_processed:${wallet.balance}`);
+      }
+      throw new Error(`creditRecharge(tx): ${msg}`);
+    }
+
+    const wallet = await this.getWallet(userId);
+    if (!wallet) throw new Error(`creditRecharge: wallet not found for user ${userId}`);
+
+    const newBalance = Number(wallet.balance) + creditUsd;
+    const { data, error } = await this.db
+      .from('wallets')
+      .update({ balance: newBalance, is_liquidated: false })
+      .eq('user_id', userId)
+      .select()
+      .single();
+    if (error) throw new Error(`creditRecharge(wallet): ${error.message}`);
+
+    return { balance: (data as WalletRow).balance };
+  }
+
+  // -------------------------------------------------------------------------
+  // Stage 15.3 — Premium 만료 자동 강등 (cron 또는 API 응답 시점에 호출)
+  //   · premium_until < now() 인 유저의 is_premium=false
+  // -------------------------------------------------------------------------
+  async expireStalePremium(): Promise<{ expired: number }> {
+    const { data, error } = await this.db
+      .from('users')
+      .update({ is_premium: false })
+      .lt('premium_until', new Date().toISOString())
+      .eq('is_premium', true)
+      .select('id');
+    if (error) throw new Error(`expireStalePremium: ${error.message}`);
+    return { expired: (data as { id: string }[] | null)?.length ?? 0 };
+  }
+
+  // Stage 15.3 — DB 기반 활성 Premium 체크 (subscription_txns + users.premium_until)
+  async checkActivePremium(userId: string): Promise<boolean> {
+    const { data } = await this.db
+      .from('users')
+      .select('is_premium, premium_until')
+      .eq('id', userId)
+      .single();
+    const u = data as { is_premium: boolean; premium_until: string | null } | null;
+    if (!u) return false;
+    if (!u.is_premium) return false;
+    if (!u.premium_until) return false;
+    return new Date(u.premium_until).getTime() > Date.now();
   }
 }

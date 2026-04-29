@@ -69,6 +69,5 @@ export type EventName =
   | 'trade_closed'
   | 'liquidated'
   | 'verification_submitted'
-  | 'referral_invite_copied'
   | 'premium_cta_clicked'
   | 'rank_card_shared';

@@ -40,8 +40,10 @@
   "liquidation": {
     "title": "Risk Management Triggered",
     "body": "Your simulated margin has been depleted. This is a paper-trading lesson — no real funds lost. Reset your practice balance to continue learning.",
-    "resetCta": "Reset Practice Balance",
-    "resetCostSuffix": "Stars"
+    "resetCta": "Risk Sıfırla · 500 ⭐",
+    "resetCostSuffix": "Stars",
+    "rechargeCta": "Risk Sıfırla · 500 ⭐",
+    "rechargeSubtext": "$6.50 · $1,000 Oyun Kredisini Onar"
   },
   "portfolio": {
     "totalEquity": "Total Equity",
@@ -70,7 +72,7 @@
     "planPremium": "Academy",
     "planLifetime": "Premium Monthly",
     "priceFree": "$0",
-    "pricePremium": "$29.99",
+    "pricePremium": "$39.99",
     "priceLifetime": "$39.99",
     "subtitleFree": "Demo",
     "subtitlePremium": "/mo",
@@ -121,7 +123,9 @@
         }
       }
     },
-    "unlock": "Processing payment…"
+    "unlock": "Processing payment…",
+    "subscribeCta": "Telegram Stars ile Abone Ol",
+    "subscribeSubtext": "3,099 ⭐ ≈ $39.99/ay · Her 30 günde otomatik yenileme"
   },
   "settings": {
     "title": "Settings",
@@ -136,5 +140,61 @@
     "footer": "Perpetual Futures",
     "active": "Active",
     "empty": "No markets match"
+  },
+  "analytics": {
+    "noTrades": "No trades yet.",
+    "minTrades": "Minimum 10 trades required for analysis (currently {{current}})",
+    "unlock": "Unlock Premium",
+    "perMonth": "mo",
+    "unlockPremium": "Unlock Premium Analytics — $39.99/mo",
+    "status": {
+      "free": "FREE PLAN",
+      "freeDesc": "Basic stats only. Upgrade for full analysis.",
+      "premium": "PREMIUM",
+      "premiumDesc": "All analytics modules unlocked."
+    },
+    "stats": {
+      "title": "Trade Statistics",
+      "subtitle": "Last {{days}} days",
+      "footer": "Analysis period: Last {{days}} days, {{trades}} trades",
+      "totalPnl": "Cumulative PnL",
+      "winRate": "Win Rate",
+      "rrRatio": "Risk/Reward Ratio",
+      "maxLossStreak": "Max Loss Streak",
+      "liquidations": "Liquidations",
+      "avgHoldTime": "Avg Hold Time"
+    },
+    "hourly": {
+      "title": "Performance by Time",
+      "timeSlot": "Time Slot",
+      "winRate": "Win %",
+      "trades": "Trades"
+    },
+    "leverage": {
+      "title": "Leverage vs Liquidation"
+    },
+    "behavior": {
+      "title": "Trading Behavior",
+      "afterWin": "After Win",
+      "afterLoss": "After Loss",
+      "avgSize": "Avg Size",
+      "avgLev": "Avg Leverage",
+      "nextWinRate": "Next Win Rate",
+      "sizeChange": "Size Change After Loss",
+      "revengeWarning": "Warning: Position size increases 50%+ after losses. This is a revenge trading pattern.",
+      "lockMode": "Trade Lock Mode",
+      "lockModeDesc": "Auto-lock 30min after a loss trade"
+    }
+  },
+  "premium": {
+    "pricePremium": "$39.99/ay",
+    "subscribeCta": "Telegram Stars ile Abone Ol",
+    "subscribeSubtext": "3,099 ⭐ ≈ $39.99/ay · Her 30 günde otomatik yenileme"
+  },
+  "payment": {
+    "success": "Ödeme başarılı! Premium etkinleştirildi.",
+    "rechargeSuccess": "Yükleme tamamlandı. $1,000 eklendi.",
+    "failed": "Ödeme başarısız. Tekrar deneyin.",
+    "processing": "Ödeme işleniyor..."
   }
 }

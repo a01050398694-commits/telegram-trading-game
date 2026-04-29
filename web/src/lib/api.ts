@@ -35,7 +35,6 @@ export type UserStatus = {
   isPremium: boolean;
   rank: number;
   yesterdayPnl: number;
-  referralCount: number;
   telegramUserId: number;
   history: { date: string; pnl: number }[];
 };
@@ -166,3 +165,107 @@ export function submitVerification(
 }
 
 export { ApiError };
+
+// ---------------------------------------------------------------------------
+// Stage 15.2 — Premium 매매 분석기 API
+// ---------------------------------------------------------------------------
+
+export interface ModuleA {
+  pnlUsd: number;
+  winRate: number;
+  rrRatio: number;
+  maxLossStreak: number;
+  liquidations: number;
+  avgHoldMinutes: number;
+}
+
+export interface ModuleBBucket {
+  label: string;
+  pnl: number;
+  winRate: number;
+  trades: number;
+}
+
+export interface ModuleB {
+  buckets: ModuleBBucket[];
+  weakestBucket: string;
+  recommendationText: string;
+  simulatedGainUsd: number;
+}
+
+export interface ModuleCBucket {
+  range: string;
+  liquidationRate: number;
+  trades: number;
+}
+
+export interface ModuleC {
+  buckets: ModuleCBucket[];
+  thresholdLeverage: number;
+  recommendationText: string;
+}
+
+export interface ModuleD {
+  afterWin: { avgSizeUsd: number; avgLeverage: number; nextWinRate: number };
+  afterLoss: { avgSizeUsd: number; avgLeverage: number; nextWinRate: number };
+  sizeIncreasePct: number;
+  warning: boolean;
+  lockModeEnabled: boolean;
+}
+
+export interface PremiumAnalyticsResponse {
+  isPremium: boolean;
+  generatedAt: string;
+  windowDays: 30;
+  totalTrades: number;
+  stats: ModuleA;
+  hourly?: ModuleB;
+  leverage?: ModuleC;
+  behavior?: ModuleD;
+}
+
+export function fetchPremiumAnalytics(telegramUserId: number): Promise<PremiumAnalyticsResponse> {
+  return request<PremiumAnalyticsResponse>('/api/premium/analytics', {
+    query: { telegramUserId },
+  });
+}
+
+export function toggleLockMode(
+  telegramUserId: number,
+  enabled: boolean,
+): Promise<{ ok: true; lockModeEnabled: boolean }> {
+  return request<{ ok: true; lockModeEnabled: boolean }>('/api/premium/lock-mode', {
+    method: 'POST',
+    body: JSON.stringify({ telegramUserId, enabled }),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Stage 15.3 — Telegram Stars In-App Payment (Premium + Recharge)
+// ---------------------------------------------------------------------------
+
+export type StarsPricing = {
+  stars: number;
+  usd: number;
+  periodSec?: number;
+  creditUsd?: number;
+};
+
+export type StarsInvoiceResponse = {
+  invoiceLink: string;
+  pricing: StarsPricing;
+};
+
+export function createPremiumStarsInvoice(telegramUserId: number): Promise<StarsInvoiceResponse> {
+  return request<StarsInvoiceResponse>('/api/payment/stars/premium-invoice', {
+    method: 'POST',
+    body: JSON.stringify({ telegramUserId }),
+  });
+}
+
+export function createRechargeStarsInvoice(telegramUserId: number): Promise<StarsInvoiceResponse> {
+  return request<StarsInvoiceResponse>('/api/payment/stars/recharge-invoice', {
+    method: 'POST',
+    body: JSON.stringify({ telegramUserId }),
+  });
+}
