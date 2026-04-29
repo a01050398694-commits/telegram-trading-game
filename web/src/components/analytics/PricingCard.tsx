@@ -66,36 +66,53 @@ export function PricingCard({ telegramUserId, onPaid }: PricingCardProps) {
   return (
     <div
       style={{
-        background: T.bgCard,
+        background: `linear-gradient(135deg, rgba(139, 105, 20, 0.08), ${T.bgCard} 60%)`,
         border: `1px solid ${T.borderAccent}`,
-        borderTop: `3px solid ${T.borderAccent}`,
-        borderRadius: 12,
-        padding: 20,
-        boxShadow: '0 0 0 1px rgba(139, 105, 20, 0.1), 0 4px 12px rgba(0, 0, 0, 0.4)',
+        borderTop: `4px solid ${T.borderAccent}`,
+        borderRadius: 14,
+        padding: 22,
+        boxShadow: '0 0 0 1px rgba(139, 105, 20, 0.15), 0 8px 24px rgba(184, 134, 11, 0.12), 0 4px 12px rgba(0, 0, 0, 0.5)',
+        position: 'relative',
+        overflow: 'hidden',
       }}
     >
-      {/* ── 라벨 ── */}
-      <div style={{
-        fontSize: 10,
-        fontWeight: 700,
-        letterSpacing: '0.18em',
-        color: T.borderAccent,
-        textTransform: 'uppercase',
-        fontFamily: T.numberFont,
-        marginBottom: 8,
-      }}>
-        {t('premium.plan.label')}
+      {/* ── 라벨 + PRO 뱃지 ── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <span style={{
+          fontSize: 10,
+          fontWeight: 700,
+          letterSpacing: '0.18em',
+          color: T.borderAccent,
+          textTransform: 'uppercase',
+          fontFamily: T.numberFont,
+        }}>
+          {t('premium.plan.label')}
+        </span>
+        <span style={{
+          fontSize: 9,
+          fontWeight: 800,
+          letterSpacing: '0.15em',
+          color: '#000',
+          textTransform: 'uppercase',
+          fontFamily: T.numberFont,
+          background: `linear-gradient(135deg, ${T.borderAccent}, #B8860B)`,
+          padding: '3px 8px',
+          borderRadius: 4,
+        }}>
+          PRO
+        </span>
       </div>
 
       {/* ── 가격 (큰 모노스페이스 골드) ── */}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 4 }}>
         <span style={{
           fontFamily: T.numberFont,
-          fontSize: 38,
-          fontWeight: 700,
+          fontSize: 44,
+          fontWeight: 800,
           color: T.textPrimary,
-          letterSpacing: '-0.02em',
+          letterSpacing: '-0.03em',
           lineHeight: 1,
+          textShadow: '0 0 24px rgba(184, 134, 11, 0.3)',
         }}>
           $39.99
         </span>
@@ -155,20 +172,24 @@ export function PricingCard({ telegramUserId, onPaid }: PricingCardProps) {
         disabled={pending}
         style={{
           width: '100%',
-          padding: '14px 0',
+          padding: '16px 0',
           background: pending
             ? 'rgba(115,115,115,0.4)'
-            : `linear-gradient(135deg, ${T.borderAccent}, #B8860B)`,
-          border: 'none',
-          borderRadius: 10,
-          fontSize: 14,
-          fontWeight: 700,
+            : `linear-gradient(135deg, #DAA520, ${T.borderAccent} 50%, #B8860B)`,
+          border: '1px solid rgba(218, 165, 32, 0.5)',
+          borderRadius: 12,
+          fontSize: 15,
+          fontWeight: 800,
           color: '#fff',
           cursor: pending ? 'not-allowed' : 'pointer',
-          letterSpacing: '0.04em',
+          letterSpacing: '0.06em',
           fontFamily: T.bodyFont,
           opacity: pending ? 0.6 : 1,
           transition: 'opacity 0.2s ease, transform 0.1s ease',
+          boxShadow: pending
+            ? 'none'
+            : '0 4px 16px rgba(184, 134, 11, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
+          textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
         }}
       >
         {pending ? t('payment.processing') : t('premium.plan.cta')}
