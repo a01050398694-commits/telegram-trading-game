@@ -32,7 +32,9 @@ ALTER TABLE public.users
 
 -- Index for active subscriptions
 CREATE INDEX IF NOT EXISTS idx_users_subscription_id ON public.users(subscription_id);
-CREATE INDEX IF NOT EXISTS idx_users_premium_until ON public.users(premium_until) WHERE premium_until > now();
+-- Stage 15.3 fix: Postgres 42P17 — now() 는 IMMUTABLE 아니라서 partial index predicate 에 못 씀.
+-- 만료 체크 쿼리에서 어차피 premium_until 컬럼 자체로 인덱스 hit 됨. partial → full.
+CREATE INDEX IF NOT EXISTS idx_users_premium_until ON public.users(premium_until);
 
 
 -- ============================================================

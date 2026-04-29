@@ -311,3 +311,4 @@
 - **MUST NOT** trust the invoice payload `userId` without re-resolving via `engine.getUserByTelegramId(ctx.from.id)`. payload 는 invoice 발급 시점 데이터일 뿐 결제 시점 발신자 보증이 아님.
 - **MUST NOT** restore `seeded_at` or 시드 재발급 in Recharge flow — 1계정 1회 시드 정책 보존. Recharge 는 `wallets.balance += $1000` + `is_liquidated=false` 만.
 - **MUST NOT** redirect 결제를 외부 페이지(im.page 등) 로. 모든 결제는 `tg.openInvoice(invoiceLink)` 인앱 흐름. 외부 redirect 는 텔레그램 인앱 브라우저로 열려도 우리 미니앱 상태 sync 가 끊긴다.
+- **MUST NOT** use `now()`, `current_timestamp`, or any volatile function inside a Postgres partial index `WHERE` predicate — fails with `42P17 functions in index predicate must be marked IMMUTABLE`. 만료 체크용 인덱스는 partial 빼고 full index 로. 적용 시점이 IMMUTABLE 이 아니므로 인덱스 정의 자체에 박을 수 없다.
