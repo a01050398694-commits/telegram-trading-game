@@ -32,22 +32,27 @@ export function createBot(engine: TradingEngine): Bot {
 
   setupCommunityFeatures(bot);
 
+  // Admin 전용. 일반 사용자가 /premium 입력해도 자기 자신에게 부여 안 됨.
+  // 결제 경로는 /premium 명령 X, PremiumTab 의 PricingCard → Stars 결제만.
   bot.command('premium', async (ctx) => {
     const userId = ctx.from?.id;
-    if (userId) {
-      import('./services/premiumCache.js').then(({ grantManualPremium }) => {
-        grantManualPremium(userId);
-      });
+    if (!userId) return;
+    if (String(userId) !== process.env.ADMIN_TG_ID) {
+      // 비-admin: PremiumTab 으로 안내
       const lang = await getLang(ctx, engine);
       const loc = botLocales[lang];
       const isHttps = env.WEBAPP_URL.startsWith('https://');
       const cacheBustedUrl = isHttps ? `${env.WEBAPP_URL}?lang=${lang}&v=${Date.now()}` : env.WEBAPP_URL;
       const kb = new InlineKeyboard();
-      if (isHttps) {
-        kb.webApp(loc.btnOpenTerminal, cacheBustedUrl);
-      }
-      await ctx.reply('✅ Success! Open the terminal to access premium features.', { reply_markup: kb });
+      if (isHttps) kb.webApp(loc.btnOpenTerminal, cacheBustedUrl);
+      await ctx.reply('Open the terminal → Academy tab → Subscribe with Telegram Stars.', { reply_markup: kb });
+      return;
     }
+    // Admin: 수동 grant (디버깅용)
+    import('./services/premiumCache.js').then(({ grantManualPremium }) => {
+      grantManualPremium(userId);
+    });
+    await ctx.reply('✅ [admin] Manual premium granted to your account.');
   });
 
   const playHandler = async (ctx: Context) => {
