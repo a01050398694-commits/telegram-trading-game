@@ -16,6 +16,10 @@ import { ANALYTICS_TOKENS as T } from '../../styles/tokens';
 import { hapticImpact, openTelegramLinkSafe } from '../../utils/telegram';
 
 const INVITEMEMBER_PREMIUM_URL = import.meta.env.VITE_INVITEMEMBER_PREMIUM_URL ?? '';
+// Stars 결제 전용 별도 plan (env 비면 토글 숨김 + PayPal 단독)
+const INVITEMEMBER_PREMIUM_STARS_URL = import.meta.env.VITE_INVITEMEMBER_PREMIUM_STARS_URL ?? '';
+
+type PayMethod = 'paypal' | 'stars';
 
 interface PricingCardProps {
   telegramUserId: number | null;
@@ -26,10 +30,14 @@ export function PricingCard({ telegramUserId, onPaid }: PricingCardProps) {
   const { t } = useTranslation();
   const [pending, setPending] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [payMethod, setPayMethod] = useState<PayMethod>('paypal');
+
+  const starsAvailable = Boolean(INVITEMEMBER_PREMIUM_STARS_URL);
 
   const handleSubscribe = (): void => {
     if (pending) return;
-    if (!INVITEMEMBER_PREMIUM_URL) {
+    const url = payMethod === 'stars' ? INVITEMEMBER_PREMIUM_STARS_URL : INVITEMEMBER_PREMIUM_URL;
+    if (!url) {
       setErrorMessage('Payment link not configured. Contact support.');
       return;
     }
@@ -37,8 +45,7 @@ export function PricingCard({ telegramUserId, onPaid }: PricingCardProps) {
     setPending(true);
     setErrorMessage(null);
     try {
-      openTelegramLinkSafe(INVITEMEMBER_PREMIUM_URL);
-      // 결제 후 채널 가입 → premiumSync cron 으로 5분 내 반영. 사용자 앱 복귀 시 자동.
+      openTelegramLinkSafe(url);
       setTimeout(() => {
         setPending(false);
         onPaid?.();
@@ -182,6 +189,68 @@ export function PricingCard({ telegramUserId, onPaid }: PricingCardProps) {
           </div>
         ))}
       </div>
+
+      {/* ── 결제 수단 토글 (PayPal / Stars) ── env 채워진 경우만 노출 */}
+      {starsAvailable && (
+        <div style={{
+          position: 'relative',
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: 4,
+          marginBottom: 12,
+          padding: 4,
+          borderRadius: 10,
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          background: 'rgba(255, 255, 255, 0.02)',
+        }}>
+          <button
+            type="button"
+            onClick={() => setPayMethod('paypal')}
+            style={{
+              padding: '8px 6px',
+              borderRadius: 8,
+              border: 'none',
+              background: payMethod === 'paypal'
+                ? 'linear-gradient(135deg, rgba(218, 165, 32, 0.25), rgba(184, 134, 11, 0.1))'
+                : 'transparent',
+              boxShadow: payMethod === 'paypal' ? 'inset 0 0 0 1px rgba(218, 165, 32, 0.5)' : 'none',
+              color: payMethod === 'paypal' ? '#FFD700' : 'rgba(255,255,255,0.55)',
+              fontFamily: T.numberFont,
+              fontSize: 12,
+              fontWeight: 800,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            PayPal <span style={{ fontSize: 9, opacity: 0.7 }}>USD</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setPayMethod('stars')}
+            style={{
+              padding: '8px 6px',
+              borderRadius: 8,
+              border: 'none',
+              background: payMethod === 'stars'
+                ? 'linear-gradient(135deg, rgba(218, 165, 32, 0.25), rgba(184, 134, 11, 0.1))'
+                : 'transparent',
+              boxShadow: payMethod === 'stars' ? 'inset 0 0 0 1px rgba(218, 165, 32, 0.5)' : 'none',
+              color: payMethod === 'stars' ? '#FFD700' : 'rgba(255,255,255,0.55)',
+              fontFamily: T.numberFont,
+              fontSize: 12,
+              fontWeight: 800,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            Stars <span style={{ fontSize: 9, opacity: 0.7 }}>★ TG</span>
+          </button>
+        </div>
+      )}
 
       {/* ── 결제 버튼 (메탈릭 골드) ── */}
       <button

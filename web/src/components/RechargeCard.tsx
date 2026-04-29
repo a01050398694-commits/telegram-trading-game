@@ -28,10 +28,19 @@ import { hapticImpact, hapticSelection, openTelegramLinkSafe } from '../utils/te
 
 type Tier = '1k' | '5k' | '10k';
 
+// PayPal/USD 외부 페이지 plan — InviteMember 가 외부 브라우저 결제로 PayPal/카드 노출.
 const TIER_URL: Record<Tier, string> = {
   '1k': import.meta.env.VITE_INVITEMEMBER_RECHARGE_1K_URL ?? import.meta.env.VITE_INVITEMEMBER_RECHARGE_URL ?? '',
   '5k': import.meta.env.VITE_INVITEMEMBER_RECHARGE_5K_URL ?? '',
   '10k': import.meta.env.VITE_INVITEMEMBER_RECHARGE_10K_URL ?? '',
+};
+
+// Stars 결제 전용 plan (InviteMember 별도 plan, Stars 가격 책정).
+// env 비어있으면 토글 자체 숨김 (PayPal 단독 흐름).
+const TIER_STARS_URL: Record<Tier, string> = {
+  '1k': import.meta.env.VITE_INVITEMEMBER_RECHARGE_1K_STARS_URL ?? '',
+  '5k': import.meta.env.VITE_INVITEMEMBER_RECHARGE_5K_STARS_URL ?? '',
+  '10k': import.meta.env.VITE_INVITEMEMBER_RECHARGE_10K_STARS_URL ?? '',
 };
 
 const TIER_PRICE: Record<Tier, string> = {
@@ -52,15 +61,20 @@ interface RechargeCardProps {
   variant?: 'idle' | 'liquidated';
 }
 
+type PayMethod = 'paypal' | 'stars';
+
 export function RechargeCard({ telegramUserId, onPaid, variant = 'idle' }: RechargeCardProps) {
   const { t } = useTranslation();
   const [selectedTier, setSelectedTier] = useState<Tier>('1k');
+  const [payMethod, setPayMethod] = useState<PayMethod>('paypal');
   const [pending, setPending] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const starsAvailable = Boolean(TIER_STARS_URL[selectedTier]);
+
   const handlePay = (): void => {
     if (pending) return;
-    const url = TIER_URL[selectedTier];
+    const url = payMethod === 'stars' ? TIER_STARS_URL[selectedTier] : TIER_URL[selectedTier];
     if (!url) {
       setErrorMessage('Payment link not configured. Contact support.');
       return;
@@ -145,6 +159,26 @@ export function RechargeCard({ telegramUserId, onPaid, variant = 'idle' }: Recha
         />
       </div>
 
+      {/* ── 결제 수단 토글 (PayPal / Stars) — Stars URL 채워질 때만 노출 ── */}
+      {starsAvailable && (
+        <div className="relative mb-3 grid grid-cols-2 gap-1 rounded-xl border border-white/10 bg-white/[0.02] p-1">
+          <PayMethodTab
+            active={payMethod === 'paypal'}
+            label="PayPal"
+            sub="USD"
+            liquidated={liquidated}
+            onClick={() => { hapticSelection(); setPayMethod('paypal'); }}
+          />
+          <PayMethodTab
+            active={payMethod === 'stars'}
+            label="Stars"
+            sub="★ Telegram"
+            liquidated={liquidated}
+            onClick={() => { hapticSelection(); setPayMethod('stars'); }}
+          />
+        </div>
+      )}
+
       {/* ── 결제 버튼 — 메탈릭 그라디언트 + 큰 명조 ── */}
       <button
         type="button"
@@ -165,7 +199,7 @@ export function RechargeCard({ telegramUserId, onPaid, variant = 'idle' }: Recha
         ) : (
           <div className="relative flex items-center justify-center gap-2 font-mono">
             <span className={`text-[15px] font-black tabular-nums ${liquidated ? 'text-stone-950' : 'text-white'}`}>
-              Pay {TIER_PRICE[selectedTier]}
+              {payMethod === 'stars' ? `Pay ★ ${TIER_PRICE[selectedTier]}` : `Pay ${TIER_PRICE[selectedTier]}`}
             </span>
             <span className={`text-[15px] font-black tabular-nums ${liquidated ? 'text-emerald-900' : 'text-emerald-100'}`}>
               → {TIER_CREDIT[selectedTier]}
@@ -199,6 +233,52 @@ interface TierButtonProps {
   onClick: () => void;
   liquidated: boolean;
   badge?: string;
+}
+
+interface PayMethodTabProps {
+  active: boolean;
+  label: string;
+  sub: string;
+  liquidated: boolean;
+  onClick: () => void;
+}
+
+function PayMethodTab({ active, label, sub, liquidated, onClick }: PayMethodTabProps) {
+  const activeClass = liquidated
+    ? 'bg-amber-500/20 ring-1 ring-amber-300/60 shadow-[inset_0_1px_0_rgba(252,211,77,0.3)]'
+    : 'bg-emerald-500/15 ring-1 ring-emerald-400/50 shadow-[inset_0_1px_0_rgba(110,231,183,0.25)]';
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex flex-col items-center justify-center rounded-lg px-2 py-2 transition active:scale-[0.97] ${
+        active ? activeClass : 'hover:bg-white/[0.04]'
+      }`}
+    >
+      <span
+        className={`font-mono text-[12px] font-black uppercase tracking-wider ${
+          active
+            ? liquidated
+              ? 'text-amber-100'
+              : 'text-emerald-100'
+            : 'text-white/60'
+        }`}
+      >
+        {label}
+      </span>
+      <span
+        className={`mt-0.5 font-mono text-[9px] tracking-wider ${
+          active
+            ? liquidated
+              ? 'text-amber-300'
+              : 'text-emerald-300'
+            : 'text-white/35'
+        }`}
+      >
+        {sub}
+      </span>
+    </button>
+  );
 }
 
 function TierButton({ selected, credit, price, onClick, liquidated, badge }: TierButtonProps) {
