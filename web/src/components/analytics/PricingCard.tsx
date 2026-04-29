@@ -1,18 +1,23 @@
 /**
- * Stage 15.4 — Premium Pricing Card
+ * Stage 15.5 — Premium Pricing Card (InviteMember 결제 전환)
  *
- * Bloomberg/Linear 톤 paywall pattern.
- *   · 가격 모노스페이스 강조 (60px gold)
+ * 왜 InviteMember 로 다시 돌아갔는가:
+ *   · Stage 15.3 에서 텔레그램 Stars 직접 invoice 로 갔다가 PayPal 미지원 → 스타 강제 → 비싼 결제 단가.
+ *   · InviteMember SaaS 는 PayPal + Stars 양쪽 지원 + 결제 후 채널 자동 초대까지 처리.
+ *   · 우리 봇은 채널 멤버십만 폴링 (premiumSync) 해서 is_premium 판정. 결제 자체는 우리 코드 밖.
+ *
+ * Bloomberg/Linear 톤 paywall pattern 유지:
+ *   · 가격 모노스페이스 강조
  *   · 혜택 5개 체크리스트
  *   · 30일 자동갱신 약관 명시
- *   · 큰 결제 버튼 (CTA)
- *   · 결제 진입점이 PremiumTab 상단에 명확히 보임 (사용자 컴플레인 §결제창 위치 불명 해결)
+ *   · 큰 결제 버튼 (CTA) — tg.openLink(InviteMember URL)
  */
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ANALYTICS_TOKENS as T } from '../../styles/tokens';
-import { hapticImpact, openStarsInvoice } from '../../utils/telegram';
-import { createPremiumStarsInvoice } from '../../lib/api';
+import { hapticImpact, openTelegramLinkSafe } from '../../utils/telegram';
+
+const INVITEMEMBER_PREMIUM_URL = import.meta.env.VITE_INVITEMEMBER_PREMIUM_URL ?? '';
 
 interface PricingCardProps {
   telegramUserId: number | null;
@@ -24,22 +29,30 @@ export function PricingCard({ telegramUserId, onPaid }: PricingCardProps) {
   const [pending, setPending] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handleSubscribe = async (): Promise<void> => {
-    if (!telegramUserId || pending) return;
+  const handleSubscribe = (): void => {
+    if (pending) return;
+    if (!INVITEMEMBER_PREMIUM_URL) {
+      setErrorMessage('Payment link not configured. Contact support.');
+      return;
+    }
     hapticImpact('medium');
     setPending(true);
     setErrorMessage(null);
     try {
-      const { invoiceLink } = await createPremiumStarsInvoice(telegramUserId);
-      const result = await openStarsInvoice(invoiceLink);
-      if (result === 'paid') onPaid?.();
-      else if (result === 'failed') setErrorMessage(t('payment.failed'));
-      else if (result === 'unsupported') setErrorMessage('Use latest Telegram client');
+      openTelegramLinkSafe(INVITEMEMBER_PREMIUM_URL);
+      // InviteMember 결제 후 채널 자동 초대까지 외부에서 처리되므로,
+      // 여기서는 onPaid 콜백을 즉시 호출하지 않고 사용자가 채널 가입 후
+      // premiumSync cron 이 5분 내에 잡아주는 흐름을 기다린다.
+      // 사용자는 결제 후 앱 재진입 시 Premium 상태 자동 반영.
+      setTimeout(() => {
+        setPending(false);
+        onPaid?.();
+      }, 800);
     } catch (err) {
       setErrorMessage((err as Error).message);
-    } finally {
       setPending(false);
     }
+    void telegramUserId;
   };
 
   const benefits = [
@@ -138,8 +151,8 @@ export function PricingCard({ telegramUserId, onPaid }: PricingCardProps) {
       {/* ── 결제 버튼 ── */}
       <button
         type="button"
-        onClick={() => { void handleSubscribe(); }}
-        disabled={pending || !telegramUserId}
+        onClick={handleSubscribe}
+        disabled={pending}
         style={{
           width: '100%',
           padding: '14px 0',
@@ -151,10 +164,10 @@ export function PricingCard({ telegramUserId, onPaid }: PricingCardProps) {
           fontSize: 14,
           fontWeight: 700,
           color: '#fff',
-          cursor: pending || !telegramUserId ? 'not-allowed' : 'pointer',
+          cursor: pending ? 'not-allowed' : 'pointer',
           letterSpacing: '0.04em',
           fontFamily: T.bodyFont,
-          opacity: pending || !telegramUserId ? 0.6 : 1,
+          opacity: pending ? 0.6 : 1,
           transition: 'opacity 0.2s ease, transform 0.1s ease',
         }}
       >

@@ -116,7 +116,19 @@ async function main(): Promise<void> {
   });
 
   // 개발 단계: long polling. 프로덕션 배포 시 webhook으로 전환.
+  // Stage 15.5 — chat_member 이벤트 수신을 위해 allowed_updates 명시.
+  //   기본값에는 chat_member 가 빠져 있어 InviteMember 결제 후 채널 자동 가입을
+  //   봇이 못 본다. chat_member 를 명시해야 setupInviteMemberSync 가 동작.
   void bot.start({
+    allowed_updates: [
+      'message',
+      'edited_message',
+      'callback_query',
+      'inline_query',
+      'pre_checkout_query',
+      'chat_member',
+      'my_chat_member',
+    ],
     onStart: (info) => {
       console.log(`[bot] polling started for @${info.username}`);
     },

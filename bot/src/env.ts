@@ -59,7 +59,21 @@ export const env = {
   
   VIP_CHAT_ID: optional('VIP_CHAT_ID', ''),
   VIP_CHANNEL_URL: optional('VIP_CHANNEL_URL', 'https://t.me/binance'),
-  PREMIUM_CHAT_ID: optional('PREMIUM_CHAT_ID', ''),
+  // Stage 15.5 — InviteMember 채널 멤버십 = 결제 상태 진실원.
+  //   · PREMIUM_CHANNEL_ID — InviteMember 가 Premium 결제 후 자동 초대하는 비공개 채널.
+  //     5분 폴링 (premiumSync) 으로 멤버 = is_premium=true.
+  //   · RECHARGE_CHANNEL_ID — Recharge 결제 후 자동 초대되는 비공개 채널.
+  //     bot.on('chat_member') 즉시 +$1,000 잔고 적립 후 5분 뒤 자동 ban → unban (재구매 가능).
+  // legacy PREMIUM_CHAT_ID 도 fallback 으로 유지 (이전 .env 호환).
+  PREMIUM_CHANNEL_ID: optional('PREMIUM_CHANNEL_ID', optional('PREMIUM_CHAT_ID', '')),
+  // Stage 15.5 — Recharge 패키지 별 채널 분리.
+  //   InviteMember 가 plan 별로 다른 채널에 chat-add 하도록 설정.
+  //   봇이 chat_member 이벤트에서 어느 채널인지 보고 credit 금액 결정.
+  //   레거시 RECHARGE_CHANNEL_ID 는 _1K_ID 에 fallback 으로 매핑 (기존 .env 호환).
+  RECHARGE_CHANNEL_1K_ID: optional('RECHARGE_CHANNEL_1K_ID', optional('RECHARGE_CHANNEL_ID', '')),
+  RECHARGE_CHANNEL_5K_ID: optional('RECHARGE_CHANNEL_5K_ID', ''),
+  RECHARGE_CHANNEL_10K_ID: optional('RECHARGE_CHANNEL_10K_ID', ''),
+  ADMIN_TG_ID: optional('ADMIN_TG_ID', ''),
   COMMUNITY_CHAT_ID: optional('COMMUNITY_CHAT_ID', ''),
   COMMUNITY_GROUP_URL: optional('COMMUNITY_GROUP_URL', 'https://t.me/Trader_club'),
   

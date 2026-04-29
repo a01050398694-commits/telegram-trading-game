@@ -43,7 +43,7 @@ export async function checkIsPremium(bot: Bot, userId: number): Promise<boolean>
   }
 
   // 2. 텔레그램 채널 연동 확인
-  if (!env.PREMIUM_CHAT_ID) {
+  if (!env.PREMIUM_CHANNEL_ID) {
     return false;
   }
 
@@ -54,7 +54,7 @@ export async function checkIsPremium(bot: Bot, userId: number): Promise<boolean>
   }
 
   try {
-    const member = await bot.api.getChatMember(env.PREMIUM_CHAT_ID, userId);
+    const member = await bot.api.getChatMember(env.PREMIUM_CHANNEL_ID, userId);
     const isPremium = ['member', 'creator', 'administrator', 'restricted'].includes(member.status);
     cache.set(userId, { isPremium, expiresAt: now + CACHE_TTL_MS });
     return isPremium;

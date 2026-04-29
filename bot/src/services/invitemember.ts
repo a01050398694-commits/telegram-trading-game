@@ -25,7 +25,7 @@ export async function checkSubscriber(
   bot: Bot,
   telegramUserId: number,
 ): Promise<SubscriberStatus> {
-  if (!env.PREMIUM_CHAT_ID) {
+  if (!env.PREMIUM_CHANNEL_ID) {
     return { isSubscriber: false, source: 'disabled' };
   }
 
@@ -36,7 +36,7 @@ export async function checkSubscriber(
   }
 
   try {
-    const member = await bot.api.getChatMember(env.PREMIUM_CHAT_ID, telegramUserId);
+    const member = await bot.api.getChatMember(env.PREMIUM_CHANNEL_ID, telegramUserId);
     // 'restricted' 도 유효 멤버로 간주 (slow mode 등에 의한 제한일 수 있음).
     const isSubscriber = ['member', 'creator', 'administrator', 'restricted'].includes(
       member.status,

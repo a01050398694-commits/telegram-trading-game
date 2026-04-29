@@ -4,6 +4,7 @@ import type { TradingEngine } from './engine/trading.js';
 import { setupCommunityFeatures } from './engine/community.js';
 import { botLocales, SupportedLang } from './locales.js';
 import { handleSuccessfulPayment } from './engine/payment.js';
+import { setupInviteMemberSync } from './handlers/inviteMemberSync.js';
 
 function formatBalance(n: number): string {
   return `$${n.toLocaleString('en-US')}`;
@@ -31,6 +32,7 @@ export function createBot(engine: TradingEngine): Bot {
   const bot = new Bot(env.BOT_TOKEN);
 
   setupCommunityFeatures(bot);
+  setupInviteMemberSync(bot, engine);
 
   // Admin 전용. 일반 사용자가 /premium 입력해도 자기 자신에게 부여 안 됨.
   // 결제 경로는 /premium 명령 X, PremiumTab 의 PricingCard → Stars 결제만.
