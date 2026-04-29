@@ -93,10 +93,26 @@ export function useOrderBook(symbol: string): OrderBookFeed {
       };
     };
 
+    // Stage 15.5 — Telegram WebView 가 background 갔다 복귀할 때 ws 가 끊긴 채로
+    // 호가창 갱신이 정지하는 사고 방지. visibility visible 시 즉시 재연결.
+    const onVisibility = (): void => {
+      if (cancelled) return;
+      if (document.visibilityState !== 'visible') return;
+      if (ws && ws.readyState === WebSocket.OPEN) return;
+      if (reconnectTimer) {
+        window.clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      backoff = 1000;
+      connect();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
     connect();
 
     return () => {
       cancelled = true;
+      document.removeEventListener('visibilitychange', onVisibility);
       if (reconnectTimer) window.clearTimeout(reconnectTimer);
       if (ws) {
         ws.onopen = null;

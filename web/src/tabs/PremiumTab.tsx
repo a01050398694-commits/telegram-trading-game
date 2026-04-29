@@ -78,7 +78,7 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
 
   return (
     <div
-      className="flex h-full flex-col gap-3 overflow-y-auto px-3 pt-12 pb-[150px]"
+      className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain px-3 pt-12 pb-[200px]"
       style={{ background: T.bg }}
     >
       {/* ── 구독 상태 카드 ────────────────────────── */}

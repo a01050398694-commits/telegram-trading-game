@@ -107,7 +107,7 @@ export function SharePortfolioButton({ equity, winRate, totalTrades, telegramUse
 
       {open && (
         <div
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 overflow-y-auto bg-black/80 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex flex-col items-center justify-start gap-3 overflow-y-auto overscroll-contain bg-black/80 px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(2rem,env(safe-area-inset-top))] backdrop-blur-sm"
           onClick={handleClose}
         >
           <div
@@ -184,7 +184,7 @@ export function SharePortfolioButton({ equity, winRate, totalTrades, telegramUse
 
       {manualSaveSrc && (
         <div
-          className="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-3 overflow-y-auto bg-black/90 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] flex flex-col items-center justify-start gap-3 overflow-y-auto overscroll-contain bg-black/90 px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(2rem,env(safe-area-inset-top))] backdrop-blur-sm"
           onClick={closeManualSave}
         >
           <div
