@@ -94,3 +94,21 @@ export interface RankingSnapshotRow {
   created_at: string;
 }
 
+// Stage 15.6 — Payment events (idempotency guard)
+export interface PaymentEventRow {
+  id: string;
+  event_id: string;
+  source: string;
+  chat_id: string | null;
+  telegram_user_id: number | null;
+  payload: Record<string, unknown> | null;
+  processed_at: string;
+}
+
+export interface PaymentEventInsert {
+  event_id: string;
+  source: string;
+  chat_id?: string | null;
+  telegram_user_id?: number | null;
+  payload?: Record<string, unknown> | null;
+}

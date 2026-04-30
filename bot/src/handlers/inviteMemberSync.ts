@@ -73,14 +73,33 @@ export function setupInviteMemberSync(bot: Bot, engine: TradingEngine): void {
     if (!isPremiumChannel && !rechargePackage) return;
 
     try {
+      // Stage 15.6 — Deterministic chargeId (event_id 로도 사용)
+      // update.date 는 Unix timestamp 초 단위. Telegram retry 시에도 같은 값 반환.
+      const eventTimestamp = update.date;
+      const eventId = `invitemember:${chatId}:${tgUserId}:${eventTimestamp}`;
+      const chargeId = eventId;
+
+      // Stage 15.6 — Payment event 중복 방어 (1차 가드)
+      // 같은 event_id 재수신 시 { inserted: false } → 즉시 return
+      const { inserted } = await engine.recordPaymentEvent({
+        event_id: eventId,
+        source: 'invitemember',
+        chat_id: chatId,
+        telegram_user_id: tgUserId,
+        payload: update as unknown as Record<string, unknown>,
+      });
+
+      if (!inserted) {
+        // 이미 처리된 이벤트 → silent return
+        return;
+      }
+
       const { user } = await engine.upsertUser({
         telegram_id: tgUserId,
         username,
         first_name: firstName,
         language_code: null,
       });
-
-      const chargeId = `invitemember:${tgUserId}:${Date.now()}`;
 
       if (isPremiumChannel) {
         try {

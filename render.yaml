@@ -3,6 +3,7 @@ services:
     name: telegram-trading-bot
     env: node
     plan: free
+    numInstances: 1
     # Render 는 NODE_ENV=production 에서 devDeps 를 스킵하므로 --include=dev 필수.
     buildCommand: npm ci --include=dev && npm run build -w bot
     startCommand: npm run start:bot
@@ -26,20 +27,45 @@ services:
         sync: false
       - key: PREMIUM_CHAT_ID
         sync: false
+      - key: ADMIN_TG_ID
+        sync: false
+      - key: COMMUNITY_CHAT_ID
+        sync: false
       # ─── 자동 생성 ───
       - key: ADMIN_SECRET
         generateValue: true
       # ─── 기본값 ───
       - key: DAILY_ALLOWANCE
-        value: "100000"
+        value: "10000"
+      - key: INITIAL_SEED_USD
+        value: "10000"
+      - key: LOCK_MODE_DURATION_MINUTES
+        value: "30"
       - key: MARKET_SYMBOLS
         value: "btcusdt,ethusdt,solusdt,bnbusdt,xrpusdt"
       - key: LOG_LEVEL
         value: "info"
       - key: SENTRY_TRACES_SAMPLE_RATE
         value: "0.1"
+      # ─── InviteMember 채널 (필수, Stage 15.5) ───
+      - key: PREMIUM_CHANNEL_ID
+        sync: false
+      - key: RECHARGE_CHANNEL_1K_ID
+        sync: false
+      - key: RECHARGE_CHANNEL_5K_ID
+        sync: false
+      - key: RECHARGE_CHANNEL_10K_ID
+        sync: false
       # ─── 선택 — 가지고 있으면 입력 ───
+      - key: COMMUNITY_GROUP_URL
+        sync: false
+      - key: VIP_CHANNEL_URL
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
       - key: SENTRY_DSN
+        sync: false
+      - key: SHILL_BOT_TOKENS
         sync: false
       - key: MEXC_AFFILIATE_UIDS
         sync: false

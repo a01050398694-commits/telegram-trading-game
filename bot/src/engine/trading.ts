@@ -1,5 +1,6 @@
 import type { Db } from '../db/supabase.js';
 import type {
+  PaymentEventInsert,
   PositionInsert,
   PositionRow,
   PositionSide,
@@ -140,6 +141,19 @@ export class TradingEngine extends EventEmitter {
     if (error) throw new Error(`ensureWallet: ${error.message}`);
   }
 
+  // Stage 15.6 — Payment event 기록 (멱등성 가드)
+  // PostgreSQL `INSERT ... ON CONFLICT (event_id) DO NOTHING RETURNING id` 로 변환.
+  // 충돌 시 data = [] (insert 발생 안 함) → inserted: false.
+  // 메시지 parsing 안 하므로 PG 버전/locale 무관.
+  async recordPaymentEvent(payload: PaymentEventInsert): Promise<{ inserted: boolean }> {
+    const { data, error } = await this.db
+      .from('payment_events')
+      .upsert(payload, { onConflict: 'event_id', ignoreDuplicates: true })
+      .select('id');
+    if (error) throw new Error(`recordPaymentEvent: ${error.message}`);
+    return { inserted: (data?.length ?? 0) > 0 };
+  }
+
   async getUserByTelegramId(telegramId: number): Promise<UserRow | null> {
     const { data, error } = await this.db
       .from('users')
@@ -250,17 +264,8 @@ export class TradingEngine extends EventEmitter {
     }
     if (size <= 0) throw new Error('size must be positive');
 
-    // Stage 15.2 — 매매 잠금 모드 가드
+    // Stage 15.2 — 매매 잠금 모드 가드 (lock_mode 별도 테이블 검사 유지)
     await this.checkLockMode(userId);
-
-    const wallet = await this.getWallet(userId);
-    if (!wallet) throw new Error('wallet missing');
-    if (wallet.is_liquidated) {
-      throw new Error('LIQUIDATED: 재결제 전까지 포지션 진입 불가');
-    }
-    if (wallet.balance < size) {
-      throw new Error(`INSUFFICIENT_BALANCE: ${wallet.balance} < ${size}`);
-    }
 
     const liquidationPrice = calculateLiquidationPrice({
       side,
@@ -268,40 +273,26 @@ export class TradingEngine extends EventEmitter {
       leverage,
     });
 
-    // 지갑 차감 → 포지션 생성 (원자성 보장을 위해선 RPC 함수가 이상적이지만
-    // Stage 2는 순차 처리 + 실패 시 롤백 로직으로 단순화).
-    const newBalance = wallet.balance - size;
-    const walletUpdate = await this.db
-      .from('wallets')
-      .update({ balance: newBalance })
-      .eq('user_id', userId)
-      .eq('balance', wallet.balance); // optimistic lock (balance 바뀌었으면 실패)
-    if (walletUpdate.error) throw new Error(`openPosition(wallet): ${walletUpdate.error.message}`);
+    // Stage 15.7 — atomic RPC: wallet FOR UPDATE + 차감 + insert 한 트랜잭션 내.
+    // 기존 optimistic lock + 수동 롤백 제거. PG RAISE EXCEPTION → server.ts regex 호환.
+    const { data: positionId, error: rpcErr } = await this.db.rpc('open_position_atomic', {
+      p_user_id: userId,
+      p_symbol: symbol,
+      p_position_type: positionType,
+      p_side: side,
+      p_size: size,
+      p_leverage: leverage,
+      p_entry_price: markPrice,
+      p_liquidation_price: liquidationPrice,
+    });
+    if (rpcErr) throw new Error(rpcErr.message);
 
-    const insert: PositionInsert = {
-      user_id: userId,
-      symbol,
-      position_type: positionType,
-      side,
-      size,
-      leverage,
-      entry_price: markPrice,
-      liquidation_price: liquidationPrice,
-    };
     const { data, error } = await this.db
       .from('positions')
-      .insert(insert)
-      .select()
+      .select('*')
+      .eq('id', positionId as string)
       .single();
-    if (error) {
-      // 롤백: 차감한 잔고 복원
-      await this.db
-        .from('wallets')
-        .update({ balance: wallet.balance })
-        .eq('user_id', userId);
-      throw new Error(`openPosition(insert): ${error.message}`);
-    }
-
+    if (error) throw new Error(`openPosition(fetch): ${error.message}`);
     return data as PositionRow;
   }
 
@@ -336,23 +327,16 @@ export class TradingEngine extends EventEmitter {
     // 반환: 증거금(size) + pnl. 총합이 음수가 되면 0에서 멈춘다(청산은 별도 경로).
     const returnAmount = Math.max(0, position.size + pnl);
 
-    const wallet = await this.getWallet(position.user_id);
-    if (!wallet) throw new Error('closePosition: wallet missing');
-    const newBalance = wallet.balance + returnAmount;
+    // Stage 15.7 — atomic RPC: positions FOR UPDATE + status='closed' + balance 적립.
+    // PnL 계산은 노드(liquidation.ts) SoT 유지 → RPC 인자로 전달.
+    const { data: newBalance, error: rpcErr } = await this.db.rpc('close_position_atomic', {
+      p_position_id: positionId,
+      p_pnl: pnl,
+      p_return_amount: returnAmount,
+    });
+    if (rpcErr) throw new Error(rpcErr.message);
 
-    const { error: walletErr } = await this.db
-      .from('wallets')
-      .update({ balance: newBalance })
-      .eq('user_id', position.user_id);
-    if (walletErr) throw new Error(`closePosition(wallet): ${walletErr.message}`);
-
-    const { error: updErr } = await this.db
-      .from('positions')
-      .update({ status: 'closed', pnl, closed_at: new Date().toISOString() })
-      .eq('id', positionId);
-    if (updErr) throw new Error(`closePosition(update): ${updErr.message}`);
-
-    return { pnl, newBalance };
+    return { pnl, newBalance: Number(newBalance) };
   }
 
   // -------------------------------------------------------------------------
