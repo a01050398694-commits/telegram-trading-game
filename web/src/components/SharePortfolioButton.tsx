@@ -110,7 +110,7 @@ export function SharePortfolioButton({ equity, winRate, totalTrades, telegramUse
           className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-black/80 px-3 backdrop-blur-sm"
           onClick={handleClose}
         >
-          <div className="flex min-h-full flex-col items-center justify-start gap-3 pt-[max(2rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))]">
+          <div className="flex min-h-full flex-col items-center justify-center gap-3 pt-[max(2rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))]">
           <div
             ref={cardRef}
             onClick={(e) => e.stopPropagation()}
@@ -189,7 +189,7 @@ export function SharePortfolioButton({ equity, winRate, totalTrades, telegramUse
           className="fixed inset-0 z-[60] overflow-y-auto overscroll-contain bg-black/90 px-3 backdrop-blur-sm"
           onClick={closeManualSave}
         >
-          <div className="flex min-h-full flex-col items-center justify-start gap-3 pt-[max(2rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))]">
+          <div className="flex min-h-full flex-col items-center justify-center gap-3 pt-[max(2rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))]">
           <div
             onClick={(e) => e.stopPropagation()}
             className="flex w-full max-w-[360px] flex-col gap-3"
