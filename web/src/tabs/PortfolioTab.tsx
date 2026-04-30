@@ -90,10 +90,11 @@ export function PortfolioTab({ telegramUserId, status }: PortfolioTabProps) {
   const equityGlow = ''; // Stage 8.12: Android drop-shadow vanishing bug fix
 
   return (
-    // Stage 15.7 — 잘림 fix. paddingBottom 200 → BottomNav (65px) + 여유 (35px) 로 절감.
-    // 마지막 RechargeCard / 히스토리 카드가 BottomNav 뒤로 사라지지 않게 충분한 여유 + safe-area inset.
+    // Stage 15.8 — flex squish fix. flex flex-col + overflow-y-auto 안에서 minHeight 없는
+    // 카드 (RechargeCard 등) 가 자식 flex shrink:1 로 압축되며 콘텐츠가 카드 밖 overflow 됨.
+    // block + space-y-4 로 자식 자연 height 보장. 콘텐츠 넘치면 그제서야 스크롤.
     <div
-      className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto overscroll-contain px-3 pt-2"
+      className="h-full space-y-4 overflow-y-auto overscroll-contain px-3 pt-2"
       style={{ paddingBottom: 'calc(100px + env(safe-area-inset-bottom, 0px))' }}
     >
       {/* ── MASSIVE HERO TEXT (CARDLESS) ──────────────────

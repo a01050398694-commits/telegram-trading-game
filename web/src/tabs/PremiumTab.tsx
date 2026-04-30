@@ -77,11 +77,13 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
   }, [telegramUserId]);
 
   return (
-    // Stage 15.7 — 잘림 fix. main.safe-area 가 이미 위 inset 처리 → paddingTop 중첩 제거.
-    // 첫 카드 (SubscriptionStatusCard) 가 화면 상단까지 자연스럽게 올라와서 잘리지 않음.
-    // paddingBottom 은 BottomNav (65px) + 여유 (35px) = 100px 면 충분. 200 → 100 으로 절감.
+    // Stage 15.8 — flex squish 사고 fix. flex flex-col + overflow-y-auto 컨테이너에서
+    // 자식 flex item 의 default shrink:1 가 minHeight 없는 카드(SubscriptionStatusCard,
+    // PricingCard, RechargeCard) 를 38-42px 로 압축 → 텍스트가 카드 밖 overflow → '잘림'.
+    // 부모를 단순 block + space-y-3 로 변경. 자식들이 자연 height 유지하고 콘텐츠 합이
+    // viewport 넘으면 overflow-y-auto 가 자연 스크롤. flex/min-h-0 모두 불필요.
     <div
-      className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto overflow-x-hidden overscroll-contain px-3 pt-2"
+      className="h-full space-y-3 overflow-y-auto overflow-x-hidden overscroll-contain px-3 pt-2"
       style={{
         background: T.bg,
         paddingBottom: 'calc(100px + env(safe-area-inset-bottom, 0px))',
