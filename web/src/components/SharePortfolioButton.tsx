@@ -110,7 +110,7 @@ export function SharePortfolioButton({ equity, winRate, totalTrades, telegramUse
           className="fixed inset-0 z-50 flex flex-col overflow-y-auto overscroll-contain bg-black/80 px-3 backdrop-blur-sm"
           onClick={handleClose}
         >
-          <div className="m-auto flex w-full flex-col items-center gap-3 py-[max(2rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))]">
+          <div className="m-auto flex w-full flex-col items-center gap-3 py-[max(2rem,env(safe-area-inset-top,0px))] pb-[max(2rem,env(safe-area-inset-bottom,0px))]">
           <div
             ref={cardRef}
             onClick={(e) => e.stopPropagation()}
@@ -189,7 +189,7 @@ export function SharePortfolioButton({ equity, winRate, totalTrades, telegramUse
           className="fixed inset-0 z-[60] flex flex-col overflow-y-auto overscroll-contain bg-black/90 px-3 backdrop-blur-sm"
           onClick={closeManualSave}
         >
-          <div className="m-auto flex w-full flex-col items-center gap-3 py-[max(2rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))]">
+          <div className="m-auto flex w-full flex-col items-center gap-3 py-[max(2rem,env(safe-area-inset-top,0px))] pb-[max(2rem,env(safe-area-inset-bottom,0px))]">
           <div
             onClick={(e) => e.stopPropagation()}
             className="flex w-full max-w-[360px] flex-col gap-3"
