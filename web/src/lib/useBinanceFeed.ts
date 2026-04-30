@@ -300,14 +300,12 @@ export function useBinanceFeed(symbol: string = 'btcusdt', interval: string = '1
       prev = p;
     };
 
-    // Stage 15.12 — '진짜 호가창처럼' 빠른 변동을 위해 @bookTicker 로 전환.
-    //   · @trade: 1~12 msg/s (체결 빈도)
-    //   · @bookTicker: 100~150 msg/s (best bid/ask 변동마다)
-    // RAF 가 60fps 로 cap 하므로 React/CPU 부담 없이 화면이 진짜 휙휙 변함.
-    // mark price = (bestBid + bestAsk) / 2 — 바이낸스 앱 표시 방식과 동일.
+    // Stage 15.13 — bookTicker 는 quantity (B/A) 만 변하고 price (b/a) 는 거의 고정 →
+    // mid 변동률 0 으로 측정됨. last-traded-price 표시엔 @trade 가 정답.
+    // BTC 기준 평균 1~12 trades/sec — 호가창처럼 휙휙 변동하는 시각효과 충분.
     const connect = (): void => {
       if (cancelled) return;
-      ws = new WebSocket(`${WS_BASE}/${symbol.toLowerCase()}@bookTicker`);
+      ws = new WebSocket(`${WS_BASE}/${symbol.toLowerCase()}@trade`);
 
       ws.onopen = () => {
         backoff = 1000;
@@ -317,16 +315,14 @@ export function useBinanceFeed(symbol: string = 'btcusdt', interval: string = '1
       ws.onmessage = (evt) => {
         lastMessageAt = Date.now();
         try {
-          const data = JSON.parse(evt.data) as { e?: string; b: string; a: string };
-          // fstream futures bookTicker 는 e:'bookTicker' 보장 — 다른 stream 혼입 시 무시.
-          if (data.e !== undefined && data.e !== 'bookTicker') return;
-          const bid = parseFloat(data.b);
-          const ask = parseFloat(data.a);
-          if (!Number.isFinite(bid) || !Number.isFinite(ask)) return;
-          pending = (bid + ask) / 2;
+          const data = JSON.parse(evt.data) as { e: string; p: string };
+          if (data.e !== 'trade') return;
+          const p = parseFloat(data.p);
+          if (!Number.isFinite(p)) return;
+          pending = p;
           if (rafId === null) rafId = requestAnimationFrame(flush);
         } catch {
-          // 다음 메시지에서 자연 복구
+          // 다음 trade 에서 자연 복구
         }
       };
 
