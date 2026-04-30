@@ -76,7 +76,7 @@ export function RechargeCard({ telegramUserId, onPaid, variant = 'idle' }: Recha
     if (pending) return;
     const url = payMethod === 'stars' ? TIER_STARS_URL[selectedTier] : TIER_URL[selectedTier];
     if (!url) {
-      setErrorMessage('Payment link not configured. Contact support.');
+      setErrorMessage(t('errors.paymentLinkMissing', { handle: t('errors.supportHandle') }));
       return;
     }
     hapticImpact('medium');

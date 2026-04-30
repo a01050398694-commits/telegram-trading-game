@@ -31,11 +31,17 @@
     "size": "Size",
     "entry": "Entry",
     "liq": "Liq. Price",
-    "pnl": "Unrealized PnL",
+    "pnl": "PnL",
     "balanceLocked": "Margin Locked",
     "open": "Open Position",
     "closePosition": "Close Position",
-    "errorNoTelegram": "Please open inside Telegram (No User ID)"
+    "errorNoTelegram": "Please open inside Telegram (No User ID)",
+    "markPrice": "Mark Price",
+    "margin": "Margin",
+    "notional": "Notional",
+    "live": "LIVE",
+    "away": "away",
+    "closingEllipsis": "Closing..."
   },
   "liquidation": {
     "title": "Risk Management Triggered",
@@ -224,5 +230,14 @@
     "rechargeSuccess": "Pengisian ulang selesai. $1,000 ditambahkan.",
     "failed": "Pembayaran gagal. Coba lagi.",
     "processing": "Memproses pembayaran..."
+  },
+  "errors": {
+    "boundary": {
+      "title": "Oops, terjadi kesalahan",
+      "body": "Coba segarkan atau hubungi {{handle}}",
+      "retryButton": "Segarkan"
+    },
+    "paymentLinkMissing": "Tautan pembayaran belum dikonfigurasi. Hubungi {{handle}}.",
+    "supportHandle": "@your_support"
   }
 }

@@ -31,11 +31,17 @@
     "size": "Size",
     "entry": "Entry",
     "liq": "Liq. Price",
-    "pnl": "Unrealized PnL",
+    "pnl": "PnL",
     "balanceLocked": "Margin Locked",
     "open": "Open Position",
     "closePosition": "Close Position",
-    "errorNoTelegram": "Please open inside Telegram (No User ID)"
+    "errorNoTelegram": "Please open inside Telegram (No User ID)",
+    "markPrice": "Mark Price",
+    "margin": "Margin",
+    "notional": "Notional",
+    "live": "LIVE",
+    "away": "away",
+    "closingEllipsis": "Closing..."
   },
   "liquidation": {
     "title": "Risk Management Triggered",
@@ -224,5 +230,14 @@
     "rechargeSuccess": "Пополнение завершено. Добавлено $1,000.",
     "failed": "Платёж не удался. Попробуй снова.",
     "processing": "Обработка платежа..."
+  },
+  "errors": {
+    "boundary": {
+      "title": "Ой, что-то пошло не так",
+      "body": "Попробуй обновить или свяжись с {{handle}}",
+      "retryButton": "Обновить"
+    },
+    "paymentLinkMissing": "Ссылка платежа не настроена. Свяжись с {{handle}}.",
+    "supportHandle": "@your_support"
   }
 }

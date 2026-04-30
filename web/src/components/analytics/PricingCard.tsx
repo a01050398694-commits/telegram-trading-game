@@ -38,7 +38,7 @@ export function PricingCard({ telegramUserId, onPaid }: PricingCardProps) {
     if (pending) return;
     const url = payMethod === 'stars' ? INVITEMEMBER_PREMIUM_STARS_URL : INVITEMEMBER_PREMIUM_URL;
     if (!url) {
-      setErrorMessage('Payment link not configured. Contact support.');
+      setErrorMessage(t('errors.paymentLinkMissing', { handle: t('errors.supportHandle') }));
       return;
     }
     hapticImpact('medium');

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   formatMoney,
   formatUSD,
@@ -47,6 +48,7 @@ export function ActionPanel({
   onOpen,
   onClose,
 }: ActionPanelProps) {
+  const { t } = useTranslation();
   const [leverage, setLeverage] = useState(10);
   const [sizePct, setSizePct] = useState(10);
 
@@ -109,7 +111,7 @@ export function ActionPanel({
             <div className="flex items-center gap-1.5">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" aria-hidden="true" />
               <span className="text-[9px] font-black uppercase tracking-[0.25em] text-white/40">
-                Mark
+                {t('trade.markPrice')}
               </span>
             </div>
             <div
@@ -123,7 +125,7 @@ export function ActionPanel({
           {/* ── PnL + Liq Price 그리드 ── */}
           <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-[11px]">
             <div>
-              <div className="text-[9px] font-black uppercase tracking-[0.25em] text-white/40">PnL</div>
+              <div className="text-[9px] font-black uppercase tracking-[0.25em] text-white/40">{t('trade.pnl')}</div>
               <div className={`font-mono text-base font-black tabular-nums ${pnlColor}`}>
                 {pnl > 0 ? '+' : ''}
                 {formatMoney(pnl)}
@@ -134,7 +136,7 @@ export function ActionPanel({
               </div>
             </div>
             <div className="text-right">
-              <div className="text-[9px] font-black uppercase tracking-[0.25em] text-white/40">Liq. Price</div>
+              <div className="text-[9px] font-black uppercase tracking-[0.25em] text-white/40">{t('trade.liq')}</div>
               <div className="font-mono text-base font-black tabular-nums text-white">
                 ${formatUSD(liq)}
               </div>
@@ -145,9 +147,9 @@ export function ActionPanel({
           </div>
 
           <div className="mt-3 border-t border-white/5 pt-2 text-[10px] font-bold uppercase tracking-wider text-white/30">
-            <span>Margin </span>
+            <span>{t('trade.margin')} </span>
             <span className="font-mono text-white/60 tabular-nums normal-case">{formatMoney(position.size)}</span>
-            <span> · Notional </span>
+            <span> · {t('trade.notional')} </span>
             <span className="font-mono text-white/60 tabular-nums normal-case">{formatMoney(position.size * position.leverage)}</span>
           </div>
         </div>
@@ -163,7 +165,7 @@ export function ActionPanel({
         >
           <span className="pointer-events-none absolute inset-x-2 top-0 h-1/2 rounded-t-xl bg-gradient-to-b from-white/15 to-transparent" />
           <span className="relative drop-shadow-[0_1px_1px_rgba(0,0,0,0.4)]">
-            {pending ? 'Closing...' : 'Close Position'}
+            {pending ? t('trade.closingEllipsis') : t('trade.closePosition')}
           </span>
         </button>
         {errorMessage && (
@@ -187,7 +189,7 @@ export function ActionPanel({
       <div className="rounded-xl border border-white/5 bg-slate-900/80 p-3">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white/40">
-            Leverage
+            {t('trade.leverage')}
           </span>
           <span className={`font-mono text-lg font-black tabular-nums ${leverageColor}`}>{leverage}x</span>
         </div>
@@ -235,7 +237,7 @@ export function ActionPanel({
       <div className="rounded-xl border border-white/5 bg-slate-900/80 p-3">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white/40">
-            Margin
+            {t('trade.margin')}
           </span>
           <span className="font-mono text-sm font-black tabular-nums text-white">{formatMoney(size)}</span>
         </div>
@@ -261,7 +263,7 @@ export function ActionPanel({
         </div>
 
         <div className="mt-2 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-white/30">
-          <span>Notional</span>
+          <span>{t('trade.notional')}</span>
           <span className="font-mono tabular-nums text-white/60">
             {formatMoney(size * leverage)}
           </span>
@@ -287,7 +289,7 @@ export function ActionPanel({
             {pending ? 'Submitting...' : isLoadingPrice ? 'Loading...' : '↗ LONG'}
           </span>
           <span className="relative mt-2 font-mono text-[10px] font-semibold text-white/70">
-            Liq. ${longLiq !== null ? formatUSD(longLiq) : '--'}
+            {t('trade.liq')} ${longLiq !== null ? formatUSD(longLiq) : '--'}
           </span>
         </button>
 
@@ -308,7 +310,7 @@ export function ActionPanel({
             {pending ? 'Submitting...' : isLoadingPrice ? 'Loading...' : '↘ SHORT'}
           </span>
           <span className="relative mt-2 font-mono text-[10px] font-semibold text-white/70">
-            Liq. ${shortLiq !== null ? formatUSD(shortLiq) : '--'}
+            {t('trade.liq')} ${shortLiq !== null ? formatUSD(shortLiq) : '--'}
           </span>
         </button>
       </div>

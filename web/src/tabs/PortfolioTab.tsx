@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatMoney, formatUSD, calcPnl } from '../lib/format';
 import { getMarket } from '../lib/markets';
+import i18n from '../lib/i18n';
 import { ShareROIButton } from '../components/ShareROIButton';
 import { SharePortfolioButton } from '../components/SharePortfolioButton';
 import { PnLChart } from '../components/PnLChart';
@@ -320,7 +321,7 @@ function OpenPositionRow({
       <div className="flex items-baseline justify-between border-y border-white/5 py-2.5">
         <div className="flex items-center gap-1.5">
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" aria-hidden="true" />
-          <span className="text-[9px] font-black uppercase tracking-[0.25em] text-white/40">Mark</span>
+          <span className="text-[9px] font-black uppercase tracking-[0.25em] text-white/40">{i18n.t('trade.markPrice')}</span>
         </div>
         <div
           className={`font-mono text-2xl font-black tabular-nums leading-none transition-colors duration-150 ${markColor}`}
@@ -332,7 +333,7 @@ function OpenPositionRow({
 
       {/* ── PnL ── */}
       <div className="flex items-center justify-between">
-        <span className="text-[9px] font-black uppercase tracking-[0.25em] text-white/40">PnL</span>
+        <span className="text-[9px] font-black uppercase tracking-[0.25em] text-white/40">{i18n.t('trade.pnl')}</span>
         <div className={`font-mono text-base font-black tabular-nums ${pnlColor}`}>
           {livePnl > 0 ? '+' : ''}
           {formatMoney(livePnl)}

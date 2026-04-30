@@ -31,11 +31,17 @@
     "size": "Size",
     "entry": "Entry",
     "liq": "Liq. Price",
-    "pnl": "Unrealized PnL",
+    "pnl": "PnL",
     "balanceLocked": "Margin Locked",
     "open": "Open Position",
     "closePosition": "Close Position",
-    "errorNoTelegram": "Please open inside Telegram (No User ID)"
+    "errorNoTelegram": "Please open inside Telegram (No User ID)",
+    "markPrice": "Mark Price",
+    "margin": "Margin",
+    "notional": "Notional",
+    "live": "LIVE",
+    "away": "away",
+    "closingEllipsis": "Closing..."
   },
   "liquidation": {
     "title": "Risk Management Triggered",
@@ -224,5 +230,14 @@
     "rechargeSuccess": "Yükleme tamamlandı. $1,000 eklendi.",
     "failed": "Ödeme başarısız. Tekrar deneyin.",
     "processing": "Ödeme işleniyor..."
+  },
+  "errors": {
+    "boundary": {
+      "title": "Oops, bir hata oluştu",
+      "body": "Sayfayı yenileyin ya da {{handle}} ile iletişime geçin",
+      "retryButton": "Yenile"
+    },
+    "paymentLinkMissing": "Ödeme bağlantısı yapılandırılmamış. {{handle}} ile iletişime geçin.",
+    "supportHandle": "@your_support"
   }
 }

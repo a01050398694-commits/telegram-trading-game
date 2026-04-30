@@ -31,11 +31,17 @@
     "size": "Size",
     "entry": "Entry",
     "liq": "Liq. Price",
-    "pnl": "Unrealized PnL",
+    "pnl": "PnL",
     "balanceLocked": "Margin Locked",
     "open": "Open Position",
     "closePosition": "Close Position",
-    "errorNoTelegram": "Please open inside Telegram (No User ID)"
+    "errorNoTelegram": "Please open inside Telegram (No User ID)",
+    "markPrice": "Mark Price",
+    "margin": "Margin",
+    "notional": "Notional",
+    "live": "LIVE",
+    "away": "away",
+    "closingEllipsis": "Closing..."
   },
   "liquidation": {
     "title": "Risk Management Triggered",
@@ -224,5 +230,14 @@
     "rechargeSuccess": "Nạp tiền hoàn tất. Đã thêm $1,000.",
     "failed": "Thanh toán thất bại. Vui lòng thử lại.",
     "processing": "Đang xử lý thanh toán..."
+  },
+  "errors": {
+    "boundary": {
+      "title": "Oops, có lỗi xảy ra",
+      "body": "Hãy thử làm mới hoặc liên hệ {{handle}}",
+      "retryButton": "Làm mới"
+    },
+    "paymentLinkMissing": "Liên kết thanh toán chưa được cấu hình. Liên hệ {{handle}}.",
+    "supportHandle": "@your_support"
   }
 }

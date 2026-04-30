@@ -3,6 +3,11 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import './index.css';
 import './lib/i18n';
+import { initSentry } from './lib/sentry';
+import ErrorBoundary from './components/ErrorBoundary';
+
+// Stage 16.1 — Init Sentry for error tracking (only if DSN configured)
+initSentry();
 
 // Stage 8.6 — 핀치줌 JS 레이어 차단.
 // iOS Safari 는 viewport meta 의 user-scalable=no 를 접근성 이유로 무시하는 경우가 있다.
@@ -34,6 +39,8 @@ if (!rootEl) throw new Error('Root element #root not found');
 
 createRoot(rootEl).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </StrictMode>,
 );

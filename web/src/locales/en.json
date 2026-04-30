@@ -31,11 +31,17 @@
     "size": "Size",
     "entry": "Entry",
     "liq": "Liq. Price",
-    "pnl": "Unrealized PnL",
+    "pnl": "PnL",
     "balanceLocked": "Margin Locked",
     "open": "Open Position",
     "closePosition": "Close Position",
-    "errorNoTelegram": "Please open inside Telegram (No User ID)"
+    "errorNoTelegram": "Please open inside Telegram (No User ID)",
+    "markPrice": "Mark Price",
+    "margin": "Margin",
+    "notional": "Notional",
+    "live": "LIVE",
+    "away": "away",
+    "closingEllipsis": "Closing..."
   },
   "liquidation": {
     "title": "Risk Management Triggered",
@@ -224,5 +230,14 @@
     "rechargeSuccess": "Recharge complete. $1,000 added.",
     "failed": "Payment failed. Try again.",
     "processing": "Processing payment..."
+  },
+  "errors": {
+    "boundary": {
+      "title": "Oops, something went wrong",
+      "body": "Try refreshing or contact @your_support",
+      "retryButton": "Refresh"
+    },
+    "paymentLinkMissing": "Payment link not configured. Contact {{handle}}.",
+    "supportHandle": "@your_support"
   }
 }

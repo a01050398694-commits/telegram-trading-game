@@ -29,7 +29,7 @@ export function LockOverlay({ minTradesMessage, telegramUserId, onPaid, children
   const handleSubscribe = (): void => {
     if (pending) return;
     if (!INVITEMEMBER_PREMIUM_URL) {
-      setErrorMessage('Payment link not configured. Contact support.');
+      setErrorMessage(t('errors.paymentLinkMissing', { handle: t('errors.supportHandle') }));
       return;
     }
     hapticImpact('medium');

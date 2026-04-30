@@ -31,11 +31,17 @@
     "size": "사이즈",
     "entry": "진입가",
     "liq": "청산가",
-    "pnl": "미실현 손익",
+    "pnl": "손익",
     "balanceLocked": "증거금 잠김",
     "open": "포지션 오픈",
     "closePosition": "포지션 종료",
-    "errorNoTelegram": "Telegram 내부에서 열어주세요 (유저 ID 없음)"
+    "errorNoTelegram": "Telegram 내부에서 열어주세요 (유저 ID 없음)",
+    "markPrice": "마크 가격",
+    "margin": "증거금",
+    "notional": "포지션 규모",
+    "live": "실시간",
+    "away": "차이",
+    "closingEllipsis": "종료 중..."
   },
   "liquidation": {
     "title": "리스크 관리 리셋 필요",
@@ -224,5 +230,14 @@
     "rechargeSuccess": "충전 완료. $1,000 입금됐어요.",
     "failed": "결제 실패. 다시 시도해줘.",
     "processing": "결제 처리 중..."
+  },
+  "errors": {
+    "boundary": {
+      "title": "일시적 오류가 발생했습니다",
+      "body": "새로고침하거나 {{handle}} 로 문의해 주세요",
+      "retryButton": "새로고침"
+    },
+    "paymentLinkMissing": "결제 링크 설정 누락. {{handle}} 로 문의 부탁드립니다.",
+    "supportHandle": "@askbit_support"
   }
 }
