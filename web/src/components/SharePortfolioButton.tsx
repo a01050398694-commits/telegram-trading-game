@@ -107,14 +107,14 @@ export function SharePortfolioButton({ equity, winRate, totalTrades, telegramUse
 
       {open && (
         <div
-          className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-black/80 px-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-black/80 px-3 backdrop-blur-sm"
           onClick={handleClose}
         >
-          <div className="flex min-h-full flex-col items-center justify-center gap-3 py-[max(2rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))]">
+          <div className="flex min-h-full flex-col items-center justify-start gap-3 pt-[max(2rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))]">
           <div
             ref={cardRef}
             onClick={(e) => e.stopPropagation()}
-            className="relative w-[320px] overflow-hidden rounded-3xl p-6 shadow-2xl"
+            className="relative w-full max-w-[320px] overflow-hidden rounded-3xl p-5 shadow-2xl"
             style={{
               background: 'linear-gradient(140deg, #0f172a 0%, #1e1b4b 55%, #000000 100%)',
             }}
@@ -157,7 +157,7 @@ export function SharePortfolioButton({ equity, winRate, totalTrades, telegramUse
 
           <div
             onClick={(e) => e.stopPropagation()}
-            className="flex w-[320px] flex-col gap-2"
+            className="flex w-full max-w-[320px] flex-col gap-2"
           >
             <button
               type="button"
@@ -186,10 +186,10 @@ export function SharePortfolioButton({ equity, winRate, totalTrades, telegramUse
 
       {manualSaveSrc && (
         <div
-          className="fixed inset-0 z-[60] overflow-y-auto overscroll-contain bg-black/90 px-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] overflow-y-auto overscroll-contain bg-black/90 px-3 backdrop-blur-sm"
           onClick={closeManualSave}
         >
-          <div className="flex min-h-full flex-col items-center justify-center gap-3 py-[max(2rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))]">
+          <div className="flex min-h-full flex-col items-center justify-start gap-3 pt-[max(2rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))]">
           <div
             onClick={(e) => e.stopPropagation()}
             className="flex w-full max-w-[360px] flex-col gap-3"

@@ -127,6 +127,10 @@ export function useBinanceFeed(symbol: string = 'btcusdt', interval: string = '1
     let ws: WebSocket | null = null;
     let reconnectTimer: number | null = null;
     let backoff = 1000;
+    // Stage 15.6 — silent stale 감지용. 브라우저 WS API 는 ping/pong 자동 처리 안 하고
+    // 모바일 WebView / 캐리어 NAT 가 침묵 종료해도 onclose 가 안 불리는 사고가 빈번.
+    // ws.onmessage / ws.onopen 에서 갱신, 5초 interval 로 stale > 15s 감지 → 강제 reconnect.
+    let lastMessageAt = Date.now();
 
     const loadHistory = async () => {
       try {
@@ -156,9 +160,11 @@ export function useBinanceFeed(symbol: string = 'btcusdt', interval: string = '1
       ws.onopen = () => {
         backoff = 1000;
         setStatus('live');
+        lastMessageAt = Date.now();
       };
 
       ws.onmessage = (evt) => {
+        lastMessageAt = Date.now();
         try {
           const payload = JSON.parse(evt.data) as BinanceKlinePayload;
           if (payload.e !== 'kline') return;
@@ -203,7 +209,7 @@ export function useBinanceFeed(symbol: string = 'btcusdt', interval: string = '1
       if (cancelled) return;
       if (document.visibilityState !== 'visible') return;
       if (ws && ws.readyState === WebSocket.OPEN) return;
-      
+
       if (ws) {
         ws.onopen = null;
         ws.onmessage = null;
@@ -211,15 +217,38 @@ export function useBinanceFeed(symbol: string = 'btcusdt', interval: string = '1
         ws.onclose = null;
         ws.close();
       }
-      
+
       if (reconnectTimer) {
         window.clearTimeout(reconnectTimer);
         reconnectTimer = null;
       }
+      lastMessageAt = Date.now();
       backoff = 1000;
       connectWs();
     };
     document.addEventListener('visibilitychange', onVisibility);
+
+    // Stage 15.6 — silent stale 감지 + 강제 reconnect.
+    // kline 1m 은 매 100ms tick 으로 close 갱신 → 15초 무응답이면 무조건 끊긴 것.
+    const staleCheckId = window.setInterval(() => {
+      if (cancelled) return;
+      if (Date.now() - lastMessageAt < 15_000) return;
+      console.warn('[binance] kline feed stale > 15s, forcing reconnect');
+      if (ws) {
+        ws.onopen = null;
+        ws.onmessage = null;
+        ws.onerror = null;
+        ws.onclose = null;
+        ws.close();
+      }
+      if (reconnectTimer) {
+        window.clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      lastMessageAt = Date.now();
+      backoff = 1000;
+      connectWs();
+    }, 5000);
 
     loadHistory().then(() => {
       if (!cancelled) connectWs();
@@ -228,6 +257,7 @@ export function useBinanceFeed(symbol: string = 'btcusdt', interval: string = '1
     return () => {
       cancelled = true;
       document.removeEventListener('visibilitychange', onVisibility);
+      window.clearInterval(staleCheckId);
       if (reconnectTimer) window.clearTimeout(reconnectTimer);
       if (ws) {
         ws.onopen = null;

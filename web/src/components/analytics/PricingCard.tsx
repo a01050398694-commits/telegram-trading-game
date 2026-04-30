@@ -125,7 +125,7 @@ export function PricingCard({ telegramUserId, onPaid }: PricingCardProps) {
       <div style={{ position: 'relative', display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: 6, marginBottom: 4 }}>
         <span style={{
           fontFamily: T.numberFont,
-          fontSize: 46,
+          fontSize: 38,
           fontWeight: 900,
           color: T.textPrimary,
           letterSpacing: '-0.035em',
@@ -260,7 +260,7 @@ export function PricingCard({ telegramUserId, onPaid }: PricingCardProps) {
         style={{
           position: 'relative',
           width: '100%',
-          padding: '16px 0',
+          padding: '14px 0',
           background: pending
             ? 'rgba(115,115,115,0.4)'
             : 'linear-gradient(135deg, #FFD700 0%, #DAA520 35%, #B8860B 70%, #8B6914 100%)',

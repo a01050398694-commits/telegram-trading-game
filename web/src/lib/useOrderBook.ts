@@ -52,6 +52,9 @@ export function useOrderBook(symbol: string): OrderBookFeed {
     let ws: WebSocket | null = null;
     let reconnectTimer: number | null = null;
     let backoff = 1000;
+    // Stage 15.6 — silent stale 감지. depth@100ms 는 100ms 마다 들어오므로
+    // 5초 무응답이면 무조건 끊긴 것 → 강제 reconnect.
+    let lastMessageAt = Date.now();
 
     // 심볼 전환 시 이전 코인 호가가 화면에 남는 것을 막기 위해 즉시 리셋.
     // 첫 tick 이 도착하기 전에 ETH 탭을 눌러도 BTC 가격이 보이는 사고 차단.
@@ -67,9 +70,11 @@ export function useOrderBook(symbol: string): OrderBookFeed {
       ws.onopen = () => {
         backoff = 1000;
         setStatus('live');
+        lastMessageAt = Date.now();
       };
 
       ws.onmessage = (evt) => {
+        lastMessageAt = Date.now();
         try {
           const snap = JSON.parse(evt.data) as DepthSnapshot;
           setBids(normalize(snap.bids, true));
@@ -99,7 +104,7 @@ export function useOrderBook(symbol: string): OrderBookFeed {
       if (cancelled) return;
       if (document.visibilityState !== 'visible') return;
       if (ws && ws.readyState === WebSocket.OPEN) return;
-      
+
       if (ws) {
         ws.onopen = null;
         ws.onmessage = null;
@@ -112,16 +117,39 @@ export function useOrderBook(symbol: string): OrderBookFeed {
         window.clearTimeout(reconnectTimer);
         reconnectTimer = null;
       }
+      lastMessageAt = Date.now();
       backoff = 1000;
       connect();
     };
     document.addEventListener('visibilitychange', onVisibility);
+
+    // Stage 15.6 — silent stale 감지 + 강제 reconnect (depth 5s 임계).
+    const staleCheckId = window.setInterval(() => {
+      if (cancelled) return;
+      if (Date.now() - lastMessageAt < 5_000) return;
+      console.warn('[depth] feed stale > 5s, forcing reconnect');
+      if (ws) {
+        ws.onopen = null;
+        ws.onmessage = null;
+        ws.onerror = null;
+        ws.onclose = null;
+        ws.close();
+      }
+      if (reconnectTimer) {
+        window.clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      lastMessageAt = Date.now();
+      backoff = 1000;
+      connect();
+    }, 3000);
 
     connect();
 
     return () => {
       cancelled = true;
       document.removeEventListener('visibilitychange', onVisibility);
+      window.clearInterval(staleCheckId);
       if (reconnectTimer) window.clearTimeout(reconnectTimer);
       if (ws) {
         ws.onopen = null;
