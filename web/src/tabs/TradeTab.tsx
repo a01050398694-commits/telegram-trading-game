@@ -189,7 +189,7 @@ export function TradeTab({
       <CoinSelector symbol={symbol} onChange={setSymbol} />
 
       {/* Stage 8.10 — 상단 pt-2 로 candle wick 잘림 해결. overflow-hidden 은 둥근 모서리 때문에 유지. */}
-      <section className="h-[350px] shrink-0 overflow-hidden rounded-xl border border-white/5 bg-slate-900/40 pt-2">
+      <section className="h-[350px] shrink-0 overflow-hidden rounded-xl border border-[var(--border-hairline)] bg-slate-900/40 pt-2">
         <TradingChart key={symbol} history={feed.history} ticking={feed.ticking} />
       </section>
 

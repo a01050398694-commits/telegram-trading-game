@@ -211,8 +211,9 @@ function PodiumCard({ row }: { row: LeaderboardRow }) {
   const isRank2 = row.rank === 2;
 
   // 메탈릭 보더: 각 메달 색상의 금속 gradient.
+  // Rank 1 uses border-accent (gold), 2/3 use metallic colors
   const metalBorder = isRank1
-    ? 'border-2 border-yellow-500/60'
+    ? 'border-2 border-[var(--color-accent-gold)]'
     : isRank2
       ? 'border-2 border-slate-300/50'
       : 'border-2 border-orange-600/60';
@@ -302,16 +303,16 @@ function PodiumCard({ row }: { row: LeaderboardRow }) {
 function LeaderRow({ row }: { row: LeaderboardRow }) {
   // Stage 8.8 — glassmorphism 강화. backdrop-blur-xl + p-4 + subtle border glow on hover.
   return (
-    <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-xl transition-all hover:border-white/20 hover:bg-white/[0.08]">
+    <div className="flex items-center justify-between rounded-2xl border border-[var(--border-subtle)] bg-[var(--color-surface-2)] p-4 backdrop-blur-xl transition-all hover:border-white/20 hover:bg-white/[0.08]">
       <div className="flex items-center gap-3">
-        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-slate-800/80 font-mono text-[12px] font-bold text-slate-300">
+        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border-hairline)] bg-slate-800/80 font-mono text-[12px] font-bold text-slate-300">
           {row.rank}
         </span>
         <span className="font-mono text-[14px] font-semibold tracking-wide text-slate-100">
           {row.name}
         </span>
       </div>
-      <span className="font-mono text-[14px] font-bold tabular-nums text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]">
+      <span className="font-mono text-[14px] font-bold tabular-nums text-[var(--color-accent-long)] drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]">
         +{formatMoney(row.pnl)}
       </span>
     </div>

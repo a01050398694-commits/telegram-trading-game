@@ -25,7 +25,7 @@ export function OrderBook({ symbol, midPrice, rows = 5 }: OrderBookProps) {
     bestAsk !== null && bestBid !== null ? (bestAsk + bestBid) / 2 : midPrice;
 
   return (
-    <div className="rounded-xl border border-white/5 bg-slate-900/80 p-2 text-[10px]">
+    <div className="rounded-xl border border-[var(--border-hairline)] bg-[var(--color-surface-2)] p-2 text-[10px]">
       <div className="mb-1 flex items-center justify-between px-1">
         <span className="font-black uppercase tracking-[0.25em] text-white/40">
           Book
@@ -45,7 +45,7 @@ export function OrderBook({ symbol, midPrice, rows = 5 }: OrderBookProps) {
         {asks.length === 0 && <EmptyRows side="ask" />}
       </div>
 
-      <div className="my-1 flex items-center justify-between rounded-md border border-white/5 bg-slate-800/70 px-2 py-1 font-mono text-[10px]">
+      <div className="my-1 flex items-center justify-between rounded-md border border-[var(--border-hairline)] bg-slate-800/70 px-2 py-1 font-mono text-[10px]">
         <span className="font-black tabular-nums text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.2)]">
           {mid !== null ? `$${formatUSD(mid)}` : '--'}
         </span>
@@ -91,7 +91,7 @@ function DepthRow({
   }, [level.price, side]);
 
   const depthPct = Math.min(100, (level.total / maxTotal) * 100);
-  const priceColor = side === 'ask' ? 'text-rose-400' : 'text-emerald-400';
+  const priceColor = side === 'ask' ? 'text-[var(--color-accent-short)]' : 'text-[var(--color-accent-long)]';
   const barColor = side === 'ask' ? 'bg-rose-500/10' : 'bg-emerald-500/10';
   // Neon glow — 빠르게 갱신되는 숫자가 물 위에 떠있는 듯한 느낌.
   const glow =

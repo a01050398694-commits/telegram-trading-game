@@ -85,7 +85,7 @@ export function PortfolioTab({ telegramUserId, status }: PortfolioTabProps) {
   const equityDelta = liveEquity - STARTING_SEED;
   const isUp = equityDelta > 0;
   const isDown = equityDelta < 0;
-  const deltaColor = isUp ? 'text-emerald-400' : isDown ? 'text-rose-400' : 'text-slate-400';
+  const deltaColor = isUp ? 'text-[var(--color-accent-long)]' : isDown ? 'text-[var(--color-accent-short)]' : 'text-slate-400';
 
   // Stage 8.11 — Android fix. background-clip:text 는 안드로이드 크롬에서 불안정해 글자가
   // 통째로 사라지는 버그가 재발. 솔리드 color 로 돌리고, glow 로 럭셔리 질감만 유지한다.
@@ -181,7 +181,7 @@ export function PortfolioTab({ telegramUserId, status }: PortfolioTabProps) {
       </div>
 
       {/* ── 7-DAY PNL CHART ───────────────────────────── */}
-      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur-xl">
+      <div className="rounded-2xl border border-[var(--border-subtle)] bg-white/[0.03] p-4 backdrop-blur-xl">
         <div className="flex items-center justify-between pb-4">
           <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">
             7-Day Performance
@@ -263,7 +263,7 @@ function StatCell({
   valueClass?: string;
 }) {
   return (
-    <div className="rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2.5">
+    <div className="rounded-xl border border-[var(--border-hairline)] bg-[var(--color-surface-2)] px-3 py-2.5">
       <div className="text-[9px] font-bold uppercase tracking-wider text-white/40">{label}</div>
       <div
         className={`mt-0.5 font-mono text-[13px] font-bold tabular-nums ${valueClass ?? 'text-white'}`}
@@ -288,11 +288,11 @@ function OpenPositionRow({
   direction: 'up' | 'down' | 'idle';
 }) {
   const m = getMarket(pos.symbol);
-  const sideColor = pos.side === 'long' ? 'text-emerald-400' : 'text-rose-400';
+  const sideColor = pos.side === 'long' ? 'text-[var(--color-accent-long)]' : 'text-[var(--color-accent-short)]';
   const pnlColor =
-    livePnl > 0 ? 'text-emerald-400' : livePnl < 0 ? 'text-rose-400' : 'text-slate-400';
+    livePnl > 0 ? 'text-[var(--color-accent-long)]' : livePnl < 0 ? 'text-[var(--color-accent-short)]' : 'text-slate-400';
   const markColor =
-    direction === 'up' ? 'text-emerald-400' : direction === 'down' ? 'text-rose-400' : 'text-white';
+    direction === 'up' ? 'text-[var(--color-accent-long)]' : direction === 'down' ? 'text-[var(--color-accent-short)]' : 'text-white';
   const arrow = direction === 'up' ? '▲' : direction === 'down' ? '▼' : '';
 
   return (
@@ -353,7 +353,7 @@ function useLiveFeed(symbol: string) {
 function HistoryRow({ row }: { row: HistoryEntry }) {
   const m = getMarket(row.symbol);
   const pnlColor =
-    row.pnl > 0 ? 'text-emerald-400' : row.pnl < 0 ? 'text-rose-400' : 'text-slate-400';
+    row.pnl > 0 ? 'text-[var(--color-accent-long)]' : row.pnl < 0 ? 'text-[var(--color-accent-short)]' : 'text-slate-400';
   const statusLabel = row.status === 'liquidated' ? '🔴 LIQ' : '✓ CLOSE';
   return (
     <div className="flex items-center justify-between py-2.5">

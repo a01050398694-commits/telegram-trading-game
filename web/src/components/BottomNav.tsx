@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { TrendingUp, Briefcase, GraduationCap, BookOpen } from 'lucide-react';
 import { hapticSelection } from '../utils/telegram';
 
 // Stage 8.0 — vip → elite / premium → academy 로 키 이름 유지한 채 라벨만 교체.
@@ -10,20 +11,21 @@ type BottomNavProps = {
   onChange: (tab: TabKey) => void;
 };
 
-const TAB_META: { key: TabKey; icon: string; i18n: string }[] = [
-  { key: 'trade', icon: '📈', i18n: 'nav.trade' },
-  { key: 'portfolio', icon: '💼', i18n: 'nav.portfolio' },
-  { key: 'vip', icon: '🎓', i18n: 'nav.elite' },
-  { key: 'premium', icon: '📘', i18n: 'nav.academy' },
+const TAB_META: { key: TabKey; icon: typeof TrendingUp; i18n: string }[] = [
+  { key: 'trade', icon: TrendingUp, i18n: 'nav.trade' },
+  { key: 'portfolio', icon: Briefcase, i18n: 'nav.portfolio' },
+  { key: 'vip', icon: GraduationCap, i18n: 'nav.elite' },
+  { key: 'premium', icon: BookOpen, i18n: 'nav.academy' },
 ];
 
 export function BottomNav({ active, onChange }: BottomNavProps) {
   const { t } = useTranslation();
 
   return (
-    <nav className="flex items-stretch rounded-xl border border-white/5 bg-slate-900/95 shadow-lg">
+    <nav className="flex items-stretch rounded-xl border border-[var(--border-hairline)] bg-[var(--color-surface-1)] shadow-lg">
       {TAB_META.map((tab) => {
         const on = tab.key === active;
+        const Icon = tab.icon;
         return (
           <button
             key={tab.key}
@@ -33,14 +35,12 @@ export function BottomNav({ active, onChange }: BottomNavProps) {
               onChange(tab.key);
             }}
             className={`flex flex-1 flex-col items-center justify-center gap-0.5 py-2 transition-colors ${
-              on ? 'text-white' : 'text-slate-500 hover:text-slate-300'
+              on ? 'text-white' : 'text-white/40 hover:text-white/60'
             }`}
           >
-            <span className={`text-lg leading-none ${on ? '' : 'grayscale opacity-70'}`}>
-              {tab.icon}
-            </span>
+            <Icon className="h-5 w-5" />
             <span className="text-[10px] font-bold uppercase tracking-wider">{t(tab.i18n)}</span>
-            {on && <span className="mt-0.5 h-0.5 w-6 rounded-full bg-amber-400" />}
+            {on && <span className="mt-0.5 h-0.5 w-6 rounded-full bg-[var(--color-accent-gold)]" />}
           </button>
         );
       })}

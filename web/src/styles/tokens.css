@@ -1,0 +1,99 @@
+/**
+ * Stage 16 — Design Tokens CSS Variables
+ *
+ * web/src/styles/tokens.ts 의 CSS 변수 mirror.
+ * Tailwind v4 arbitrary value + inline style 양쪽에서 쓸 수 있도록 :root 정의.
+ *
+ * 사용 예:
+ *   - Tailwind: bg-[var(--color-surface-1)] border-[var(--border-hairline)]
+ *   - Inline: style={{ background: 'var(--color-surface-1)' }}
+ *   - JavaScript: getComputedStyle(document.documentElement).getPropertyValue('--color-surface-1')
+ */
+
+:root {
+  /* ──────────────────────────────────────────────────────────────
+     Surface — 카드 배경 계층
+     ────────────────────────────────────────────────────────────── */
+  --color-surface-1: rgba(15, 23, 42, 0.95); /* 가장 밝음 (slide-900 극 opaque) */
+  --color-surface-2: rgba(30, 41, 59, 0.8); /* 중간 (slate-800 투명) */
+  --color-surface-3: rgba(10, 10, 10, 0.7); /* 배경 (near-black) */
+
+  /* ──────────────────────────────────────────────────────────────
+     Border — 선
+     ────────────────────────────────────────────────────────────── */
+  --border-hairline: rgba(255, 255, 255, 0.05); /* border-white/5 */
+  --border-subtle: rgba(255, 255, 255, 0.1); /* border-white/10 */
+  --border-accent: rgba(184, 134, 11, 0.18); /* gold accent */
+
+  /* ──────────────────────────────────────────────────────────────
+     Text
+     ────────────────────────────────────────────────────────────── */
+  --color-text-primary: rgb(248, 250, 252); /* text-slate-50 */
+  --color-text-secondary: rgba(255, 255, 255, 0.4); /* text-white/40 */
+  --color-text-muted: rgba(255, 255, 255, 0.3); /* text-white/30 */
+  --color-text-disabled: rgba(255, 255, 255, 0.15); /* text-white/15 */
+
+  /* ──────────────────────────────────────────────────────────────
+     Accent — 감정 상태
+     ────────────────────────────────────────────────────────────── */
+  --color-accent-long: rgb(52, 211, 153); /* emerald-400 (LONG/수익) */
+  --color-accent-short: rgb(251, 113, 133); /* rose-400 (SHORT/손실) */
+  --color-accent-gold: rgb(250, 204, 21); /* yellow-400 (Lifetime/VIP) */
+  --color-accent-violet: rgb(167, 139, 250); /* violet-400 (Premium) */
+  --color-accent-warning: rgb(229, 160, 48); /* amber-500 (경고) */
+
+  /* ──────────────────────────────────────────────────────────────
+     Shadow
+     ────────────────────────────────────────────────────────────── */
+  --shadow-flat: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-lifted: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-glow-emerald: 0 0 4px rgba(52, 211, 153, 0.45);
+  --shadow-glow-rose: 0 0 4px rgba(251, 113, 133, 0.45);
+  --shadow-glow-gold: 0 0 12px rgba(250, 204, 21, 0.7);
+
+  /* 2-layer luxe shadows */
+  --shadow-black-card-outer: 0 12px 40px rgba(184, 134, 11, 0.18);
+  --shadow-black-card-inner: 0 4px 16px rgba(0, 0, 0, 0.6);
+  --shadow-podium-base: 0 0 80px rgba(250, 204, 21, 0.4),
+    0 20px 40px rgba(0, 0, 0, 0.6);
+
+  /* ──────────────────────────────────────────────────────────────
+     Border Radius
+     ────────────────────────────────────────────────────────────── */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-3xl: 24px;
+  --radius-pill: 9999px;
+
+  /* ──────────────────────────────────────────────────────────────
+     Spacing
+     ────────────────────────────────────────────────────────────── */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  --spacing-2xl: 32px;
+  --spacing-3xl: 40px;
+
+  /* ──────────────────────────────────────────────────────────────
+     Typography — Font family
+     ────────────────────────────────────────────────────────────── */
+  --font-display: 'Inter', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* ──────────────────────────────────────────────────────────────
+     Motion
+     ────────────────────────────────────────────────────────────── */
+  --duration-fast: 150ms;
+  --duration-base: 300ms;
+  --duration-slow: 500ms;
+
+  --easing-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --easing-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --easing-ease-back: cubic-bezier(0.34, 1.56, 0.64, 1);
+}

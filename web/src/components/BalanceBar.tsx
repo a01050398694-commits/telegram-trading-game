@@ -11,10 +11,10 @@ export function BalanceBar({ balance, pnl, hasPosition }: BalanceBarProps) {
   const basis = balance - pnl;
   const pnlPct = basis > 0 ? (pnl / basis) * 100 : 0;
   const color =
-    pnl > 0 ? 'text-emerald-400' : pnl < 0 ? 'text-rose-400' : 'text-white/60';
+    pnl > 0 ? 'text-[var(--color-accent-long)]' : pnl < 0 ? 'text-[var(--color-accent-short)]' : 'text-white/60';
 
   return (
-    <div className="flex items-center justify-between rounded-xl border border-white/5 bg-slate-900/80 px-3 py-2">
+    <div className="flex items-center justify-between rounded-xl border border-[var(--border-hairline)] bg-[var(--color-surface-2)] px-3 py-2">
       <div>
         <div className="text-[9px] font-black uppercase tracking-[0.25em] text-white/40">
           Equity

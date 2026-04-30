@@ -93,7 +93,7 @@ export function ActionPanel({
 
     return (
       <div className="w-full space-y-2">
-        <div className="rounded-xl border border-white/5 bg-gradient-to-b from-slate-900/95 to-slate-900/80 p-3.5 shadow-lg shadow-black/30">
+        <div className="rounded-xl border border-[var(--border-hairline)] bg-[var(--color-surface-2)] p-3.5 shadow-lg shadow-black/30">
           {/* ── 헤더: side badge + Entry ── */}
           <div className="flex items-center justify-between">
             <span
@@ -186,7 +186,7 @@ export function ActionPanel({
 
   return (
     <div className="w-full space-y-2">
-      <div className="rounded-xl border border-white/5 bg-slate-900/80 p-3">
+      <div className="rounded-xl border border-[var(--border-hairline)] bg-[var(--color-surface-2)] p-3">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white/40">
             {t('trade.leverage')}

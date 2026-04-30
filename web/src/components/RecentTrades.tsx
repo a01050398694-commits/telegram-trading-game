@@ -13,7 +13,7 @@ export function RecentTrades({ symbol, rows = 5 }: RecentTradesProps) {
   const { trades, status } = useRecentTrades(symbol);
 
   return (
-    <div className="rounded-xl border border-white/5 bg-slate-900/80 p-2 text-[10px]">
+    <div className="rounded-xl border border-[var(--border-hairline)] bg-[var(--color-surface-2)] p-2 text-[10px]">
       <div className="mb-1 flex items-center justify-between px-1">
         <span className="font-black uppercase tracking-[0.25em] text-white/40">
           Trades
@@ -38,7 +38,7 @@ export function RecentTrades({ symbol, rows = 5 }: RecentTradesProps) {
       <div className="flex flex-col">
         {trades.slice(0, rows).map((t) => {
           const isBuy = t.aggressor === 'buy';
-          const color = isBuy ? 'text-emerald-400' : 'text-rose-400';
+          const color = isBuy ? 'text-[var(--color-accent-long)]' : 'text-[var(--color-accent-short)]';
           const glow = isBuy
             ? 'drop-shadow-[0_0_4px_rgba(52,211,153,0.4)]'
             : 'drop-shadow-[0_0_4px_rgba(251,113,133,0.4)]';

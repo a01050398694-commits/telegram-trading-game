@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { BottomNav, type TabKey } from './components/BottomNav';
 import { TradeTab } from './tabs/TradeTab';
 import { PortfolioTab } from './tabs/PortfolioTab';
@@ -130,27 +131,38 @@ export default function App() {
 
       {/* Main app */}
       <main
-        className="safe-area flex flex-col gap-2 bg-slate-950 text-white select-none"
+        className="safe-area mx-auto max-w-[480px] flex flex-col gap-2 bg-slate-950 text-white select-none"
         style={{ height: 'var(--tg-viewport-height, 100dvh)' }}
       >
         <div className="min-h-0 flex-1 overflow-hidden">
-          {tab === 'trade' && (
-            <TradeTab
-              telegramUserId={telegramUserId}
-              user={user}
-              isInsideTelegram={isInsideTelegram}
-              status={status}
-              statusError={statusError}
-              refresh={refresh}
-            />
-          )}
-          {tab === 'portfolio' && (
-            <PortfolioTab telegramUserId={telegramUserId} status={status} />
-          )}
-          {tab === 'vip' && <VIPTab status={status} />}
-          {tab === 'premium' && (
-            <PremiumTab telegramUserId={telegramUserId} status={status} />
-          )}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={tab}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.15, ease: [0.4, 0, 0.2, 1] }}
+              className="h-full"
+            >
+              {tab === 'trade' && (
+                <TradeTab
+                  telegramUserId={telegramUserId}
+                  user={user}
+                  isInsideTelegram={isInsideTelegram}
+                  status={status}
+                  statusError={statusError}
+                  refresh={refresh}
+                />
+              )}
+              {tab === 'portfolio' && (
+                <PortfolioTab telegramUserId={telegramUserId} status={status} />
+              )}
+              {tab === 'vip' && <VIPTab status={status} />}
+              {tab === 'premium' && (
+                <PremiumTab telegramUserId={telegramUserId} status={status} />
+              )}
+            </motion.div>
+          </AnimatePresence>
         </div>
 
         {telegramUserId === null && (
