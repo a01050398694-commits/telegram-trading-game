@@ -239,5 +239,120 @@
     },
     "paymentLinkMissing": "Ödeme bağlantısı yapılandırılmamış. {{handle}} ile iletişime geçin.",
     "supportHandle": "@your_support"
+  },
+  "legal": {
+    "terms": {
+      "title": "Terms of Service",
+      "section1": {
+        "title": "Paper Trading Educational Platform",
+        "body": "This service is an educational paper-trading simulator using virtual funds. No real money transactions or actual financial loss occurs."
+      },
+      "section2": {
+        "title": "18+ Only",
+        "body": "This service is available only to users aged 18 and above. Minors are strictly prohibited from signing up or using this platform."
+      },
+      "section3": {
+        "title": "Not Gambling",
+        "body": "This service is not gambling, betting, or gambling games. It is an educational tool to learn trading skills using virtual funds."
+      },
+      "section4": {
+        "title": "No Refunds on Virtual Money",
+        "body": "Purchased game credits (virtual funds) are non-refundable. Some paid products (e.g., Premium Membership) may have separate refund policies."
+      },
+      "section5": {
+        "title": "Educational Content Only",
+        "body": "All charts, analyses, and advice provided are for educational purposes only. They are not financial advice or investment recommendations."
+      },
+      "section6": {
+        "title": "Terms Modification",
+        "body": "We may modify these terms at any time. Changes will be posted on this page. Continued use constitutes acceptance of the updated terms."
+      },
+      "lastUpdated": "Last Updated: May 1, 2026"
+    },
+    "privacy": {
+      "title": "Privacy Policy",
+      "section1": {
+        "title": "Data Collection",
+        "body": "We collect Telegram user ID, preferred language, trading history, and portfolio data."
+      },
+      "section2": {
+        "title": "Data Processing & Delegation",
+        "body": "User data is processed through Supabase (database), Sentry (error tracking), and PostHog (analytics)."
+      },
+      "section3": {
+        "title": "Data Security",
+        "body": "All sensitive information is encrypted and protected through regular security audits."
+      },
+      "section4": {
+        "title": "Global Privacy Compliance",
+        "body": "We comply with GDPR (Europe), PIPA (Korea), CCPA (California), and other global data protection regulations."
+      },
+      "section5": {
+        "title": "User Rights",
+        "body": "Users may request access, modification, or deletion of their data at any time. Contact @askbit_support for details."
+      },
+      "section6": {
+        "title": "Cookies & Tracking",
+        "body": "We use cookies and tracking technologies to improve user experience. You can disable them anytime in browser settings."
+      },
+      "lastUpdated": "Last Updated: May 1, 2026"
+    },
+    "refund": {
+      "title": "Refund Policy",
+      "section1": {
+        "title": "Game Credit Recharge Policy",
+        "body": "Game credit recharges ($1K, $5K, $10K) are one-time purchases and are non-refundable."
+      },
+      "section2": {
+        "title": "Premium Membership Refund Policy",
+        "body": "Monthly Premium Membership ($39.99) is refundable within 7 days of purchase if unused."
+      },
+      "section3": {
+        "title": "No Refunds After Use",
+        "body": "Once membership is used (accessing analytics, viewing charts), refunds are not available."
+      },
+      "section4": {
+        "title": "Refund Request Process",
+        "body": "To request a refund, contact @askbit_support with your receipt. We will process it within 3-5 business days."
+      },
+      "section5": {
+        "title": "Non-Refundable Items",
+        "body": "Game credits are virtual funds and non-refundable. Premium membership is also non-refundable after use."
+      },
+      "lastUpdated": "Last Updated: May 1, 2026"
+    },
+    "businessInfo": {
+      "companyName": "Company Name",
+      "companyValue": "Trading Academy",
+      "representative": "Representative",
+      "representativeValue": "[To be registered]",
+      "businessNumber": "Business Number",
+      "businessNumberValue": "[To be registered]",
+      "ecommerceLicense": "E-commerce License",
+      "ecommerceLicenseValue": "[To be registered]",
+      "address": "Address",
+      "addressValue": "[To be registered]",
+      "contact": "Contact"
+    },
+    "links": {
+      "terms": "Terms of Service",
+      "privacy": "Privacy Policy",
+      "refund": "Refund Policy"
+    }
+  },
+  "payment": {
+    "consentLabel": "I agree to the Terms of Service, Privacy Policy, and Refund Policy",
+    "consentAnd": "and",
+    "consentRequired": "Please agree to the terms",
+    "pendingTitle": "Processing Payment",
+    "pendingBody": "Your payment is being processed. Please wait...",
+    "confirmedToast": "Payment successful!",
+    "timeoutToast": "Payment confirmation timed out. Contact support."
+  },
+  "demoBadge": {
+    "compact": "PAPER · 18+",
+    "fullTitle": "Paper Trading Education Platform",
+    "fullBody": "Learn trading skills with virtual funds, not real money. This is an educational simulator, not gambling, with no real financial risk.",
+    "dismiss": "Got It"
   }
 }

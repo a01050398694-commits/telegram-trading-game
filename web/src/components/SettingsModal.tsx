@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SUPPORTED_LANGS, setLang, type SupportedLang } from '../lib/i18n';
 import { hapticSelection } from '../utils/telegram';
+import { AppFooter } from './legal/AppFooter';
 
 type SettingsModalProps = {
   onClose: () => void;
@@ -83,6 +84,10 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
 
         <div className="mt-5 border-t border-white/5 pt-3 text-[10px] leading-relaxed text-white/40">
           {t('settings.disclaimer')}
+        </div>
+
+        <div className="mt-4">
+          <AppFooter />
         </div>
       </div>
     </div>

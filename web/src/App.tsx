@@ -7,6 +7,12 @@ import { PremiumTab } from './tabs/PremiumTab';
 import { useTelegram } from './hooks/useTelegram';
 import { ApiError, fetchUserStatus, type UserStatus } from './lib/api';
 import { initAnalytics, identify, track } from './lib/analytics';
+import { useLegalPage } from './lib/legalRoute';
+import { LegalLayout } from './components/legal/LegalLayout';
+import { TermsPage } from './components/legal/TermsPage';
+import { PrivacyPage } from './components/legal/PrivacyPage';
+import { RefundPage } from './components/legal/RefundPage';
+import { DemoBadge } from './components/DemoBadge';
 
 // Stage 6: 4-탭 멀티 스크린 쉘.
 // - App 은 탭 라우팅 + 공통 상태(status 폴링)만 담당
@@ -20,6 +26,8 @@ export default function App() {
   const [tab, setTab] = useState<TabKey>('trade');
   const [status, setStatus] = useState<UserStatus | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
+  const [showDemoBadge, setShowDemoBadge] = useState(false);
+  const { page, close: closeLegal } = useLegalPage();
 
   const telegramUserId = user?.id ?? null;
 
@@ -28,6 +36,16 @@ export default function App() {
     initAnalytics();
     track('app_opened', { inside_telegram: isInsideTelegram });
   }, [isInsideTelegram]);
+
+  // Show demo badge once on first mount if not seen
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const shown = localStorage.getItem('demoBadge.shown');
+    if (!shown) {
+      setShowDemoBadge(true);
+      localStorage.setItem('demoBadge.shown', '1');
+    }
+  }, []);
 
   useEffect(() => {
     if (telegramUserId !== null) {
@@ -92,40 +110,57 @@ export default function App() {
   }
 
   return (
-    // Stage 8.11 — Android Chrome 100vh 버그 회피. Telegram 이 계산한 viewportStableHeight
-    // 를 --tg-viewport-height 변수로 받아 <main> 높이에 직접 적용. 브라우저 프리뷰 fallback
-    // 은 100vh. 이걸로 BottomNav 가 공중에 뜨는 현상 완전 제거.
-    <main
-      className="safe-area flex flex-col gap-2 bg-slate-950 text-white select-none"
-      style={{ height: 'var(--tg-viewport-height, 100dvh)' }}
-    >
-      <div className="min-h-0 flex-1 overflow-hidden">
-        {tab === 'trade' && (
-          <TradeTab
-            telegramUserId={telegramUserId}
-            user={user}
-            isInsideTelegram={isInsideTelegram}
-            status={status}
-            statusError={statusError}
-            refresh={refresh}
-          />
-        )}
-        {tab === 'portfolio' && (
-          <PortfolioTab telegramUserId={telegramUserId} status={status} />
-        )}
-        {tab === 'vip' && <VIPTab status={status} />}
-        {tab === 'premium' && (
-          <PremiumTab telegramUserId={telegramUserId} status={status} />
-        )}
-      </div>
-
-      {telegramUserId === null && (
-        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-center text-[10px] font-medium text-amber-300">
-          Browser preview — educational demo only. Open via the Telegram bot for full paper-trading.
-        </div>
+    <>
+      {/* Demo badge full overlay */}
+      {showDemoBadge && (
+        <DemoBadge
+          variant="full"
+          onDismiss={() => setShowDemoBadge(false)}
+        />
       )}
 
-      <BottomNav active={tab} onChange={setTab} />
-    </main>
+      {/* Legal page overlay */}
+      {page && (
+        <LegalLayout onClose={closeLegal}>
+          {page === 'terms' && <TermsPage />}
+          {page === 'privacy' && <PrivacyPage />}
+          {page === 'refund' && <RefundPage />}
+        </LegalLayout>
+      )}
+
+      {/* Main app */}
+      <main
+        className="safe-area flex flex-col gap-2 bg-slate-950 text-white select-none"
+        style={{ height: 'var(--tg-viewport-height, 100dvh)' }}
+      >
+        <div className="min-h-0 flex-1 overflow-hidden">
+          {tab === 'trade' && (
+            <TradeTab
+              telegramUserId={telegramUserId}
+              user={user}
+              isInsideTelegram={isInsideTelegram}
+              status={status}
+              statusError={statusError}
+              refresh={refresh}
+            />
+          )}
+          {tab === 'portfolio' && (
+            <PortfolioTab telegramUserId={telegramUserId} status={status} />
+          )}
+          {tab === 'vip' && <VIPTab status={status} />}
+          {tab === 'premium' && (
+            <PremiumTab telegramUserId={telegramUserId} status={status} />
+          )}
+        </div>
+
+        {telegramUserId === null && (
+          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-center text-[10px] font-medium text-amber-300">
+            Browser preview — educational demo only. Open via the Telegram bot for full paper-trading.
+          </div>
+        )}
+
+        <BottomNav active={tab} onChange={setTab} />
+      </main>
+    </>
   );
 }

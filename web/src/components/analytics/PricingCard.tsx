@@ -14,6 +14,8 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ANALYTICS_TOKENS as T } from '../../styles/tokens';
 import { hapticImpact, openTelegramLinkSafe } from '../../utils/telegram';
+import { setLegalPage, type LegalPageKey } from '../../lib/legalRoute';
+import { usePaymentPolling } from '../../hooks/usePaymentPolling';
 
 const INVITEMEMBER_PREMIUM_URL = import.meta.env.VITE_INVITEMEMBER_PREMIUM_URL ?? '';
 // Stars 결제 전용 별도 plan (env 비면 토글 숨김 + PayPal 단독)
@@ -31,11 +33,20 @@ export function PricingCard({ telegramUserId, onPaid }: PricingCardProps) {
   const [pending, setPending] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [payMethod, setPayMethod] = useState<PayMethod>('paypal');
+  const [consent, setConsent] = useState(false);
+
+  const paymentPolling = usePaymentPolling(
+    pending ? telegramUserId : null,
+    () => {
+      setPending(false);
+      onPaid?.();
+    },
+  );
 
   const starsAvailable = Boolean(INVITEMEMBER_PREMIUM_STARS_URL);
 
   const handleSubscribe = (): void => {
-    if (pending) return;
+    if (pending || !consent) return;
     const url = payMethod === 'stars' ? INVITEMEMBER_PREMIUM_STARS_URL : INVITEMEMBER_PREMIUM_URL;
     if (!url) {
       setErrorMessage(t('errors.paymentLinkMissing', { handle: t('errors.supportHandle') }));
@@ -44,17 +55,17 @@ export function PricingCard({ telegramUserId, onPaid }: PricingCardProps) {
     hapticImpact('medium');
     setPending(true);
     setErrorMessage(null);
+    paymentPolling.startPayment();
     try {
       openTelegramLinkSafe(url);
-      setTimeout(() => {
-        setPending(false);
-        onPaid?.();
-      }, 800);
     } catch (err) {
       setErrorMessage((err as Error).message);
       setPending(false);
     }
-    void telegramUserId;
+  };
+
+  const handleLegalClick = (page: LegalPageKey) => {
+    setLegalPage(page);
   };
 
   const benefits = [
@@ -252,11 +263,87 @@ export function PricingCard({ telegramUserId, onPaid }: PricingCardProps) {
         </div>
       )}
 
+      {/* ── 동의 체크박스 ── */}
+      <div style={{
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 8,
+        marginBottom: 12,
+      }}>
+        <input
+          type="checkbox"
+          checked={consent}
+          onChange={(e) => setConsent(e.target.checked)}
+          style={{
+            marginTop: 4,
+            width: 16,
+            height: 16,
+            cursor: 'pointer',
+            accentColor: '#FFD700',
+          }}
+        />
+        <label style={{
+          flex: 1,
+          fontFamily: T.bodyFont,
+          fontSize: 11,
+          color: '#888888',
+          lineHeight: 1.4,
+          cursor: 'pointer',
+        }}>
+          {t('payment.consentLabel')}{' '}
+          <button
+            type="button"
+            onClick={() => handleLegalClick('terms')}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#0ea5e9',
+              textDecoration: 'underline',
+              cursor: 'pointer',
+              fontSize: 'inherit',
+            }}
+          >
+            {t('legal.links.terms')}
+          </button>
+          ,{' '}
+          <button
+            type="button"
+            onClick={() => handleLegalClick('privacy')}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#0ea5e9',
+              textDecoration: 'underline',
+              cursor: 'pointer',
+              fontSize: 'inherit',
+            }}
+          >
+            {t('legal.links.privacy')}
+          </button>
+          , {t('payment.consentAnd')}{' '}
+          <button
+            type="button"
+            onClick={() => handleLegalClick('refund')}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#0ea5e9',
+              textDecoration: 'underline',
+              cursor: 'pointer',
+              fontSize: 'inherit',
+            }}
+          >
+            {t('legal.links.refund')}
+          </button>
+        </label>
+      </div>
+
       {/* ── 결제 버튼 (메탈릭 골드) ── */}
       <button
         type="button"
         onClick={handleSubscribe}
-        disabled={pending}
+        disabled={pending || !consent}
         style={{
           position: 'relative',
           width: '100%',

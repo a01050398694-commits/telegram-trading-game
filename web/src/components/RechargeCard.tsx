@@ -25,6 +25,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { hapticImpact, hapticSelection, openTelegramLinkSafe } from '../utils/telegram';
+import { setLegalPage, type LegalPageKey } from '../lib/legalRoute';
+import { usePaymentPolling } from '../hooks/usePaymentPolling';
 
 type Tier = '1k' | '5k' | '10k';
 
@@ -69,11 +71,20 @@ export function RechargeCard({ telegramUserId, onPaid, variant = 'idle' }: Recha
   const [payMethod, setPayMethod] = useState<PayMethod>('paypal');
   const [pending, setPending] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [consent, setConsent] = useState(false);
+
+  const paymentPolling = usePaymentPolling(
+    pending ? telegramUserId : null,
+    () => {
+      setPending(false);
+      onPaid?.();
+    },
+  );
 
   const starsAvailable = Boolean(TIER_STARS_URL[selectedTier]);
 
   const handlePay = (): void => {
-    if (pending) return;
+    if (pending || !consent) return;
     const url = payMethod === 'stars' ? TIER_STARS_URL[selectedTier] : TIER_URL[selectedTier];
     if (!url) {
       setErrorMessage(t('errors.paymentLinkMissing', { handle: t('errors.supportHandle') }));
@@ -82,17 +93,17 @@ export function RechargeCard({ telegramUserId, onPaid, variant = 'idle' }: Recha
     hapticImpact('medium');
     setPending(true);
     setErrorMessage(null);
+    paymentPolling.startPayment();
     try {
       openTelegramLinkSafe(url);
-      setTimeout(() => {
-        setPending(false);
-        onPaid?.();
-      }, 800);
     } catch (err) {
       setErrorMessage((err as Error).message);
       setPending(false);
     }
-    void telegramUserId;
+  };
+
+  const handleLegalClick = (page: LegalPageKey) => {
+    setLegalPage(page);
   };
 
   const liquidated = variant === 'liquidated';
@@ -179,11 +190,47 @@ export function RechargeCard({ telegramUserId, onPaid, variant = 'idle' }: Recha
         </div>
       )}
 
+      {/* ── 동의 체크박스 ── */}
+      <div className="mb-4 flex items-start gap-2">
+        <input
+          type="checkbox"
+          checked={consent}
+          onChange={(e) => setConsent(e.target.checked)}
+          className="mt-1 h-4 w-4 rounded border-white/20 accent-emerald-500"
+        />
+        <label className="flex-1 text-xs leading-relaxed text-white/60">
+          {t('payment.consentLabel')}{' '}
+          <button
+            type="button"
+            onClick={() => handleLegalClick('terms')}
+            className="text-blue-400 hover:text-blue-300 underline"
+          >
+            {t('legal.links.terms')}
+          </button>
+          ,{' '}
+          <button
+            type="button"
+            onClick={() => handleLegalClick('privacy')}
+            className="text-blue-400 hover:text-blue-300 underline"
+          >
+            {t('legal.links.privacy')}
+          </button>
+          , {t('payment.consentAnd')}{' '}
+          <button
+            type="button"
+            onClick={() => handleLegalClick('refund')}
+            className="text-blue-400 hover:text-blue-300 underline"
+          >
+            {t('legal.links.refund')}
+          </button>
+        </label>
+      </div>
+
       {/* ── 결제 버튼 — 메탈릭 그라디언트 + 큰 명조 ── */}
       <button
         type="button"
         onClick={handlePay}
-        disabled={pending}
+        disabled={pending || !consent}
         className={
           liquidated
             ? 'relative w-full overflow-hidden rounded-xl border border-amber-200/60 bg-gradient-to-br from-amber-300 via-amber-500 to-amber-600 px-4 py-4 text-stone-950 shadow-[0_8px_24px_rgba(217,119,6,0.5),inset_0_1px_0_rgba(255,255,255,0.4)] transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60'
