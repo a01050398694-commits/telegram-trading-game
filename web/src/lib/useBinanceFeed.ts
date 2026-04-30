@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 // 바이낸스 선물/현물 시세 훅.
 // - REST: 초기 히스토리 200개 캔들 (1분봉)
@@ -82,10 +82,14 @@ function parseRestRow(row: BinanceRestRow): Candle {
 export function useBinanceFeed(symbol: string = 'btcusdt', interval: string = '1m'): BinanceFeed {
   const [history, setHistory] = useState<Candle[]>([]);
   const [ticking, setTicking] = useState<Candle | null>(null);
+  // Stage 15.10 — price/direction 을 별도 aggTrade WS 기반으로 분리.
+  //   · kline_1m: 1초당 1번 push → 차트 그릴 때만 사용
+  //   · aggTrade: 매 체결마다 push (초당 5-50회) → 호가창처럼 빠른 가격 깜빡 표시
+  // RAF throttle 로 60fps 까지만 setState — React 성능 + 텔레그램 WebView CPU 보호.
+  const [livePrice, setLivePrice] = useState<number | null>(null);
   const [direction, setDirection] = useState<Direction>('idle');
   const [status, setStatus] = useState<BinanceFeed['status']>('loading');
   const [stats24h, setStats24h] = useState<Stats24h | null>(null);
-  const prevCloseRef = useRef<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -144,7 +148,6 @@ export function useBinanceFeed(symbol: string = 'btcusdt', interval: string = '1
         const last = parsed[parsed.length - 1];
         if (last) {
           setTicking(last);
-          prevCloseRef.current = last.close;
         }
       } catch (err) {
         console.error('[binance] history load failed', err);
@@ -163,6 +166,7 @@ export function useBinanceFeed(symbol: string = 'btcusdt', interval: string = '1
         lastMessageAt = Date.now();
       };
 
+      // Stage 15.10 — kline 은 차트만 갱신. price/direction 은 별도 aggTrade WS 가 담당.
       ws.onmessage = (evt) => {
         lastMessageAt = Date.now();
         try {
@@ -177,13 +181,6 @@ export function useBinanceFeed(symbol: string = 'btcusdt', interval: string = '1
             close: parseFloat(k.c),
           };
           setTicking(candle);
-
-          const prev = prevCloseRef.current;
-          if (prev !== null) {
-            if (candle.close > prev) setDirection('up');
-            else if (candle.close < prev) setDirection('down');
-          }
-          prevCloseRef.current = candle.close;
         } catch (err) {
           console.error('[binance] parse error', err);
         }
@@ -276,11 +273,128 @@ export function useBinanceFeed(symbol: string = 'btcusdt', interval: string = '1
     };
   }, [symbol, interval]);
 
+  // Stage 15.10 — aggTrade WS: 매 체결마다 last trade price push. 바이낸스 앱의 호가창
+  // 같은 빠른 가격 깜빡 효과 구현. RAF throttle 로 setState 빈도를 60fps 로 cap.
+  useEffect(() => {
+    let cancelled = false;
+    let ws: WebSocket | null = null;
+    let reconnectTimer: number | null = null;
+    let backoff = 1000;
+    let lastMessageAt = Date.now();
+    let prev: number | null = null;
+    let pending: number | null = null;
+    let rafId: number | null = null;
+
+    const flush = (): void => {
+      rafId = null;
+      if (pending === null) return;
+      const p = pending;
+      pending = null;
+      setLivePrice(p);
+      if (prev !== null) {
+        if (p > prev) setDirection('up');
+        else if (p < prev) setDirection('down');
+      }
+      prev = p;
+    };
+
+    const connect = (): void => {
+      if (cancelled) return;
+      ws = new WebSocket(`${WS_BASE}/${symbol.toLowerCase()}@aggTrade`);
+
+      ws.onopen = () => {
+        backoff = 1000;
+        lastMessageAt = Date.now();
+      };
+
+      ws.onmessage = (evt) => {
+        lastMessageAt = Date.now();
+        try {
+          const data = JSON.parse(evt.data) as { e: string; p: string };
+          if (data.e !== 'aggTrade') return;
+          pending = parseFloat(data.p);
+          if (rafId === null) rafId = requestAnimationFrame(flush);
+        } catch {
+          // 다음 trade 에서 자연 복구
+        }
+      };
+
+      ws.onclose = () => {
+        if (cancelled) return;
+        reconnectTimer = window.setTimeout(() => {
+          backoff = Math.min(backoff * 2, 30_000);
+          connect();
+        }, backoff);
+      };
+    };
+
+    const onVisibility = (): void => {
+      if (cancelled) return;
+      if (document.visibilityState !== 'visible') return;
+      const isAlive =
+        ws !== null && ws.readyState === WebSocket.OPEN && Date.now() - lastMessageAt < 5_000;
+      if (isAlive) return;
+      if (ws) {
+        ws.onopen = null;
+        ws.onmessage = null;
+        ws.onerror = null;
+        ws.onclose = null;
+        ws.close();
+      }
+      if (reconnectTimer) {
+        window.clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      lastMessageAt = Date.now();
+      backoff = 1000;
+      connect();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    const staleCheckId = window.setInterval(() => {
+      if (cancelled) return;
+      if (Date.now() - lastMessageAt < 15_000) return;
+      console.warn('[binance] aggTrade feed stale > 15s, forcing reconnect');
+      if (ws) {
+        ws.onopen = null;
+        ws.onmessage = null;
+        ws.onerror = null;
+        ws.onclose = null;
+        ws.close();
+      }
+      if (reconnectTimer) {
+        window.clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      lastMessageAt = Date.now();
+      backoff = 1000;
+      connect();
+    }, 5000);
+
+    connect();
+
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.clearInterval(staleCheckId);
+      if (reconnectTimer) window.clearTimeout(reconnectTimer);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      if (ws) {
+        ws.onopen = null;
+        ws.onmessage = null;
+        ws.onerror = null;
+        ws.onclose = null;
+        ws.close();
+      }
+    };
+  }, [symbol]);
+
   return {
     symbol,
     history,
     ticking,
-    price: ticking?.close ?? null,
+    // Stage 15.10 — aggTrade 가 아직 첫 trade 받기 전엔 livePrice null → ticking.close 폴백.
+    price: livePrice ?? ticking?.close ?? null,
     direction,
     status,
     stats24h,
