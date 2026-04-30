@@ -77,12 +77,14 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
   }, [telegramUserId]);
 
   return (
+    // Stage 15.7 — 잘림 fix. main.safe-area 가 이미 위 inset 처리 → paddingTop 중첩 제거.
+    // 첫 카드 (SubscriptionStatusCard) 가 화면 상단까지 자연스럽게 올라와서 잘리지 않음.
+    // paddingBottom 은 BottomNav (65px) + 여유 (35px) = 100px 면 충분. 200 → 100 으로 절감.
     <div
-      className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto overflow-x-hidden overscroll-contain px-3"
+      className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto overflow-x-hidden overscroll-contain px-3 pt-2"
       style={{
         background: T.bg,
-        paddingTop: 'max(3rem, env(safe-area-inset-top, 0px))',
-        paddingBottom: 200,
+        paddingBottom: 'calc(100px + env(safe-area-inset-bottom, 0px))',
       }}
     >
       {/* ── 구독 상태 카드 ────────────────────────── */}
@@ -187,8 +189,6 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
         </>
       )}
 
-      {/* 물리 스페이서 */}
-      <div className="h-[150px] shrink-0 pointer-events-none" aria-hidden="true" />
     </div>
   );
 }

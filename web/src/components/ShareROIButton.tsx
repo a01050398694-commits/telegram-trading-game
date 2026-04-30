@@ -140,11 +140,19 @@ export function ShareROIButton({ position, markPrice, telegramUserId }: ShareROI
       </button>
 
       {open && (
+        // Stage 15.7 — 잘림 fix. m-auto 는 콘텐츠가 viewport 보다 클 때 위/아래로 잘림.
+        // min-h-full + justify-center 패턴: 짧으면 가운데, 길면 위에서부터 자연 스크롤.
         <div
-          className="fixed inset-0 z-50 flex flex-col overflow-y-auto overscroll-contain bg-black/80 px-3 backdrop-blur-sm"
+          className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-black/80 backdrop-blur-sm"
           onClick={handleClose}
         >
-          <div className="m-auto flex w-full flex-col items-center gap-3" style={{ padding: 'max(2rem, env(safe-area-inset-top, 0px)) 0 max(2rem, env(safe-area-inset-bottom, 0px))' }}>
+          <div
+            className="flex min-h-full w-full flex-col items-center justify-center gap-3 px-3"
+            style={{
+              paddingTop: 'max(1.5rem, env(safe-area-inset-top, 0px))',
+              paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 0px))',
+            }}
+          >
           <div
             ref={cardRef}
             onClick={(e) => e.stopPropagation()}
@@ -258,12 +266,19 @@ export function ShareROIButton({ position, markPrice, telegramUserId }: ShareROI
       )}
 
       {/* Stage 8.4 — 데스크톱 최종 폴백: 이미지 직접 표시 + 우클릭 유도 모달. */}
+      {/* Stage 15.7 — 잘림 fix. m-auto → min-h-full + justify-center 으로 변경. */}
       {manualSaveSrc && (
         <div
-          className="fixed inset-0 z-[60] flex flex-col overflow-y-auto overscroll-contain bg-black/90 px-3 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] overflow-y-auto overscroll-contain bg-black/90 backdrop-blur-sm"
           onClick={closeManualSave}
         >
-          <div className="m-auto flex w-full flex-col items-center gap-3" style={{ padding: 'max(2rem, env(safe-area-inset-top, 0px)) 0 max(2rem, env(safe-area-inset-bottom, 0px))' }}>
+          <div
+            className="flex min-h-full w-full flex-col items-center justify-center gap-3 px-3"
+            style={{
+              paddingTop: 'max(1.5rem, env(safe-area-inset-top, 0px))',
+              paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 0px))',
+            }}
+          >
           <div
             onClick={(e) => e.stopPropagation()}
             className="flex w-full max-w-[360px] flex-col gap-3"

@@ -90,12 +90,17 @@ export function PortfolioTab({ telegramUserId, status }: PortfolioTabProps) {
   const equityGlow = ''; // Stage 8.12: Android drop-shadow vanishing bug fix
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto overscroll-contain px-3" style={{ paddingBottom: 200 }}>
+    // Stage 15.7 — 잘림 fix. paddingBottom 200 → BottomNav (65px) + 여유 (35px) 로 절감.
+    // 마지막 RechargeCard / 히스토리 카드가 BottomNav 뒤로 사라지지 않게 충분한 여유 + safe-area inset.
+    <div
+      className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto overscroll-contain px-3 pt-2"
+      style={{ paddingBottom: 'calc(100px + env(safe-area-inset-bottom, 0px))' }}
+    >
       {/* ── MASSIVE HERO TEXT (CARDLESS) ──────────────────
           Stage 8.16 — 박스/카드/border/backdrop-blur/그라디언트 전면 파기.
           안드로이드 WebView 의 카드 렌더링 버그(높이 collapse, 하단 증발)를 원천 차단하려면
           컨테이너 자체를 없애는 것이 가장 안전. 텍스트 하나만 화면 상단 정중앙에 전면 배치. */}
-      <div className="mt-8 flex flex-col items-center justify-center pb-6">
+      <div className="mt-3 flex flex-col items-center justify-center pb-4">
         <div className="flex items-center gap-2">
           <span className="text-[11px] font-bold uppercase tracking-[0.4em] text-slate-400">
             {t('portfolio.totalEquity')}
@@ -234,8 +239,6 @@ export function PortfolioTab({ telegramUserId, status }: PortfolioTabProps) {
         </div>
       </div>
 
-      {/* Stage 8.9 — 물리 스페이서. pb-[150px] collapse 방지. */}
-      <div className="h-[150px] shrink-0 pointer-events-none" aria-hidden="true" />
     </div>
   );
 }

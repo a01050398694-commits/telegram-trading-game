@@ -205,10 +205,17 @@ export function useBinanceFeed(symbol: string = 'btcusdt', interval: string = '1
 
     // Stage 15.5 — Telegram WebView 가 background 갔다 복귀할 때 ws 끊긴 채 timer 가
     // throttle/suspend 돼 가격이 정지하는 사고 방지. visibility visible 시 즉시 재연결.
+    // Stage 15.7 — '좀비 WS' 회피. Telegram WebView 는 background 에서 socket 을 silently kill
+    // 하는데 readyState 는 1(OPEN) 그대로 남는 사고가 빈번. readyState 만 보고 skip 하면
+    // 영원히 정지. lastMessageAt 가 5s 이상 stale 이면 좀비로 판단해 강제 재연결.
     const onVisibility = (): void => {
       if (cancelled) return;
       if (document.visibilityState !== 'visible') return;
-      if (ws && ws.readyState === WebSocket.OPEN) return;
+      const isAlive =
+        ws !== null &&
+        ws.readyState === WebSocket.OPEN &&
+        Date.now() - lastMessageAt < 5_000;
+      if (isAlive) return;
 
       if (ws) {
         ws.onopen = null;

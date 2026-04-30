@@ -311,8 +311,9 @@ function TierButton({ selected, credit, price, onClick, liquidated, badge }: Tie
           </svg>
         </span>
       )}
+      {/* Stage 15.7 — 좁은 모바일 (~360px) 에서 '+$10,000' 잘림 방지: 15px → 13px tracking-tight. */}
       <div
-        className={`font-mono text-[15px] font-black tabular-nums leading-none ${
+        className={`font-mono text-[13px] font-black tabular-nums leading-none tracking-tight ${
           selected
             ? liquidated
               ? 'text-amber-100'
