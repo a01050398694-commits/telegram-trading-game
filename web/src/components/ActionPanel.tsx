@@ -6,6 +6,7 @@ import {
   distanceToLiquidation,
   calcPnl,
 } from '../lib/format';
+import type { Direction } from '../lib/useBinanceFeed';
 import { hapticImpact, hapticSelection } from '../utils/telegram';
 
 export type Side = 'long' | 'short';
@@ -20,6 +21,8 @@ export type Position = {
 type ActionPanelProps = {
   position: Position | null;
   markPrice: number | null;
+  // Stage 15.9 — 라이브 mark price 변동 색깔/화살표용. ws tick 마다 up/down/idle 전환.
+  direction?: Direction;
   balance: number;
   pending?: boolean;
   errorMessage?: string | null;
@@ -36,6 +39,7 @@ const SIZE_PRESETS = [25, 50, 75, 100] as const;
 export function ActionPanel({
   position,
   markPrice,
+  direction = 'idle',
   balance,
   pending = false,
   errorMessage = null,
@@ -75,20 +79,48 @@ export function ActionPanel({
     const dangerClass =
       dist < 5 ? 'text-rose-400' : dist < 15 ? 'text-amber-400' : 'text-slate-300';
 
+    // Stage 15.9 — 포지션 카드 디자인 업그레이드 + 라이브 Mark Price 표시.
+    // 사용자가 가격 변동을 즉시 인지하도록 큰 글씨 + 변동 색깔 (▲▼) + LIVE pulse dot.
+    const markColor =
+      direction === 'up'
+        ? 'text-emerald-400'
+        : direction === 'down'
+          ? 'text-rose-400'
+          : 'text-white';
+    const arrow = direction === 'up' ? '▲' : direction === 'down' ? '▼' : '';
+
     return (
       <div className="w-full space-y-2">
-        <div className="rounded-xl border border-white/5 bg-slate-900/80 p-3">
+        <div className="rounded-xl border border-white/5 bg-gradient-to-b from-slate-900/95 to-slate-900/80 p-3.5 shadow-lg shadow-black/30">
+          {/* ── 헤더: side badge + Entry ── */}
           <div className="flex items-center justify-between">
             <span
               className={`rounded-md border px-2 py-0.5 text-[11px] font-black uppercase tracking-widest ${sideBg}`}
             >
               {position.side} · {position.leverage}x
             </span>
-            <span className="font-mono text-xs font-bold tabular-nums text-white/50">
+            <span className="font-mono text-[11px] font-bold tabular-nums text-white/50">
               Entry ${formatUSD(position.entryPrice)}
             </span>
           </div>
 
+          {/* ── Mark Price 라이브 — 가장 큰 글씨, 매 tick 마다 색깔 깜빡 ── */}
+          <div className="mt-3 flex items-baseline justify-between border-y border-white/5 py-2.5">
+            <div className="flex items-center gap-1.5">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" aria-hidden="true" />
+              <span className="text-[9px] font-black uppercase tracking-[0.25em] text-white/40">
+                Mark
+              </span>
+            </div>
+            <div
+              className={`font-mono text-2xl font-black tabular-nums leading-none transition-colors duration-150 ${markColor}`}
+            >
+              ${formatUSD(markPrice)}
+              {arrow && <span className="ml-1.5 text-base">{arrow}</span>}
+            </div>
+          </div>
+
+          {/* ── PnL + Liq Price 그리드 ── */}
           <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-[11px]">
             <div>
               <div className="text-[9px] font-black uppercase tracking-[0.25em] text-white/40">PnL</div>

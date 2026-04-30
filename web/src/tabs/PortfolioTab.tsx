@@ -61,7 +61,9 @@ export function PortfolioTab({ telegramUserId, status }: PortfolioTabProps) {
   const winningCount = history.reduce((n, h) => (h.pnl > 0 ? n + 1 : n), 0);
   const winRate = totalTrades > 0 ? (winningCount / totalTrades) * 100 : 0;
 
-  const livePrice = useLivePrice(position?.symbol.toLowerCase() ?? 'btcusdt');
+  const live = useLiveFeed(position?.symbol.toLowerCase() ?? 'btcusdt');
+  const livePrice = live.price;
+  const liveDirection = live.direction;
   const showShare = position !== null;
   const sharePosition = position
     ? {
@@ -198,7 +200,12 @@ export function PortfolioTab({ telegramUserId, status }: PortfolioTabProps) {
           )}
         </div>
         {position ? (
-          <OpenPositionRow pos={position} livePnl={livePnl} />
+          <OpenPositionRow
+            pos={position}
+            livePnl={livePnl}
+            livePrice={livePrice}
+            direction={liveDirection}
+          />
         ) : (
           <div className="py-5 text-center text-[11px] text-slate-500">{t('portfolio.noOpen')}</div>
         )}
@@ -266,47 +273,80 @@ function StatCell({
   );
 }
 
+// Stage 15.9 — 포지션 행 디자인 업그레이드. Mark Price 큰 글씨 + 매 tick 색깔/화살표
+// 변동(▲▼) 으로 사용자가 가격 라이브 인지. Entry/PnL/Mark 3계층 정보 구조.
 function OpenPositionRow({
   pos,
   livePnl,
+  livePrice,
+  direction,
 }: {
   pos: NonNullable<UserStatus['position']>;
   livePnl: number;
+  livePrice: number | null;
+  direction: 'up' | 'down' | 'idle';
 }) {
   const m = getMarket(pos.symbol);
   const sideColor = pos.side === 'long' ? 'text-emerald-400' : 'text-rose-400';
   const pnlColor =
     livePnl > 0 ? 'text-emerald-400' : livePnl < 0 ? 'text-rose-400' : 'text-slate-400';
+  const markColor =
+    direction === 'up' ? 'text-emerald-400' : direction === 'down' ? 'text-rose-400' : 'text-white';
+  const arrow = direction === 'up' ? '▲' : direction === 'down' ? '▼' : '';
+
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-3">
-        <span
-          className={`inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-slate-800/80 text-sm ${m.color}`}
-        >
-          {m.icon}
-        </span>
-        <div className="leading-tight">
-          <div className="font-mono text-sm font-bold text-white">{m.display}</div>
-          <div className={`text-[10px] font-bold uppercase tracking-wider ${sideColor}`}>
-            {pos.side} · {pos.leverage}x
+    <div className="space-y-3">
+      {/* ── 상단: 심볼 + side · leverage ── */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span
+            className={`inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-slate-800/80 text-sm ${m.color}`}
+          >
+            {m.icon}
+          </span>
+          <div className="leading-tight">
+            <div className="font-mono text-sm font-bold text-white">{m.display}</div>
+            <div className={`text-[10px] font-bold uppercase tracking-wider ${sideColor}`}>
+              {pos.side} · {pos.leverage}x
+            </div>
           </div>
         </div>
+        <div className="font-mono text-[11px] font-bold tabular-nums text-white/50">
+          Entry ${formatUSD(pos.entryPrice)}
+        </div>
       </div>
-      <div className="text-right">
-        <div className={`font-mono text-sm font-bold tabular-nums ${pnlColor}`}>
+
+      {/* ── Mark Price 라이브 — 큰 폰트, 매 tick 색깔 깜빡 ── */}
+      <div className="flex items-baseline justify-between border-y border-white/5 py-2.5">
+        <div className="flex items-center gap-1.5">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" aria-hidden="true" />
+          <span className="text-[9px] font-black uppercase tracking-[0.25em] text-white/40">Mark</span>
+        </div>
+        <div
+          className={`font-mono text-2xl font-black tabular-nums leading-none transition-colors duration-150 ${markColor}`}
+        >
+          ${livePrice !== null ? formatUSD(livePrice) : '--'}
+          {arrow && <span className="ml-1.5 text-base">{arrow}</span>}
+        </div>
+      </div>
+
+      {/* ── PnL ── */}
+      <div className="flex items-center justify-between">
+        <span className="text-[9px] font-black uppercase tracking-[0.25em] text-white/40">PnL</span>
+        <div className={`font-mono text-base font-black tabular-nums ${pnlColor}`}>
           {livePnl > 0 ? '+' : ''}
           {formatMoney(livePnl)}
         </div>
-        <div className="font-mono text-[10px] text-white/40">Entry ${formatUSD(pos.entryPrice)}</div>
       </div>
     </div>
   );
 }
 
-// Stage 7.5 — 포트폴리오 탭 전용 가벼운 실시간 가격 구독자.
-function useLivePrice(symbol: string): number | null {
+// Stage 15.9 — 포트폴리오 탭 전용 라이브 feed (price + direction). direction 으로 OpenPositionRow
+// 의 mark price 화살표/색상 깜빡 효과 구동.
+function useLiveFeed(symbol: string) {
   const feed = useBinanceFeed(symbol, '1m');
-  return feed.price;
+  return { price: feed.price, direction: feed.direction };
 }
 
 function HistoryRow({ row }: { row: HistoryEntry }) {

@@ -205,6 +205,7 @@ export function TradeTab({
         <ActionPanel
           position={positionForPanel}
           markPrice={feed.price}
+          direction={feed.direction}
           balance={balance}
           pending={tradePending}
           errorMessage={panelError}
