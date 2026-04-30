@@ -273,8 +273,10 @@ export function useBinanceFeed(symbol: string = 'btcusdt', interval: string = '1
     };
   }, [symbol, interval]);
 
-  // Stage 15.10 — aggTrade WS: 매 체결마다 last trade price push. 바이낸스 앱의 호가창
+  // Stage 15.10 — trade WS: 매 체결마다 last trade price push. 바이낸스 앱의 호가창
   // 같은 빠른 가격 깜빡 효과 구현. RAF throttle 로 setState 빈도를 60fps 로 cap.
+  // Stage 15.11 — @aggTrade 는 fstream 에서 handshake 만 통과하고 데이터 0 — '@trade' 만
+  // 정상 동작 (실측 BTC 12msg/s). 단순 trade stream 으로 전환.
   useEffect(() => {
     let cancelled = false;
     let ws: WebSocket | null = null;
@@ -300,7 +302,7 @@ export function useBinanceFeed(symbol: string = 'btcusdt', interval: string = '1
 
     const connect = (): void => {
       if (cancelled) return;
-      ws = new WebSocket(`${WS_BASE}/${symbol.toLowerCase()}@aggTrade`);
+      ws = new WebSocket(`${WS_BASE}/${symbol.toLowerCase()}@trade`);
 
       ws.onopen = () => {
         backoff = 1000;
@@ -311,7 +313,7 @@ export function useBinanceFeed(symbol: string = 'btcusdt', interval: string = '1
         lastMessageAt = Date.now();
         try {
           const data = JSON.parse(evt.data) as { e: string; p: string };
-          if (data.e !== 'aggTrade') return;
+          if (data.e !== 'trade') return;
           pending = parseFloat(data.p);
           if (rafId === null) rafId = requestAnimationFrame(flush);
         } catch {
@@ -354,7 +356,7 @@ export function useBinanceFeed(symbol: string = 'btcusdt', interval: string = '1
     const staleCheckId = window.setInterval(() => {
       if (cancelled) return;
       if (Date.now() - lastMessageAt < 15_000) return;
-      console.warn('[binance] aggTrade feed stale > 15s, forcing reconnect');
+      console.warn('[binance] trade feed stale > 15s, forcing reconnect');
       if (ws) {
         ws.onopen = null;
         ws.onmessage = null;
