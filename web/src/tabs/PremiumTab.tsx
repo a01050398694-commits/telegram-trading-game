@@ -78,8 +78,12 @@ export function PremiumTab({ telegramUserId, status }: PremiumTabProps) {
 
   return (
     <div
-      className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto overflow-x-hidden overscroll-contain px-3 pb-[200px] pt-[max(3rem,env(safe-area-inset-top,0px))]"
-      style={{ background: T.bg }}
+      className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto overflow-x-hidden overscroll-contain px-3"
+      style={{
+        background: T.bg,
+        paddingTop: 'max(3rem, env(safe-area-inset-top, 0px))',
+        paddingBottom: 200,
+      }}
     >
       {/* ── 구독 상태 카드 ────────────────────────── */}
       <SubscriptionStatusCard isPremium={isPremium} />

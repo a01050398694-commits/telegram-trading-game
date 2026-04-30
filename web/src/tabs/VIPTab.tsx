@@ -103,7 +103,7 @@ export function VIPTab({ status }: { status?: UserStatus | null }) {
 
   return (
     // Stage 8.4 — 하단 BottomNav 에 Top 10 리스트가 잘리는 문제. pb-40 로 충분한 여백 확보.
-    <div className="relative flex h-full flex-col gap-3 overflow-y-auto pb-[150px]">
+    <div className="relative flex h-full flex-col gap-3 overflow-y-auto" style={{ paddingBottom: 150 }}>
       {/* Ambient gold glow behind everything */}
       <div className="pointer-events-none fixed top-10 left-1/2 -z-10 h-[200px] w-[200px] -translate-x-1/2 rounded-full bg-amber-400/20 blur-[80px]" />
 
