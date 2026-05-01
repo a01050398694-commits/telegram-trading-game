@@ -23,12 +23,18 @@ import { LandingPage } from './components/landing/LandingPage';
 
 const STATUS_POLL_MS = 2000;
 
-// Telegram WebApp injects window.Telegram synchronously via the script in index.html,
-// so this check is reliable at first render. ?play=1 forces the Mini App view for QA.
-// Determined once and never changes across re-renders → safe to gate hooks below.
+// The Telegram SDK script injects `window.Telegram.WebApp` in every page that
+// includes it — including regular browsers. The only reliable signal that we are
+// actually inside the Telegram client is a non-empty `initData` payload (the
+// signed launch parameters Telegram passes to the WebApp). In a normal browser
+// it is "" so SHOULD_SHOW_LANDING resolves to true.
+//
+// ?play=1 bypasses to the Mini App for QA. ?legal=... routes legal modals.
+// Computed once at module load → consistent across all re-renders.
 const SHOULD_SHOW_LANDING = (() => {
   if (typeof window === 'undefined') return false;
-  if (window.Telegram?.WebApp) return false;
+  const initData = window.Telegram?.WebApp?.initData;
+  if (initData && initData.length > 0) return false;
   const params = new URLSearchParams(window.location.search);
   if (params.get('play') === '1') return false;
   if (params.get('legal')) return false;
