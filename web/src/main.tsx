@@ -10,9 +10,10 @@ import ErrorBoundary from './components/ErrorBoundary';
 // Stage 16.1 — Init Sentry for error tracking (only if DSN configured)
 initSentry();
 
-// Stage 16.2 — Production verification trigger (TEMPORARY).
-// Open `?debug=sentry` once in production to confirm Sentry receives events.
-// Remove this block after the test event appears in Sentry Issues panel.
+// Stage 16.2 — Production verification triggers (TEMPORARY).
+//   ?debug=sentry → fires Sentry test event (verifies DSN end-to-end)
+//   ?debug=throw  → throws in render so ErrorBoundary fallback UI shows + Sentry catches
+// Both must be removed once Sentry Issues confirms receipt.
 if (typeof window !== 'undefined') {
   const params = new URL(window.location.href).searchParams;
   if (params.get('debug') === 'sentry') {
@@ -48,13 +49,28 @@ if (typeof document !== 'undefined') {
   );
 }
 
+// Stage 16.2 — ErrorBoundary verification trigger (TEMPORARY).
+// Wrapping App with this throws once during render when `?debug=throw` is set,
+// allowing Playwright + manual QA to confirm fallback UI appears AND Sentry captures.
+function DebugThrowGate({ children }: { children: React.ReactNode }) {
+  if (typeof window !== 'undefined') {
+    const params = new URL(window.location.href).searchParams;
+    if (params.get('debug') === 'throw') {
+      throw new Error('[errorboundary-verify] forced render-time error — safe to ignore');
+    }
+  }
+  return <>{children}</>;
+}
+
 const rootEl = document.getElementById('root');
 if (!rootEl) throw new Error('Root element #root not found');
 
 createRoot(rootEl).render(
   <StrictMode>
     <ErrorBoundary>
-      <App />
+      <DebugThrowGate>
+        <App />
+      </DebugThrowGate>
     </ErrorBoundary>
   </StrictMode>,
 );
