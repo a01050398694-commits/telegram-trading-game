@@ -27,6 +27,7 @@ import { useTranslation } from 'react-i18next';
 import { hapticImpact, hapticSelection, openTelegramLinkSafe } from '../utils/telegram';
 import { setLegalPage, type LegalPageKey } from '../lib/legalRoute';
 import { usePaymentPolling } from '../hooks/usePaymentPolling';
+import { track } from '../lib/analytics';
 
 type Tier = '1k' | '5k' | '10k';
 
@@ -94,6 +95,7 @@ export function RechargeCard({ telegramUserId, onPaid, variant = 'idle' }: Recha
     setPending(true);
     setErrorMessage(null);
     paymentPolling.startPayment();
+    track('premium_cta_clicked', { method: payMethod, source: 'recharge_card', tier: selectedTier });
     try {
       openTelegramLinkSafe(url);
     } catch (err) {

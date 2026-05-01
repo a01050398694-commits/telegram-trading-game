@@ -19,6 +19,7 @@ import {
   openTrade,
   type UserStatus,
 } from '../lib/api';
+import { track } from '../lib/analytics';
 
 const INVITEMEMBER_RECHARGE_1K_URL =
   import.meta.env.VITE_INVITEMEMBER_RECHARGE_1K_URL ??
@@ -99,9 +100,10 @@ export function TradeTab({
   useEffect(() => {
     if (!prevLiqRef.current && isLiquidated) {
       hapticNotification('error');
+      track('liquidated', { symbol });
     }
     prevLiqRef.current = isLiquidated;
-  }, [isLiquidated]);
+  }, [isLiquidated, symbol]);
 
   const handleOpen = async ({
     side,
@@ -122,6 +124,7 @@ export function TradeTab({
       await openTrade({ telegramUserId, symbol, side, size, leverage, fallbackPrice: feed.price ?? 0 });
       await refresh();
       hapticNotification('success');
+      track('trade_opened', { symbol, side, size, leverage });
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : (err as Error).message;
       setTradeError(msg);
@@ -139,6 +142,7 @@ export function TradeTab({
       await closeTrade(telegramUserId, serverPosition.id, feed.price ?? 0);
       await refresh();
       hapticNotification('success');
+      track('trade_closed', { symbol, pnl: Math.round(livePnl) });
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : (err as Error).message;
       setTradeError(msg);

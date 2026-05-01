@@ -3,6 +3,7 @@ import html2canvas from 'html2canvas';
 import { getMarket } from '../lib/markets';
 import { formatUSD, calcPnl } from '../lib/format';
 import { hapticImpact, hapticNotification, shareROI, type ShareResult } from '../utils/telegram';
+import { track } from '../lib/analytics';
 
 // Stage 8.4 — Desktop Ultimate Fallback: clipboard image + manual-save modal.
 // ShareROIButton 은 3개 모달 상태를 관리한다:
@@ -102,6 +103,7 @@ export function ShareROIButton({ position, markPrice, telegramUserId }: ShareROI
       blob,
       filename: `roi-${market.ticker}-${Date.now()}.png`,
     });
+    track('rank_card_shared', { source: 'roi', symbol: market.ticker, result });
 
     if (result === 'navigator-share') {
       setResultMsg('✅ 이미지 공유 창 열림.');

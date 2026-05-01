@@ -3,6 +3,7 @@ import html2canvas from 'html2canvas';
 import { formatMoney } from '../lib/format';
 import { hapticImpact, hapticNotification, shareROI, type ShareResult } from '../utils/telegram';
 import { useTranslation } from 'react-i18next';
+import { track } from '../lib/analytics';
 
 const BOT_USERNAME = (import.meta.env.VITE_BOT_USERNAME as string | undefined)?.trim() || 'your_bot';
 const BOT_DEEP_LINK = `https://t.me/${BOT_USERNAME}`;
@@ -70,6 +71,7 @@ export function SharePortfolioButton({ equity, winRate, totalTrades, telegramUse
       blob,
       filename: `portfolio-${Date.now()}.png`,
     });
+    track('rank_card_shared', { source: 'portfolio', result });
 
     if (result === 'navigator-share') {
       setResultMsg('✅ 이미지 공유 창 열림.');

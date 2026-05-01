@@ -16,6 +16,7 @@ import { ANALYTICS_TOKENS as T } from '../../styles/tokens';
 import { hapticImpact, openTelegramLinkSafe } from '../../utils/telegram';
 import { setLegalPage, type LegalPageKey } from '../../lib/legalRoute';
 import { usePaymentPolling } from '../../hooks/usePaymentPolling';
+import { track } from '../../lib/analytics';
 
 const INVITEMEMBER_PREMIUM_URL = import.meta.env.VITE_INVITEMEMBER_PREMIUM_URL ?? '';
 // Stars 결제 전용 별도 plan (env 비면 토글 숨김 + PayPal 단독)
@@ -56,6 +57,7 @@ export function PricingCard({ telegramUserId, onPaid }: PricingCardProps) {
     setPending(true);
     setErrorMessage(null);
     paymentPolling.startPayment();
+    track('premium_cta_clicked', { method: payMethod, source: 'pricing_card' });
     try {
       openTelegramLinkSafe(url);
     } catch (err) {
