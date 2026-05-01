@@ -3,26 +3,11 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import './index.css';
 import './lib/i18n';
-import * as Sentry from '@sentry/react';
 import { initSentry } from './lib/sentry';
 import ErrorBoundary from './components/ErrorBoundary';
 
 // Stage 16.1 — Init Sentry for error tracking (only if DSN configured)
 initSentry();
-
-// Stage 16.2 — Production verification triggers (TEMPORARY).
-//   ?debug=sentry → fires Sentry test event (verifies DSN end-to-end)
-//   ?debug=throw  → throws in render so ErrorBoundary fallback UI shows + Sentry catches
-// Both must be removed once Sentry Issues confirms receipt.
-if (typeof window !== 'undefined') {
-  const params = new URL(window.location.href).searchParams;
-  if (params.get('debug') === 'sentry') {
-    Sentry.captureException(
-      new Error('[sentry-verify] web production trigger — safe to ignore'),
-    );
-    console.log('[sentry-verify] event sent. Check sentry.io → Issues.');
-  }
-}
 
 // Stage 8.6 — 핀치줌 JS 레이어 차단.
 // iOS Safari 는 viewport meta 의 user-scalable=no 를 접근성 이유로 무시하는 경우가 있다.
@@ -49,28 +34,13 @@ if (typeof document !== 'undefined') {
   );
 }
 
-// Stage 16.2 — ErrorBoundary verification trigger (TEMPORARY).
-// Wrapping App with this throws once during render when `?debug=throw` is set,
-// allowing Playwright + manual QA to confirm fallback UI appears AND Sentry captures.
-function DebugThrowGate({ children }: { children: React.ReactNode }) {
-  if (typeof window !== 'undefined') {
-    const params = new URL(window.location.href).searchParams;
-    if (params.get('debug') === 'throw') {
-      throw new Error('[errorboundary-verify] forced render-time error — safe to ignore');
-    }
-  }
-  return <>{children}</>;
-}
-
 const rootEl = document.getElementById('root');
 if (!rootEl) throw new Error('Root element #root not found');
 
 createRoot(rootEl).render(
   <StrictMode>
     <ErrorBoundary>
-      <DebugThrowGate>
-        <App />
-      </DebugThrowGate>
+      <App />
     </ErrorBoundary>
   </StrictMode>,
 );
