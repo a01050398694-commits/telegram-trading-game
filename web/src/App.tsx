@@ -14,6 +14,7 @@ import { TermsPage } from './components/legal/TermsPage';
 import { PrivacyPage } from './components/legal/PrivacyPage';
 import { RefundPage } from './components/legal/RefundPage';
 import { DemoBadge } from './components/DemoBadge';
+import { LandingPage } from './components/landing/LandingPage';
 
 // Stage 6: 4-탭 멀티 스크린 쉘.
 // - App 은 탭 라우팅 + 공통 상태(status 폴링)만 담당
@@ -22,7 +23,24 @@ import { DemoBadge } from './components/DemoBadge';
 
 const STATUS_POLL_MS = 2000;
 
+// Telegram WebApp injects window.Telegram synchronously via the script in index.html,
+// so this check is reliable at first render. ?play=1 forces the Mini App view for QA.
+// Determined once and never changes across re-renders → safe to gate hooks below.
+const SHOULD_SHOW_LANDING = (() => {
+  if (typeof window === 'undefined') return false;
+  if (window.Telegram?.WebApp) return false;
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('play') === '1') return false;
+  if (params.get('legal')) return false;
+  return true;
+})();
+
 export default function App() {
+  // Browser visitor (no Telegram context) → SEO landing. Decided synchronously above.
+  if (SHOULD_SHOW_LANDING) {
+    return <LandingPage />;
+  }
+
   const { user, isInsideTelegram } = useTelegram();
   const [tab, setTab] = useState<TabKey>('trade');
   const [status, setStatus] = useState<UserStatus | null>(null);

@@ -354,5 +354,94 @@
     "fullTitle": "Paper Trading Education Platform",
     "fullBody": "Learn trading skills with virtual funds, not real money. This is an educational simulator, not gambling, with no real financial risk.",
     "dismiss": "Got It"
+  },
+  "landing": {
+    "hero": {
+      "badge": "Free · No Signup · Inside Telegram",
+      "title": "Practice crypto futures with $10,000 virtual USD.",
+      "subtitle": "Real Binance prices. Up to 125x leverage. Zero financial risk. Climb the global leaderboard inside Telegram.",
+      "cta": "Open in Telegram",
+      "ctaHint": "Free · No download · Opens @Tradergames_bot"
+    },
+    "features": {
+      "title": "Why Trader Games",
+      "realtime": {
+        "title": "Real Binance prices",
+        "desc": "Live spot + futures feed. The chart you trade against is the same one pros watch."
+      },
+      "leaderboard": {
+        "title": "Global leaderboard",
+        "desc": "Compete daily, weekly, monthly. Climb past thousands of paper traders worldwide."
+      },
+      "risk": {
+        "title": "Zero financial risk",
+        "desc": "Virtual money only. Educational simulator, not real trading. No deposits, no losses."
+      },
+      "instant": {
+        "title": "Instant start",
+        "desc": "One tap inside Telegram. No app install, no email, no KYC. Just open and trade."
+      },
+      "i18n": {
+        "title": "6 languages",
+        "desc": "English, Korean, Vietnamese, Turkish, Russian, Indonesian. Auto-detected on first open."
+      },
+      "learn": {
+        "title": "Learn safely",
+        "desc": "Mistakes here cost you nothing. Build intuition before risking a single real dollar."
+      }
+    },
+    "how": {
+      "title": "How it works",
+      "step1": {
+        "title": "Open the bot",
+        "desc": "Tap the button below. Telegram opens @Tradergames_bot in one second."
+      },
+      "step2": {
+        "title": "Get $10K",
+        "desc": "Daily virtual seed appears in your wallet. No card, no email."
+      },
+      "step3": {
+        "title": "Trade & climb",
+        "desc": "Long, short, leverage up to 125x. Climb the leaderboard, share your ROI."
+      }
+    },
+    "faq": {
+      "title": "FAQ",
+      "cost": {
+        "q": "Is it really free?",
+        "a": "Yes. The game itself is free with $10,000 daily virtual seed. Optional Premium analytics ($39.99/month) and recharge packs are paid, but never required to play."
+      },
+      "real": {
+        "q": "Is this real money?",
+        "a": "No. This is paper trading. All P&L is virtual USD. Nothing connects to a real exchange and no real funds change hands."
+      },
+      "experience": {
+        "q": "Do I need trading experience?",
+        "a": "No. Many users open their first long/short here. Mistakes here are free — that is the point."
+      },
+      "install": {
+        "q": "Do I need to install anything?",
+        "a": "No. It runs inside the Telegram app you already have. There is no separate download."
+      },
+      "data": {
+        "q": "Where do prices come from?",
+        "a": "Live Binance public feed (spot + futures). The same chart professionals watch."
+      },
+      "leverage": {
+        "q": "What leverage is available?",
+        "a": "1x to 125x, just like a real perpetual futures exchange. Liquidation is enforced — virtually."
+      }
+    },
+    "finalCta": {
+      "title": "Ready to trade — risk-free?",
+      "subtitle": "$10,000 virtual seed. One tap. Inside Telegram.",
+      "cta": "Start Now"
+    },
+    "footer": {
+      "terms": "Terms",
+      "privacy": "Privacy",
+      "refund": "Refund Policy",
+      "disclaimer": "Educational paper-trading simulator. Virtual currency only. Not financial advice. Not gambling. 18+."
+    }
   }
 }
