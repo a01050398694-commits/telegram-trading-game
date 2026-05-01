@@ -1,6 +1,153 @@
 # PROGRESS
 
-## Latest Session — 2026-04-28 (Antigravity 인수인계 · 전체 정상화)
+## Latest Session — 2026-05-01 LATE (Stage 15.5 인프라 완성 · 출시 가능 상태)
+
+### 결론
+**4 Phase (A→D) 풀 자동 처리 + 사용자 실기기 테스트 통과 → 결제 받을 수 있는 상태로 LIVE.**
+
+### 인프라 (LIVE)
+- **Bot**: Render `https://telegram-trading-bot-o9r7.onrender.com` (auto-deploy on `main` push, `numInstances:1`, polling)
+- **미니앱**: Vercel `https://telegram-trading-game.vercel.app` (auto-deploy on `main` push, `VITE_API_URL` → Render)
+- **DB**: Supabase `jvigsfcrlrmsdbdpnayr` (Stage 15.3 + 15.6 + 15.7 마이그레이션 적용 완료)
+- **결제**: InviteMember 8 plans (PayPal USD 4 + Stars 4, BEST VALUE r5K POPULAR)
+- **채널**: Premium / Recharge 1K / 5K / 10K 4채널 분리 + 봇 admin
+- **봇**: `@Tradergames_bot` Allow Groups ON, Mini App enabled
+
+### Phase A — 백엔드 안전망 ✅ (commit `f5fe80d`)
+- `render.yaml`: numInstances:1, DAILY_ALLOWANCE 10000 (Stage 15.1 정정), INITIAL_SEED_USD/LOCK_MODE_DURATION_MINUTES 기본값, InviteMember 채널 4개 sync:false
+- migration 09 `payment_events` (event_id UNIQUE) — chat_member retry 1차 가드
+- migration 10 atomic RPC `open_position_atomic` / `close_position_atomic` (FOR UPDATE 잠금 + 트랜잭션)
+- `recordPaymentEvent()` helper (`upsert + ignoreDuplicates` — 진짜 ON CONFLICT DO NOTHING RETURNING)
+- deterministic chargeId = `invitemember:${chatId}:${tgUserId}:${update.date}` (Date.now() 비결정성 제거)
+- openPosition/closePosition → RPC 호출, optimistic lock + 수동 롤백 제거
+
+### Phase B — 프론트 안전망 ✅ (commit `fefc62a`)
+- `@sentry/react` 설치, `web/src/lib/sentry.ts` (VITE_SENTRY_DSN 가드, PII scrub)
+- `ErrorBoundary` class component → main.tsx 에서 `<App />` 감싸기
+- i18n trade.* 키 6 locale (markPrice / pnl / liquidationPrice / margin / notional / live)
+- 결제 에러 메시지 다국어 (errors.* 키, 다음 액션 명시)
+
+### Phase C — 법적 + 결제 UX ✅ (commit `c8ee015`)
+- `?legal=terms|privacy|refund` URL param 모달 라우팅 (`web/src/lib/legalRoute.ts`)
+- 3 페이지: TermsPage / PrivacyPage / RefundPage (각 4-6 섹션, 한국법 customize)
+- `BusinessInfo` (회사명 "Trading Academy" + [추후 등록 예정] placeholder)
+- `RechargeCard` / `PricingCard` 동의 체크박스 + 결제 disabled 가드
+- `DemoBadge` (Header compact pill + Onboarding 1회 full overlay)
+- `AppFooter` SettingsModal 하단 마운트
+- `usePaymentPolling` hook (5s polling + 10분 timeout, balance/isPremium 변화 감지 → toast)
+
+### Phase D — 디자인 업그레이드 ✅ (commit `df5c5a6`)
+- `web/src/styles/tokens.{ts,css}` (3-단계 surface, accent emerald/rose/gold/violet/warning, 2-layer luxury shadow, motion easing)
+- `docs/design/card-tone-guide.md` 4탭 일관 가이드 + Anti-patterns
+- 4탭 토큰화: TradeTab/PortfolioTab/VIPTab + 자식 카드들 (PremiumTab 은 점진 마이그레이션)
+- BottomNav lucide-react SVG (TrendingUp/Briefcase/GraduationCap/BookOpen) — 안드로이드 emoji vanishing 차단
+- App.tsx max-w 중앙정렬 + framer-motion AnimatePresence 페이지 전환
+
+### 검증 (browser-verifier 가드 4개 PASS)
+- 가드 1 (4탭 잘림): Trade 125-316px / Portfolio 82-752px / VIP 84-752px / Academy 82-452px (collapse 0)
+- 가드 2 (PricingCard inline gold gradient): 보존
+- 가드 3 (ActionPanel Mark Price ▲▼ + LIVE pulse dot): DOM 존재
+- 가드 4 (BottomNav lucide SVG 4개): 적용 확인
+- console errors 0 · framer-motion 작동 · 사용자 실기기 테스트 OK
+
+---
+
+## Next Session Plan — 출시 후 (우선순위 순)
+
+### 🔥 운영 안전 (Day 0~1)
+1. **Sentry DSN 발급 + 연결** — sentry.io 무료 가입 → DSN → Render `SENTRY_DSN` + Vercel `VITE_SENTRY_DSN`
+2. **Render free plan cold start 차단** — 15분 무활동 sleep → polling 끊김. Starter $7/월 권장 또는 UptimeRobot ping
+3. **DB 백업** — Supabase Pro $25/월 (PITR 30일) 또는 GitHub Actions `pg_dump` cron
+
+### 📈 트래픽 + 그로스
+4. **사업자등록 + 통신판매업 신고** (정부24, 1-2일) → BusinessInfo placeholder 실제값 교체
+5. **첫 유저 onboarding funnel** 측정 (PostHog 이벤트 wire-up)
+6. **랜딩 페이지 재구축** — `apps/landing` 폴더 사라짐. Stage 12 의 SEO/OG/FAQ 구조 부활 필요
+
+### 🛠 제품 깊이
+7. 바탕화면 `추가 개발계획.md` 51개 중 출시전 16 끝남, 남은 35개 P1/P2 정렬
+
+---
+
+## Archive — 2026-05-01 (가격 라이브 + 잘림 fix + 출시 전 plan 확정)
+
+### Done
+
+**P0 — 가격 freeze 근본 원인 fix (최종)**
+- `useBinanceFeed.ts` — `@kline_1m` 이 fstream 에서 데이터 0 (handshake OK / 메시지 0). `@aggTrade` 도 동일 차단.
+- 작동 확인된 `@trade` stream 으로 별도 WS 추가 (RAF throttle 60fps)
+- chart 는 kline 그대로 (REST history + 1분 갱신), price/direction 은 @trade
+- 측정: 12초간 20회 가격 변동 (1.7회/초) ▲▼ 화살표 + 색상 깜빡
+
+**P0 — 카드 잘림 근본 원인 fix**
+- `flex h-full min-h-0 flex-col gap-X overflow-y-auto` 컨테이너에서 자식 default `shrink:1` 가 minHeight 없는 카드를 38-42px 로 압축 → 텍스트 overflow → '잘림'
+- PremiumTab + PortfolioTab root: `flex flex-col gap-X` → `space-y-X` 단순 block 으로 전환
+- 측정: FREE PLAN 38px → 92px, Premium Plan 41px → 499px, Recharge 42px → 327px
+
+**P0 — Mark Price 라이브 표시 (UX 누락)**
+- ActionPanel 포지션 카드 + PortfolioTab OpenPositionRow 에 Mark Price 큰 글씨 + ▲▼ + LIVE pulse dot 추가
+- 사용자가 PnL 변동을 가격 변동으로 인지 가능
+
+**문서**
+- 바탕화면 `추가 개발계획.md` (51개 항목 P0~P2)
+- 바탕화면 `출시전 필수작업.md` (16개 P0 — 다음 세션 진행)
+
+### Commits (이번 세션)
+- `19fcde1` flex squish fix
+- `1785ddd` Live Mark Price display
+- `075d70a → 921d2c2 → 1da3f51 → c09f068` aggTrade → trade → bookTicker → trade 수렴
+
+### 검증 게이트
+- ✅ typecheck + build + Playwright 측정 가격 1.7회/초 변동 확인
+- ✅ Vercel deploy READY (bundle index-CPUPCpvQ.js 계열)
+- ✅ 텔레그램 메뉴 URL 갱신 완료
+
+---
+
+## Next Session Plan — 출시 전 P0 16개 (총 ~15h, 0원, design-lead 활용)
+
+### Phase A — 백엔드 안전망 (병렬, ~3h)
+- ① `render.yaml` env 보강 (RECHARGE_CHANNEL_*_ID, PREMIUM_CHANNEL_ID, INITIAL_SEED_USD 등 누락분)
+- ③ 결제 idempotency: `inviteMemberSync.ts` chargeId deterministic (`update.date` 사용) + 마이그레이션 09 `payment_events`
+- ④ 트랜잭션 안정성: 마이그레이션 10 atomic RPC (`open_position_atomic` / `close_position_atomic`) + `trading.ts` 호출 변경
+- ⑤ render.yaml 에 `numInstances: 1` 명시
+
+### Phase B — 프론트 안전망 (병렬, ~3h)
+- ⑥ ErrorBoundary + `@sentry/react` 설치 + main.tsx wrap
+- ⑦ i18n 누락 키 (Mark/PnL/Liq/Margin/Notional + 새 카드들) — 6 locales
+- ⑧ 사용자 facing 에러 메시지 다국어 정비
+
+### Phase C — 법적 + 결제 UX (~3h)
+- ⑨ 약관/개인정보/환불 페이지 3개 + `?page=` 라우팅 (사업자정보 placeholder)
+- ⑩ DemoBadge 컴포넌트 (Header + Onboarding)
+- ⑪ Footer placeholder (사업자번호/통신판매업 [추후])
+- ⑫ 결제 진행 상태 표시 (RechargeCard/PricingCard — InviteMember 외부 결제 후 폴링 indicator)
+
+### Phase D — 디자인 업그레이드 (design-lead 활용, ~6h)
+- ⑬ **카드 톤 통일** — design-lead 호출로 디자인 토큰 + 4개 탭 일관 가이드 → 적용 (가장 큰 작업)
+- ⑭ 아이콘 lucide-react 통일 (emoji 제거)
+- ⑮ 데스크톱 반응형 (max-w 컨테이너 + 두 컬럼)
+- ⑯ 페이지 전환 모션 (framer-motion fade + stagger)
+
+### Phase E — 사용자 액션 + 마무리 (~1h)
+- 사용자: Render 가입 (GitHub 로그인 1번) + env 입력 + Deploy
+- 사용자: GitHub Secrets 에 Supabase service-role 키
+- 나: ② DB 백업 GitHub Actions workflow 작성 + 첫 배포 검증
+
+### 진행 방식 합의
+- **Phase 끝마다 보고** (3일 분산 권장: A+B → C → D → E)
+- design-lead 는 ⑬ 카드 톤 통일에 1회 호출 (디자인 토큰 + 가이드 받기)
+- 사용자 결정: 한국 사업자등록 추후, PayPal 다른 사업자 연동 그대로 활용
+- 비용: 0원 (코드만)
+
+### CTO 직접 (코드 X)
+- 한국 사업자등록 / 통신판매업 신고 (선택, 결제 받기 전 권장)
+- Render Dashboard 가입 + env 입력 (Phase E 단계, 5분)
+- GitHub Secrets 입력 (1분)
+
+---
+
+## Archive — 2026-04-28 (Antigravity 인수인계 · 전체 정상화)
 
 ### Done
 
