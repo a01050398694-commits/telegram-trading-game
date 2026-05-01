@@ -34,7 +34,8 @@ export type UserStatus = {
   isVIP: boolean;
   isPremium: boolean;
   rank: number;
-  yesterdayPnl: number;
+  // null = 서버가 조회 실패 또는 신규 유저. UI 는 "--" 로 표시.
+  yesterdayPnl: number | null;
   telegramUserId: number;
   history: { date: string; pnl: number }[];
 };

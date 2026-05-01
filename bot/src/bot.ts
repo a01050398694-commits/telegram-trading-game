@@ -9,6 +9,16 @@ function formatBalance(n: number): string {
   return `$${n.toLocaleString('en-US')}`;
 }
 
+// 모든 admin 명령은 이 함수 하나만 거친다.
+//   · userId 없음                     → false (호출자가 ctx.from 못 읽었다는 뜻)
+//   · env.ADMIN_TG_ID 누락 (sync:false 미입력 등) → false (fail-closed, silent grant 방지)
+//   · 위 둘 다 OK 면 문자열 비교
+function isAdmin(userId: number | undefined): boolean {
+  if (!userId) return false;
+  if (!env.ADMIN_TG_ID) return false;
+  return String(userId) === env.ADMIN_TG_ID;
+}
+
 const CB_HOW = 'how_to_play';
 const CB_PREMIUM = 'academy_info';
 const CB_COMMUNITY = 'community_guide';
@@ -38,7 +48,7 @@ export function createBot(engine: TradingEngine): Bot {
   bot.command('premium', async (ctx) => {
     const userId = ctx.from?.id;
     if (!userId) return;
-    if (String(userId) !== process.env.ADMIN_TG_ID) {
+    if (!isAdmin(userId)) {
       // 비-admin: PremiumTab 으로 안내
       const lang = await getLang(ctx, engine);
       const loc = botLocales[lang];
@@ -72,7 +82,7 @@ export function createBot(engine: TradingEngine): Bot {
 
   bot.command('broadcast', async (ctx) => {
     const userId = ctx.from?.id;
-    if (!userId || String(userId) !== process.env.ADMIN_TG_ID) return;
+    if (!isAdmin(userId)) return;
     
     const message = typeof ctx.match === 'string' ? ctx.match.trim() : '';
     if (!message) {
@@ -104,7 +114,7 @@ export function createBot(engine: TradingEngine): Bot {
 
   bot.command('signal', async (ctx) => {
     const userId = ctx.from?.id;
-    if (!userId || String(userId) !== process.env.ADMIN_TG_ID) return;
+    if (!isAdmin(userId)) return;
     
     const message = typeof ctx.match === 'string' ? ctx.match.trim() : '';
     if (!message) {

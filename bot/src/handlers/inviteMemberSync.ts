@@ -27,6 +27,7 @@
 import type { Bot, Context } from 'grammy';
 import type { TradingEngine } from '../engine/trading.js';
 import { env } from '../env.js';
+import { Sentry } from '../lib/sentry.js';
 
 const KICK_DELAY_MS = 5 * 60 * 1000;
 
@@ -112,12 +113,21 @@ export function setupInviteMemberSync(bot: Bot, engine: TradingEngine): void {
           console.log(
             `[invitemember] premium activated tg=${tgUserId} until=${premiumUntil}`,
           );
+          // DM 실패는 결제 자체에 영향 없음(잔고/Premium 은 이미 DB 반영). 단,
+          // Telegram API 다운 / 사용자가 봇 차단 등은 운영자가 알아야 한다.
           await bot.api
             .sendMessage(
               tgUserId,
               `Premium activated. Access valid until ${premiumUntil}.`,
             )
-            .catch(() => {});
+            .catch((dmErr) => {
+              const reason = (dmErr as Error).message ?? String(dmErr);
+              console.error(`[invitemember] premium DM failed tg=${tgUserId}:`, reason);
+              Sentry.captureException(dmErr, {
+                tags: { handler: 'invitemember', step: 'premium_dm' },
+                extra: { tgUserId },
+              });
+            });
         } catch (err) {
           const msg = (err as Error).message ?? '';
           if (msg.startsWith('already_processed')) return;
@@ -146,7 +156,14 @@ export function setupInviteMemberSync(bot: Bot, engine: TradingEngine): void {
             tgUserId,
             `+$${creditUsd.toLocaleString('en-US')} game credit added. New balance: $${balance.toLocaleString('en-US')}.`,
           )
-          .catch(() => {});
+          .catch((dmErr) => {
+            const reason = (dmErr as Error).message ?? String(dmErr);
+            console.error(`[invitemember] recharge DM failed tg=${tgUserId}:`, reason);
+            Sentry.captureException(dmErr, {
+              tags: { handler: 'invitemember', step: 'recharge_dm' },
+              extra: { tgUserId, creditUsd, balance },
+            });
+          });
       } catch (err) {
         const msg = (err as Error).message ?? '';
         if (msg.startsWith('already_processed')) return;

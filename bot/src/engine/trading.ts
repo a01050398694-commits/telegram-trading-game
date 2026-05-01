@@ -31,8 +31,13 @@ import { EventEmitter } from 'events';
 // TradingEngine: DB 의존 로직. 순수 계산은 liquidation.ts 위임.
 // ---------------------------------------------------------------------------
 export class TradingEngine extends EventEmitter {
-  constructor(private readonly db: Db) {
+  constructor(private readonly _db: Db) {
     super();
+  }
+
+  // server.ts 등에서 직접 supabase 쿼리 필요할 때 사용. private bracket-cast 우회 제거.
+  get db(): Db {
+    return this._db;
   }
 
   // -------------------------------------------------------------------------

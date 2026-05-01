@@ -1,4 +1,4 @@
-import { initSentry } from './lib/sentry.js';
+import { initSentry, Sentry } from './lib/sentry.js';
 initSentry();
 
 import { createBot } from './bot.js';
@@ -47,7 +47,15 @@ async function main(): Promise<void> {
     priceCache.set(update.symbol, update.price);
     void engine
       .scanAndLiquidate({ symbol: update.symbol, markPrice: update.price })
-      .catch((err) => console.error('[engine] scan error:', err));
+      .catch((err) => {
+        // 청산 감시는 매 가격 tick 마다 호출. 실패 시 무음 처리하면 청산 누락
+        // 발생해도 운영자가 모름 → console + Sentry 둘 다.
+        console.error('[engine] scan error:', err);
+        Sentry.captureException(err, {
+          tags: { context: 'liquidation_scan' },
+          extra: { symbol: update.symbol, markPrice: update.price },
+        });
+      });
 
     // [🚨 자율형 변동성 알림] 비트코인 단기 급등/급락 감지
     if (update.symbol === 'btcusdt') {

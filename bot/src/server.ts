@@ -170,7 +170,9 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
       const telegramUserId = userRow?.telegram_id;
       let isPremium = false;
       let rank = 0;
-      let yesterdayPnl = 0;
+      // null = "조회 실패 또는 미존재". 클라이언트는 "--" 로 표시한다.
+      // 0 fallback 은 거짓 데이터 (DB down 인데 어제 PnL 0 으로 보임) 라 금지.
+      let yesterdayPnl: number | null = null;
       let history: { date: string; pnl: number }[] = [];
 
       if (telegramUserId) {
@@ -195,16 +197,18 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
           yesterdayPnl = cachedPnl.value;
         } else {
           try {
-            const { data } = await engine['db'] // engine.db is private, wait, maybe just use supabase directly?
+            const { data } = await engine.db
               .from('ranking_snapshots')
               .select('daily_pnl')
               .eq('user_id', resolved)
               .eq('date', yDateStr)
               .maybeSingle();
+            // 행 없음 → 어제 거래 X → 0 (실제 값). 행 조회 실패 catch 와 분리.
             yesterdayPnl = data ? Number(data.daily_pnl) : 0;
             yesterdayPnlCache.set(resolved, { value: yesterdayPnl, date: yDateStr });
           } catch (err) {
             console.error('[server] failed to fetch yesterdayPnl', err);
+            // null 유지. UI 가 "--" 표시 → 거짓 0 보다 정직.
           }
         }
 
@@ -212,7 +216,7 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
         try {
           const past7Kst = new Date(nowKst.getTime() - 6 * 24 * 60 * 60 * 1000); // nowKst is already yesterday
           const past7Str = past7Kst.toISOString().split('T')[0]!;
-          const { data: histData } = await engine['db']
+          const { data: histData } = await engine.db
             .from('ranking_snapshots')
             .select('date, daily_pnl')
             .eq('user_id', resolved)
@@ -374,7 +378,7 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
 
       // fallback 쿼리 (ranking_snapshots 테이블이 없으면 빈 배열 반환)
       try {
-        const { data, error } = await engine['db']
+        const { data, error } = await engine.db
           .from('ranking_snapshots')
           .select('user_id, rank, equity, daily_pnl, daily_pnl_pct, users(telegram_id, username)')
           .eq('date', yDateStr)
@@ -454,11 +458,16 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
       });
       res.json({ ok: true, positionId: position.id, entryPrice: markPrice });
     } catch (err) {
-      // 엔진의 비즈니스 에러(LIQUIDATED / INSUFFICIENT_BALANCE) 는 400 으로.
-      // LOCK_MODE 는 423 (Locked) 으로.
+      // 비즈니스 에러를 의미별로 분리해 클라이언트가 정확한 fallback UX 를 보여주게.
+      //   LOCK_MODE              → 423 Locked     (잠금 시간 안내)
+      //   LIQUIDATED             → 422 Unprocessable (충전 안내)
+      //   INSUFFICIENT_BALANCE   → 402 Payment Required (충전 안내)
+      //   spot/size 검증 실패     → 400 Bad Request (UI 가 막아야 할 케이스)
       const msg = (err as Error).message;
       const status = /^LOCK_MODE/.test(msg) ? 423
-        : /^(LIQUIDATED|INSUFFICIENT_BALANCE|spot|size)/.test(msg) ? 400
+        : /^LIQUIDATED/.test(msg) ? 422
+        : /^INSUFFICIENT_BALANCE/.test(msg) ? 402
+        : /^(spot|size)/.test(msg) ? 400
         : 500;
       console.error('[server] /trade/open:', msg);
       res.status(status).json({ error: msg });
@@ -532,7 +541,7 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
       }
 
       // 1. exchange_verifications 테이블 업데이트
-      const { error: vErr } = await engine['db']
+      const { error: vErr } = await engine.db
         .from('exchange_verifications')
         .update({ status })
         .eq('user_id', userId);
@@ -541,7 +550,7 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
 
       // Stage 15.1 — 승인 시 is_verified 업데이트. Promo code 자동 발급은 폐기 (래퍼럴 시스템 제거).
       if (status === 'approved') {
-        const { error: uErr } = await engine['db']
+        const { error: uErr } = await engine.db
           .from('users')
           .update({ is_verified: true })
           .eq('id', userId);
@@ -563,7 +572,7 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
 
       // 3. D-04 감사 로그 기록 — 실패는 응답에 영향 안 줌.
       try {
-        await engine['db'].from('admin_actions').insert({
+        await engine.db.from('admin_actions').insert({
           actor_label: 'x-admin-secret',
           action_type: status === 'approved' ? 'verify_approve' : 'verify_reject',
           target_user_id: userId,
@@ -597,7 +606,7 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
         return;
       }
 
-      const db = engine['db'];
+      const db = engine.db;
       const now = new Date();
       const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
       const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -662,7 +671,7 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
       }
 
       // users 테이블에서 lock_mode_enabled 조회
-      const { data: lockData } = await engine['db']
+      const { data: lockData } = await engine.db
         .from('users')
         .select('lock_mode_enabled')
         .eq('id', resolved)
@@ -673,7 +682,7 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
 
       // 동적 import 로 순환 참조 방지
       const { computeAnalytics } = await import('./services/analytics.js');
-      const result = await computeAnalytics(engine['db'], resolved, isPremium, lockModeEnabled);
+      const result = await computeAnalytics(engine.db, resolved, isPremium, lockModeEnabled);
 
       // 캐시 저장
       analyticsCache.set(resolved, { data: result, expiresAt: Date.now() + CACHE_TTL });
@@ -718,7 +727,7 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
       }
 
       const { WeeklyReportCron } = await import('./cron/weeklyReport.js');
-      const cron = new WeeklyReportCron(bot, engine['db']);
+      const cron = new WeeklyReportCron(bot, engine.db);
       const result = await cron.sendAllReports();
       res.json({ ok: true, ...result });
     } catch (err) {
