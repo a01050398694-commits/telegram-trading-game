@@ -1,4 +1,5 @@
 import { Bot, InlineKeyboard, type Context } from 'grammy';
+import { Sentry } from './lib/sentry.js';
 import { env } from './env.js';
 import type { TradingEngine } from './engine/trading.js';
 import { setupCommunityFeatures } from './engine/community.js';
@@ -32,6 +33,18 @@ export function createBot(engine: TradingEngine): Bot {
 
   setupCommunityFeatures(bot);
   setupInviteMemberSync(bot, engine);
+
+  // Stage 16.2 — Sentry verification command (TEMPORARY, admin-only).
+  // Run /sentry_test once → event lands in sentry.io Issues for the bot project.
+  // Remove this command after verification.
+  bot.command('sentry_test', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId || String(userId) !== process.env.ADMIN_TG_ID) return;
+    Sentry.captureException(
+      new Error('[sentry-verify] bot production trigger — safe to ignore'),
+    );
+    await ctx.reply('Sentry test event sent. Check sentry.io → bot project → Issues.');
+  });
 
   // Admin 전용. 일반 사용자가 /premium 입력해도 자기 자신에게 부여 안 됨.
   // 결제 경로는 /premium 명령 X, PremiumTab 의 PricingCard → Stars 결제만.

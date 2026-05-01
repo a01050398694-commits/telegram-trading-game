@@ -3,11 +3,25 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import './index.css';
 import './lib/i18n';
+import * as Sentry from '@sentry/react';
 import { initSentry } from './lib/sentry';
 import ErrorBoundary from './components/ErrorBoundary';
 
 // Stage 16.1 — Init Sentry for error tracking (only if DSN configured)
 initSentry();
+
+// Stage 16.2 — Production verification trigger (TEMPORARY).
+// Open `?debug=sentry` once in production to confirm Sentry receives events.
+// Remove this block after the test event appears in Sentry Issues panel.
+if (typeof window !== 'undefined') {
+  const params = new URL(window.location.href).searchParams;
+  if (params.get('debug') === 'sentry') {
+    Sentry.captureException(
+      new Error('[sentry-verify] web production trigger — safe to ignore'),
+    );
+    console.log('[sentry-verify] event sent. Check sentry.io → Issues.');
+  }
+}
 
 // Stage 8.6 — 핀치줌 JS 레이어 차단.
 // iOS Safari 는 viewport meta 의 user-scalable=no 를 접근성 이유로 무시하는 경우가 있다.
