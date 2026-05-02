@@ -85,7 +85,8 @@ export class SignalCron {
     console.log(
       `[signalCron] start — interval=${TICK_INTERVAL_MS / 60_000}min, dryRun=${env.SIGNAL_CRON_DRY_RUN}`
     );
-    this.scheduleNext();
+    console.log('[signalCron] firing immediate first tick on boot');
+    void this.tick().finally(() => this.scheduleNext());
   }
 
   stop(): void {
