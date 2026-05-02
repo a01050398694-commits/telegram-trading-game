@@ -92,7 +92,7 @@ export class MarketBriefCron {
 Drop a casual line into a Telegram trading community based on this data — like you're starting convo, not briefing.
 Today's vibe: ${selectedHook}
 - Length: 2-3 sentences, super short.
-- NEVER sound like a market report. Talk like a real trader — slang welcome (rekt, ngmi, moon, lfg, etc.) + emojis.
+- NEVER sound like a market report. Talk like a real trader — slang welcome (rekt, ngmi, mooning, lfg) + emojis.
 - Slip in a nudge to tap the deep-link button mid-message.`;
 
       if (!checkAndIncrementCallBudget()) return;

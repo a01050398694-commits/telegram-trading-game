@@ -31,7 +31,7 @@ export function setupCommunityFeatures(bot: Bot) {
       for (const chatId of activeGroups) {
         const msg = await getProactiveAiMessage();
         if (msg) {
-          const kb = new InlineKeyboard().url('📱 Practice Trading', webAppDeepLink('proactive'));
+          const kb = new InlineKeyboard().url('📱 Try the App', webAppDeepLink('proactive'));
           await bot.api.sendMessage(chatId, msg, { reply_markup: kb }).catch(() => {});
         }
       }
@@ -73,7 +73,7 @@ export function setupCommunityFeatures(bot: Bot) {
         const welcomePhotoUrl = 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?q=80&w=1200&auto=format&fit=crop';
 
         const welcomeMsg = await ctx.replyWithPhoto(welcomePhotoUrl, {
-          caption: `Welcome, <b>${member.first_name}</b>! 🎉\n\nThis is the Trading Academy free chat. Tag <code>@${ctx.me.username}</code> if you wanna ask me anything!\n\n👇 Tap below to start risk-free practice trading right now!`,
+          caption: `Welcome to Trading Academy, <b>${member.first_name}</b>! 🎉 Tag <code>@${ctx.me.username}</code> to chat with me. Tap below to start risk-free practice trading 👇`,
           parse_mode: 'HTML',
           reply_markup: kb
         });
@@ -172,8 +172,8 @@ export function setupCommunityFeatures(bot: Bot) {
 
       // [🎣 자율형 유저 푸념 낚시]
       if (COMPLAINT_REGEX.test(text) && !isAdmin && !text.includes(`@${ctx.me.username}`)) {
-        const kb = new InlineKeyboard().url('🛡️ Reset on the Simulator', webAppDeepLink('complaint'));
-        const replyText = `Damn... you good? 😭\nBefore you blow real money, come reset on the academy simulator and drill risk management first. I got you.`;
+        const kb = new InlineKeyboard().url('🛡️ Mental Recovery Simulator', webAppDeepLink('complaint'));
+        const replyText = `Ouch, that hurts 😭. Before risking real seed money, try our academy simulator to drill risk management. I'll help you out 💪`;
         
         await ctx.reply(replyText, {
           reply_to_message_id: ctx.message.message_id,
@@ -197,7 +197,7 @@ export function setupCommunityFeatures(bot: Bot) {
         const aiReply = await getAiChatResponse(cleanText, username);
         
         // 인라인 키보드 살짝 섞기 (확률적/또는 고정)
-        const kb = new InlineKeyboard().url('🚀 Practice Trading', webAppDeepLink('ai_chat'));
+        const kb = new InlineKeyboard().url('🚀 Practice Now', webAppDeepLink('ai_chat'));
 
         await ctx.reply(aiReply, { 
           reply_to_message_id: ctx.message.message_id,
