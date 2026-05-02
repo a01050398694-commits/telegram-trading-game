@@ -20,6 +20,7 @@ import {
 } from '../lib/ta.js';
 import { buildSignal } from '../services/signalEngine.js';
 import { getSignalCommentary } from '../services/ai.js';
+import { getFullMacroSnapshot } from '../services/macroBundle.js';
 
 const SIGNAL_SYMBOLS = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT'] as const;
 const DISCLAIMER = '';
@@ -123,6 +124,9 @@ export class SignalCron {
 
     const isDryRun = env.SIGNAL_CRON_DRY_RUN === 'true';
     const snap = this.priceCache.snapshot();
+    // Why: macro context (DXY/BTC.D/news/ETF/correlation) is shared across all symbols this tick.
+    // 30-min internal cache, so a tick every 30 min refetches; per-source safeCollect on top.
+    const macro = await getFullMacroSnapshot();
 
     for (const symbol of SIGNAL_SYMBOLS) {
       try {
@@ -174,7 +178,7 @@ export class SignalCron {
         if (isDryRun) {
           console.log('[signalCron][DRY]', JSON.stringify(signal));
         } else {
-          const commentary = await getSignalCommentary(signal);
+          const commentary = await getSignalCommentary({ ...signal, macro });
           const kb = new InlineKeyboard().url(
             '🚀 Practice This Setup',
             webAppDeepLink('signal')

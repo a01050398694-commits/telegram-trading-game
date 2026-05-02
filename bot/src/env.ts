@@ -85,4 +85,8 @@ export const env = {
 
   // Signal Cron — defaults to dry-run; Render must explicitly set 'false' to broadcast.
   SIGNAL_CRON_DRY_RUN: optional('SIGNAL_CRON_DRY_RUN', 'true'),
+
+  // Stage 17 C13 — FRED (St. Louis Fed) for fedRate / CPI / unemployment / GDP.
+  // Optional: macro.ts skips FRED block when empty, Yahoo Finance still works.
+  FRED_API_KEY: optional('FRED_API_KEY', ''),
 } as const;

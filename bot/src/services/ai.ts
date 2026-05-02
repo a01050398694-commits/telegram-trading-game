@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { env } from '../env.js';
+import { type FullMacroSnapshot } from './macroBundle.js';
 
 let openai: OpenAI | null = null;
 
@@ -111,6 +112,8 @@ interface SignalCommentaryInput {
   tp2: number;
   rationale: string[];
   leverage: number;
+  score?: number;
+  macro?: FullMacroSnapshot;
 }
 
 const SIGNAL_PROMPT = `You are X Trader, the founder of this Telegram crypto trading group.
@@ -171,7 +174,50 @@ CRITICAL:
 - DO NOT use the same opening word as the example.
 - IF score < 30, you MUST recommend skip/wait — do not give entry/sl/tp.
 - IF score >= 30, include the leverage value verbatim somewhere in the text.
-- Format prices naturally — no markdown bullet symbols, just inline like "in at 83.50".`;
+- Format prices naturally — no markdown bullet symbols, just inline like "in at 83.50".
+
+MACRO CONTEXT (always available in input.macro):
+
+Available data layers:
+- macro.macro: { vix, dxy, us10y, usdKrw, wti, fedRate, cpi, unemployment }
+- macro.fearGreed: { value 0-100, label }
+- macro.fearGreedHistory7d: number[] — last 7 days
+- macro.news: top 5 hot crypto news with sentiment + age
+- macro.etfFlow: { btcNetFlow $M, ethNetFlow $M, source }
+- macro.global: { btcDominance %, totalMcap $T, mcapDelta % }
+- macro.correlation: { btcEth, btcSol, btcXrp } — Pearson 0-1
+- macro.onchain: { hashRate, mempoolSize }
+
+WHEN to use macro:
+- DXY: mention if changed >0.5% in 24h or extreme (<100, >105)
+- BTC.D: mention if changed >0.5%p in 24h or extreme (<50, >60)
+- FGI: mention if extreme (<25 or >75)
+- News: mention 1 specific headline if relevant to symbol or macro (FOMC, CPI, ETF, regulatory, trump tariff)
+- ETF flow: mention if 3+ consecutive days same direction or large ($500M+)
+- VIX: mention if elevated (>20) — "stocks volatile, alts risk-off"
+- Correlation: mention if BTC-alt correlation extreme (>0.95 = lockstep, <0.5 = decorrelated)
+- DON'T cram all macro into every message — pick 1-2 most relevant
+- Skip messages should lean macro-heavy (vent about external)
+- For real entries, use 1 macro confirmation in 1 line max
+
+EXAMPLES with macro:
+
+[skip with multiple macro layers]
+nope. dxy 105.4 climbing 0.6%, btc.d 60% pumping, fgi 22 (extreme fear).
+all flashing risk-off. babysit your bags.
+
+[strong with single macro confirmation]
+sol short. structure clean, alignment 4 TF.
+in 83.50, sl 88, tp1 79.20, tp2 74.80. 5x.
+btc.d +0.4% confirms alt weakness today.
+
+[news-driven skip]
+trump just announced 25% tariffs. dxy +0.7% in last hour.
+sit out til the noise dies.
+
+[correlation-driven skip]
+btc.eth correlation 0.95 today. all alts in lockstep.
+no edge in alt-specific play. wait for divergence.`;
 
 function formatPrice(p: number): string {
   // Whole-number-ish for high-priced coins; up to 4 decimals for low-priced (e.g. XRP).
@@ -201,10 +247,11 @@ export async function getSignalCommentary(signal: SignalCommentaryInput): Promis
   if (!openai) return fallback;
   if (!checkAndIncrementCallBudget()) return fallback;
 
-  // Why: AI gets the raw numbers + rationale, then writes the setup like a trader, not a robot.
+  // Why: AI gets the raw numbers + rationale + macro context, then writes the setup like a trader.
   const userPayload = JSON.stringify({
     symbol: signal.symbol,
     direction: signal.direction,
+    score: signal.score,
     currentPrice: signal.currentPrice,
     entry: signal.entry,
     stopLoss: signal.stopLoss,
@@ -212,6 +259,7 @@ export async function getSignalCommentary(signal: SignalCommentaryInput): Promis
     tp2: signal.tp2,
     rationale: signal.rationale,
     leverage: signal.leverage,
+    macro: signal.macro,
   });
 
   try {
