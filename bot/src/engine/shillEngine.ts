@@ -3,6 +3,7 @@ import OpenAI from 'openai';
 import { env } from '../env.js';
 import { webAppUrl } from '../lib/webappUrl.js';
 import type { PriceCache } from '../priceCache.js';
+import { checkAndIncrementCallBudget } from '../services/ai.js';
 
 let openai: OpenAI | null = null;
 if (env.OPENAI_API_KEY) {
@@ -122,6 +123,7 @@ Occasionally (about 30% chance), find an excuse to suggest using the Trading Aca
 Recent conversation history:
 ${historyText}`;
 
+      if (!checkAndIncrementCallBudget()) return;
       const response = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [{ role: 'system', content: systemPrompt }],

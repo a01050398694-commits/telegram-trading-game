@@ -4,6 +4,7 @@ import OpenAI from 'openai';
 import { env } from '../env.js';
 import { webAppUrl } from '../lib/webappUrl.js';
 import type { PriceCache } from '../priceCache.js';
+import { checkAndIncrementCallBudget } from '../services/ai.js';
 
 let openai: OpenAI | null = null;
 if (env.OPENAI_API_KEY) {
@@ -94,6 +95,7 @@ export class MarketBriefCron {
 - 딱딱한 시황 브리핑 절대 금지, 진짜 커뮤니티의 사람(트레이더)처럼 자연스러운 말투, 비속어 필터링 없이 거친 슬랭(rekt, ngmi, 떡상 등)과 이모지를 사용하세요.
 - 대화 중간에 무조건 딥링크 버튼을 누르게끔 넛지(Nudge)하세요.`;
 
+      if (!checkAndIncrementCallBudget()) return;
       const response = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
