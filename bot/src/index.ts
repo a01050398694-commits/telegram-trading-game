@@ -20,6 +20,17 @@ import { InlineKeyboard } from 'grammy';
 import { webAppUrl } from './lib/webappUrl.js';
 
 async function main(): Promise<void> {
+  // CLAUDE.md §7 — silent fail 금지. 핵심 ENV 누락 시 부팅 시점에 한 번 warn.
+  if (!env.COMMUNITY_CHAT_ID) {
+    console.warn('[boot] COMMUNITY_CHAT_ID missing, marketBrief/shillEngine/btcAlert disabled');
+  }
+  if (!env.VIP_CHAT_ID) {
+    console.warn('[boot] VIP_CHAT_ID missing, chatSwitcher (VIP 21:50~24:00 lock) disabled');
+  }
+  if (env.SHILL_BOT_TOKENS.length === 0) {
+    console.warn('[boot] SHILL_BOT_TOKENS empty, shillEngine (10 fake bot personas) disabled');
+  }
+
   // 의존성 조립 — 각 모듈은 독립적이고 생성자 주입.
   const db = createSupabase();
   const engine = new TradingEngine(db);

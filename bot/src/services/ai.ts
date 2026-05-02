@@ -7,6 +7,9 @@ if (env.OPENAI_API_KEY) {
   openai = new OpenAI({
     apiKey: env.OPENAI_API_KEY,
   });
+} else {
+  // CLAUDE.md §7 — silent fail 금지. 부팅 시 한 번 warn.
+  console.warn('[ai] OPENAI_API_KEY missing, AI chat/proactive features disabled');
 }
 
 const SYSTEM_PROMPT = `당신은 'Trading Academy' 텔레그램 커뮤니티의 매니저이자 친절한 코인 트레이딩 전문가입니다.
