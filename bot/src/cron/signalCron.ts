@@ -24,6 +24,7 @@ import { getSignalCommentary } from '../services/ai.js';
 const SIGNAL_SYMBOLS = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT'] as const;
 const DISCLAIMER = '';
 const COOLDOWN_MS = 2 * 3600_000;
+const SKIP_COOLDOWN_MS = 1 * 3600_000;
 const HOURLY_CAP = 8;
 const DAILY_CAP = 50;
 const TICK_INTERVAL_MS = 30 * 60_000;
@@ -67,6 +68,7 @@ export class SignalCron {
   private dailyCount = 0;
   private dailyResetAt = 0;
   private lastPostedAt = new Map<string, number>();
+  private lastSkipPostedAt = new Map<string, number>();
 
   constructor(
     private readonly bot: Bot,
@@ -164,7 +166,10 @@ export class SignalCron {
           fearGreed: fgi?.value ?? null,
         });
 
-        if (signal.direction === 'skip') continue;
+        if (signal.direction === 'skip') {
+          const lastSkip = this.lastSkipPostedAt.get(symbol) ?? 0;
+          if (Date.now() - lastSkip < SKIP_COOLDOWN_MS) continue;
+        }
 
         if (isDryRun) {
           console.log('[signalCron][DRY]', JSON.stringify(signal));
@@ -184,7 +189,11 @@ export class SignalCron {
           );
         }
 
-        this.lastPostedAt.set(symbol, Date.now());
+        if (signal.direction === 'skip') {
+          this.lastSkipPostedAt.set(symbol, Date.now());
+        } else {
+          this.lastPostedAt.set(symbol, Date.now());
+        }
         this.hourlyCount++;
         this.dailyCount++;
 
