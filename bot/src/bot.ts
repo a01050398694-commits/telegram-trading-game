@@ -331,10 +331,11 @@ export function createBot(engine: TradingEngine): Bot {
   });
 
   bot.command('whereami', async (ctx) => {
-    if (!isAdmin(ctx.from?.id)) return;
     const c = ctx.chat;
     const title = 'title' in c ? c.title : 'username' in c ? `@${c.username}` : '(private)';
-    await ctx.reply(`chat_id: \`${c.id}\`\ntype: ${c.type}\ntitle: ${title}`, { parse_mode: 'Markdown' });
+    const fromId = ctx.from?.id ?? '?';
+    console.log(`[whereami] chat_id=${c.id} type=${c.type} title=${title} from=${fromId}`);
+    await ctx.reply(`chat_id: \`${c.id}\`\ntype: ${c.type}\ntitle: ${title}\nfrom_user_id: \`${fromId}\``, { parse_mode: 'Markdown' });
   });
 
   bot.callbackQuery(CB_HOW, async (ctx) => {
