@@ -1,5 +1,6 @@
-// Binance Futures REST collectors with 60s TTL cache. Free public APIs.
-// Pattern sourced from AskBit binance-futures.ts (read-only reference). No imports from AskBit.
+// Bybit v5 REST collectors with 60s TTL cache. Free public APIs.
+// Why: Render Oregon hits HTTP 451 on Binance (api.binance.com Spot AND fapi).
+// Bybit (Singapore) serves US IPs and exposes funding / OI / long-short on the same v5 surface.
 
 export type FuturesSymbol = 'BTCUSDT' | 'ETHUSDT' | 'SOLUSDT' | 'XRPUSDT';
 
@@ -41,7 +42,7 @@ function setCached<T>(key: string, value: T, ttlMs: number = CACHE_TTL_MS): void
 }
 
 /**
- * Daily klines for a futures symbol. Returns oldest-first arrays.
+ * Daily klines for a symbol. Returns oldest-first arrays (Bybit returns newest-first; we reverse).
  * Caches under key `klines:${symbol}:${limit}` for 60s.
  * Returns null on network/parse failure (never throws).
  */
@@ -54,9 +55,8 @@ export async function fetchKlines(
   if (cached !== undefined) return cached;
 
   try {
-    // Why: Binance Futures (fapi) is geo-blocked from US IPs (Render Oregon).
-    // Spot endpoint returns identical kline row shape and serves all regions.
-    const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1d&limit=${limit}`;
+    // Bybit v5 spot kline. Interval mapping: 1d → 'D'.
+    const url = `https://api.bybit.com/v5/market/kline?category=spot&symbol=${symbol}&interval=D&limit=${limit}`;
     const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
     if (!res.ok) {
       console.warn(`[marketData] klines ${symbol} HTTP ${res.status}`);
@@ -64,15 +64,26 @@ export async function fetchKlines(
       return null;
     }
 
-    // Binance kline row: [openTime, open, high, low, close, volume, closeTime, ...]
-    const raw = (await res.json()) as unknown[];
-    if (!Array.isArray(raw) || raw.length === 0) {
+    const json = (await res.json()) as {
+      retCode?: number;
+      retMsg?: string;
+      result?: { list?: string[][] };
+    };
+    if (json.retCode !== 0) {
+      console.warn(`[marketData] klines ${symbol} retCode=${json.retCode} msg=${json.retMsg}`);
       setCached<KlineSeries | null>(key, null);
       return null;
     }
 
-    // Defensive: explicit ascending sort by openTime even though Binance returns oldest-first.
-    const rows = (raw as unknown[][]).slice().sort((a, b) => Number(a[0]) - Number(b[0]));
+    const list = json.result?.list;
+    if (!Array.isArray(list) || list.length === 0) {
+      setCached<KlineSeries | null>(key, null);
+      return null;
+    }
+
+    // Bybit kline row: [start, open, high, low, close, volume, turnover] — newest-first.
+    // Reverse for chronological (oldest-first) consumption.
+    const rows = list.slice().reverse();
 
     const closes: number[] = [];
     const highs: number[] = [];
@@ -96,16 +107,17 @@ export async function fetchKlines(
     return series;
   } catch (e) {
     console.warn(`[marketData] klines ${symbol} threw:`, e instanceof Error ? e.message : String(e));
-    // Cache the failure briefly to avoid hammering the API on outage.
     setCached<KlineSeries | null>(key, null);
     return null;
   }
 }
 
 /**
- * Funding rate (last), open interest (current), global long/short account ratio (last 5m).
- * 3 endpoints fanned out via Promise.all. Each field is null on per-endpoint failure.
+ * Latest funding rate, current open interest, and 5-min global long/short account ratio.
+ * 3 Bybit linear endpoints fanned out via Promise.all. Each field is null on per-endpoint failure.
  * Caches under key `fundingoi:${symbol}` for 60s.
+ *
+ * longShortRatio is computed as buyRatio / sellRatio (matches Binance convention).
  */
 export async function fetchFundingAndOI(symbol: FuturesSymbol): Promise<FundingAndOI | null> {
   const key = `fundingoi:${symbol}`;
@@ -113,36 +125,44 @@ export async function fetchFundingAndOI(symbol: FuturesSymbol): Promise<FundingA
   if (cached !== undefined) return cached;
 
   try {
-    const [fundingRes, oiRes, ratioRes] = await Promise.all([
-      fetch(`https://fapi.binance.com/fapi/v1/fundingRate?symbol=${symbol}&limit=1`, {
+    const [tickersRes, oiRes, ratioRes] = await Promise.all([
+      fetch(`https://api.bybit.com/v5/market/tickers?category=linear&symbol=${symbol}`, {
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       }).catch((e) => {
-        console.warn(`[marketData] fundingRate ${symbol} threw:`, e instanceof Error ? e.message : String(e));
+        console.warn(`[marketData] tickers ${symbol} threw:`, e instanceof Error ? e.message : String(e));
         return null;
       }),
-      fetch(`https://fapi.binance.com/fapi/v1/openInterest?symbol=${symbol}`, {
-        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      }).catch((e) => {
+      fetch(
+        `https://api.bybit.com/v5/market/open-interest?category=linear&symbol=${symbol}&intervalTime=5min&limit=1`,
+        { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) }
+      ).catch((e) => {
         console.warn(`[marketData] openInterest ${symbol} threw:`, e instanceof Error ? e.message : String(e));
         return null;
       }),
       fetch(
-        `https://fapi.binance.com/futures/data/globalLongShortAccountRatio?symbol=${symbol}&period=5m&limit=1`,
+        `https://api.bybit.com/v5/market/account-ratio?category=linear&symbol=${symbol}&period=5min&limit=1`,
         { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) }
       ).catch((e) => {
-        console.warn(`[marketData] longShortRatio ${symbol} threw:`, e instanceof Error ? e.message : String(e));
+        console.warn(`[marketData] accountRatio ${symbol} threw:`, e instanceof Error ? e.message : String(e));
         return null;
       }),
     ]);
 
     let fundingRate: number | null = null;
-    if (fundingRes && fundingRes.ok) {
+    if (tickersRes && tickersRes.ok) {
       try {
-        const arr = (await fundingRes.json()) as Array<{ fundingRate?: string }>;
-        const raw = arr[0]?.fundingRate;
-        if (raw !== undefined) {
-          const parsed = parseFloat(raw);
-          if (Number.isFinite(parsed)) fundingRate = parsed;
+        const json = (await tickersRes.json()) as {
+          retCode?: number;
+          result?: { list?: Array<{ fundingRate?: string }> };
+        };
+        if (json.retCode === 0) {
+          const raw = json.result?.list?.[0]?.fundingRate;
+          if (raw !== undefined) {
+            const parsed = parseFloat(raw);
+            if (Number.isFinite(parsed)) fundingRate = parsed;
+          }
+        } else {
+          console.warn(`[marketData] tickers ${symbol} retCode=${json.retCode}`);
         }
       } catch { /* leave null */ }
     }
@@ -150,10 +170,18 @@ export async function fetchFundingAndOI(symbol: FuturesSymbol): Promise<FundingA
     let openInterest: number | null = null;
     if (oiRes && oiRes.ok) {
       try {
-        const obj = (await oiRes.json()) as { openInterest?: string };
-        if (obj.openInterest !== undefined) {
-          const parsed = parseFloat(obj.openInterest);
-          if (Number.isFinite(parsed)) openInterest = parsed;
+        const json = (await oiRes.json()) as {
+          retCode?: number;
+          result?: { list?: Array<{ openInterest?: string }> };
+        };
+        if (json.retCode === 0) {
+          const raw = json.result?.list?.[0]?.openInterest;
+          if (raw !== undefined) {
+            const parsed = parseFloat(raw);
+            if (Number.isFinite(parsed)) openInterest = parsed;
+          }
+        } else {
+          console.warn(`[marketData] openInterest ${symbol} retCode=${json.retCode}`);
         }
       } catch { /* leave null */ }
     }
@@ -161,11 +189,22 @@ export async function fetchFundingAndOI(symbol: FuturesSymbol): Promise<FundingA
     let longShortRatio: number | null = null;
     if (ratioRes && ratioRes.ok) {
       try {
-        const arr = (await ratioRes.json()) as Array<{ longShortRatio?: string }>;
-        const raw = arr[0]?.longShortRatio;
-        if (raw !== undefined) {
-          const parsed = parseFloat(raw);
-          if (Number.isFinite(parsed)) longShortRatio = parsed;
+        const json = (await ratioRes.json()) as {
+          retCode?: number;
+          result?: { list?: Array<{ buyRatio?: string; sellRatio?: string }> };
+        };
+        if (json.retCode === 0) {
+          const buy = json.result?.list?.[0]?.buyRatio;
+          const sell = json.result?.list?.[0]?.sellRatio;
+          if (buy !== undefined && sell !== undefined) {
+            const buyN = parseFloat(buy);
+            const sellN = parseFloat(sell);
+            if (Number.isFinite(buyN) && Number.isFinite(sellN) && sellN > 0) {
+              longShortRatio = buyN / sellN;
+            }
+          }
+        } else {
+          console.warn(`[marketData] accountRatio ${symbol} retCode=${json.retCode}`);
         }
       } catch { /* leave null */ }
     }
