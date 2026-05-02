@@ -275,30 +275,37 @@ export function buildSignal(input: BuildSignalInput): Signal {
   else if (confidence === 'medium') leverage = atrPct > 3 ? 3 : 5;
   else if (confidence === 'low') leverage = atrPct > 3 ? 1 : 3;
 
-  // Rationale — one line per layer that contributed.
+  // Stage 18 T4 — rationale as structured evidence layers (one line per layer, always emitted
+  //   so the LLM can pick 2-3 from a known set). Score calc above is unchanged.
+  const tfStr = `m15:${tfM15.trend} h1:${tfH1.trend} h4:${tfH4.trend} d1:${tfD1.trend}`;
+  const intentTrend: 'bullish' | 'bearish' | null =
+    direction === 'long' ? 'bullish' : direction === 'short' ? 'bearish' : null;
+  const alignedCount = intentTrend
+    ? [tfM15.trend, tfH1.trend, tfH4.trend, tfD1.trend].filter((t) => t === intentTrend).length
+    : count;
+
   const rationale: string[] = [];
   rationale.push(
-    `Multi-TF alignment ${count}/4 ${dominant ?? 'mixed'} (score ${alignmentScore.toFixed(2)})`
+    `alignment ${alignedCount}/4 (${tfStr}, score=${alignmentScore.toFixed(2)})`
   );
-  if (tfH4.structure.trend !== 'ranging') {
-    rationale.push(
-      `4h structure ${tfH4.structure.trend}, swing high ${recentSwingHigh.toFixed(2)} / low ${recentSwingLow.toFixed(2)}`
-    );
-  }
+  rationale.push(
+    `structure ${tfH4.structure.trend}, swingHigh=${recentSwingHigh.toFixed(2)}, swingLow=${recentSwingLow.toFixed(2)}, BOS=${tfH4.structure.bosDetected}`
+  );
   if (tfH1.rsi != null) {
-    rationale.push(`1h RSI ${tfH1.rsi.toFixed(0)}, MACD ${tfH1.macdAgree ?? 'neutral'}`);
+    rationale.push(`momentum 1h RSI=${tfH1.rsi.toFixed(0)}, MACD=${tfH1.macdAgree ?? 'neutral'}`);
   }
-  if (divergencePoints > 0) {
-    rationale.push(`RSI divergence on H1/H4 (${dominant})`);
+  const divDir = tfH1.divergence.bullish || tfH4.divergence.bullish
+    ? 'bullish'
+    : tfH1.divergence.bearish || tfH4.divergence.bearish
+      ? 'bearish'
+      : null;
+  if (divDir) {
+    rationale.push(`divergence ${divDir} on h1/h4`);
   }
-  if (volumePoints > 0) {
-    rationale.push(`Volume ${volumeConfirm} on 1h`);
-  }
-  if (keyLevelPoints > 0) {
-    rationale.push(
-      `Price near key ${dominant === 'bullish' ? 'support' : 'resistance'}`
-    );
-  }
+  rationale.push(
+    `keyLevels nearestSupport=${keyLevels.nearestSupport.toFixed(2)}, nearestResistance=${keyLevels.nearestResistance.toFixed(2)}, pivot=${pivot.toFixed(2)}`
+  );
+  rationale.push(`volume ${volumeConfirm}`);
 
   return {
     symbol,
