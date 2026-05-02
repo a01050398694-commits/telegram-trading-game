@@ -82,4 +82,7 @@ export const env = {
   
   // Shill Engine
   SHILL_BOT_TOKENS: list('SHILL_BOT_TOKENS', ''),
+
+  // Signal Cron — defaults to dry-run; Render must explicitly set 'false' to broadcast.
+  SIGNAL_CRON_DRY_RUN: optional('SIGNAL_CRON_DRY_RUN', 'true'),
 } as const;
