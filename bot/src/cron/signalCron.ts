@@ -22,7 +22,7 @@ import { buildSignal } from '../services/signalEngine.js';
 import { getSignalCommentary } from '../services/ai.js';
 
 const SIGNAL_SYMBOLS = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT'] as const;
-const DISCLAIMER = '\n\n_not financial advice · paper-trade only · educational_';
+const DISCLAIMER = '';
 const COOLDOWN_MS = 2 * 3600_000;
 const HOURLY_CAP = 8;
 const DAILY_CAP = 50;
