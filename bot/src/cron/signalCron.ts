@@ -17,8 +17,34 @@ import {
   type TAIndicators,
 } from '../lib/ta.js';
 import { buildSignal } from '../services/signalEngine.js';
-import { getSignalCommentary } from '../services/ai.js';
+import {
+  getSignalCommentary,
+  STYLE_PRESETS,
+  MOOD_PRESETS,
+  type SignalStyle,
+  type SignalMood,
+} from '../services/ai.js';
 import { getFullMacroSnapshot } from '../services/macroBundle.js';
+
+interface SignalPreset {
+  style: SignalStyle;
+  mood: SignalMood;
+}
+
+// Why: per-tick shuffle so 4 symbols never share the same (style, mood) — biggest fix
+// for the "양산형 봇" repetition that Stage 17 left behind.
+function shuffleAndAssign(symbols: readonly string[]): Map<string, SignalPreset> {
+  const styles = [...STYLE_PRESETS].sort(() => Math.random() - 0.5);
+  const moods = [...MOOD_PRESETS].sort(() => Math.random() - 0.5);
+  const map = new Map<string, SignalPreset>();
+  symbols.forEach((sym, i) => {
+    map.set(sym, {
+      style: styles[i % styles.length] as SignalStyle,
+      mood: moods[i % moods.length] as SignalMood,
+    });
+  });
+  return map;
+}
 
 const SIGNAL_SYMBOLS = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT'] as const;
 const DISCLAIMER = '';
@@ -125,6 +151,8 @@ export class SignalCron {
     // Why: macro context (DXY/BTC.D/news/ETF/correlation) is shared across all symbols this tick.
     // 30-min internal cache, so a tick every 30 min refetches; per-source safeCollect on top.
     const macro = await getFullMacroSnapshot();
+    // Stage 18 — fresh (style, mood) per symbol per tick.
+    const presetMap = shuffleAndAssign(SIGNAL_SYMBOLS);
 
     for (const symbol of SIGNAL_SYMBOLS) {
       try {
@@ -164,7 +192,8 @@ export class SignalCron {
         if (isDryRun) {
           console.log('[signalCron][DRY]', JSON.stringify(signal));
         } else {
-          const commentary = await getSignalCommentary({ ...signal, macro });
+          const preset = presetMap.get(symbol);
+          const commentary = await getSignalCommentary({ ...signal, macro }, preset);
           const kb = new InlineKeyboard().url(
             '🚀 Practice This Setup',
             webAppDeepLink('signal')
@@ -175,7 +204,7 @@ export class SignalCron {
             { reply_markup: kb, parse_mode: 'Markdown' }
           );
           console.log(
-            `[signalCron] posted ${signal.direction} ${symbol} score=${signal.score}`
+            `[signalCron] posted ${signal.direction} ${symbol} score=${signal.score} style=${preset?.style ?? 'rand'} mood=${preset?.mood ?? 'rand'}`
           );
         }
 
