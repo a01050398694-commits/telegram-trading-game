@@ -3,7 +3,7 @@ import { InlineKeyboard } from 'grammy';
 import { getAiChatResponse, getProactiveAiMessage } from '../services/ai.js';
 import { shillEngine } from './shillEngine.js';
 import { env } from '../env.js';
-import { webAppUrl } from '../lib/webappUrl.js';
+import { webAppDeepLink } from '../lib/webappUrl.js';
 
 // 스팸 필터링 조건: 
 // 1. 키릴 문자(러시아어) 포함
@@ -31,8 +31,7 @@ export function setupCommunityFeatures(bot: Bot) {
       for (const chatId of activeGroups) {
         const msg = await getProactiveAiMessage();
         if (msg) {
-          const appUrl = webAppUrl();
-          const kb = new InlineKeyboard().webApp('📱 모의 투자', appUrl);
+          const kb = new InlineKeyboard().url('📱 모의 투자', webAppDeepLink('proactive'));
           await bot.api.sendMessage(chatId, msg, { reply_markup: kb }).catch(() => {});
         }
       }
@@ -66,9 +65,8 @@ export function setupCommunityFeatures(bot: Bot) {
           continue;
         }
 
-        const appUrl = webAppUrl();
         const kb = new InlineKeyboard()
-          .webApp('📱 모의 투자 시작하기', appUrl)
+          .url('📱 모의 투자 시작하기', webAppDeepLink('welcome'))
           .row()
           .url('📢 공지 채널', 'https://t.me/academy_premium_ch');
 
@@ -174,8 +172,7 @@ export function setupCommunityFeatures(bot: Bot) {
 
       // [🎣 자율형 유저 푸념 낚시]
       if (COMPLAINT_REGEX.test(text) && !isAdmin && !text.includes(`@${ctx.me.username}`)) {
-        const appUrl = webAppUrl();
-        const kb = new InlineKeyboard().webApp('🛡️ 멘탈 회복 모의투자', appUrl);
+        const kb = new InlineKeyboard().url('🛡️ 멘탈 회복 모의투자', webAppDeepLink('complaint'));
         const replyText = `앗... 괜찮으신가요? 😭\n실전에서 소중한 시드를 잃기 전에, 당분간 아카데미 시뮬레이터에서 리스크 관리부터 연습해보시는 걸 강력히 추천드립니다! 제가 도와드릴게요.`;
         
         await ctx.reply(replyText, {
@@ -200,8 +197,7 @@ export function setupCommunityFeatures(bot: Bot) {
         const aiReply = await getAiChatResponse(cleanText, username);
         
         // 인라인 키보드 살짝 섞기 (확률적/또는 고정)
-        const appUrl = webAppUrl();
-        const kb = new InlineKeyboard().webApp('🚀 거래 연습하러 가기', appUrl);
+        const kb = new InlineKeyboard().url('🚀 거래 연습하러 가기', webAppDeepLink('ai_chat'));
 
         await ctx.reply(aiReply, { 
           reply_to_message_id: ctx.message.message_id,

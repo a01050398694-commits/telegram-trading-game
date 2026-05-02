@@ -2,7 +2,7 @@ import type { Bot } from 'grammy';
 import { InlineKeyboard } from 'grammy';
 import OpenAI from 'openai';
 import { env } from '../env.js';
-import { webAppUrl } from '../lib/webappUrl.js';
+import { webAppDeepLink } from '../lib/webappUrl.js';
 import type { PriceCache } from '../priceCache.js';
 import { checkAndIncrementCallBudget } from '../services/ai.js';
 
@@ -106,7 +106,7 @@ export class MarketBriefCron {
       const brief = response.choices[0]?.message?.content?.trim();
       if (!brief) return;
 
-      const kb = new InlineKeyboard().webApp('🚀 모의 투자 시작하기', webAppUrl());
+      const kb = new InlineKeyboard().url('🚀 모의 투자 시작하기', webAppDeepLink('market_brief'));
 
       await this.bot.api.sendMessage(targetChat, brief, {
         parse_mode: 'HTML',

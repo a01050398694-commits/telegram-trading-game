@@ -17,7 +17,7 @@ import { BinancePriceFeed, type PriceUpdate } from './services/binance.js';
 import { PriceCache } from './priceCache.js';
 import { env } from './env.js';
 import { InlineKeyboard } from 'grammy';
-import { webAppUrl } from './lib/webappUrl.js';
+import { webAppDeepLink } from './lib/webappUrl.js';
 
 async function main(): Promise<void> {
   // CLAUDE.md §7 — silent fail 금지. 핵심 ENV 누락 시 부팅 시점에 한 번 warn.
@@ -92,7 +92,7 @@ async function main(): Promise<void> {
           const msg = `🚨 *비트코인 변동성 경보* 🚨\n\n최근 5분 동안 비트코인이 *${Math.abs(diffPercent).toFixed(2)}% ${direction}*했습니다!\n(현재가: $${update.price.toLocaleString('en-US')})\n\n시장 변동성이 폭발 중입니다. 지금 바로 타점을 잡아보세요!`;
           
           if (env.COMMUNITY_CHAT_ID) {
-            const kb = new InlineKeyboard().webApp('⚔️ 실시간 마켓 참여하기', webAppUrl());
+            const kb = new InlineKeyboard().url('⚔️ 실시간 마켓 참여하기', webAppDeepLink('btc_alert'));
             void bot.api.sendMessage(env.COMMUNITY_CHAT_ID, msg, { parse_mode: 'Markdown', reply_markup: kb }).catch(console.error);
           }
         }
