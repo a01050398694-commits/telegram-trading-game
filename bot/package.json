@@ -10,7 +10,8 @@
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "verify:ta": "tsx scripts/verify-ta.ts"
   },
   "dependencies": {
     "@sentry/node": "^8.47.0",
