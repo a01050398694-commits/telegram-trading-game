@@ -61,7 +61,14 @@ async function main(): Promise<void> {
     nonSkip ??
     (signals[0]
       ? { ...signals[0], direction: 'long', entry: signals[0].currentPrice * 1.003, stopLoss: signals[0].currentPrice * 0.97, tp1: signals[0].currentPrice * 1.03, tp2: signals[0].currentPrice * 1.06, rationale: ['demo: forced long for AI commentary smoke'] }
-      : { symbol: 'BTCUSDT', direction: 'long', score: 0, currentPrice: 70000, entry: 70210, stopLoss: 68000, tp1: 72000, tp2: 74000, rationale: ['demo'] });
+      : { symbol: 'BTCUSDT', direction: 'long', score: 0, currentPrice: 70000, entry: 70210, stopLoss: 68000, tp1: 72000, tp2: 74000, rationale: ['demo'], leverage: 3 });
+
+  // Leverage assertion — score-tier rule: ≥55→10, ≥45→5, else 3.
+  const expectedLev = target.score >= 55 ? 10 : target.score >= 45 ? 5 : 3;
+  if (target.leverage !== expectedLev) {
+    throw new Error(`leverage mismatch: score=${target.score} expected=${expectedLev} got=${target.leverage}`);
+  }
+  console.log(`[leverage assert] score=${target.score} → leverage=${target.leverage}x ✓`);
 
   console.log(`[ai] requesting commentary for ${target.direction} ${target.symbol}...`);
   const commentary = await getSignalCommentary({
@@ -73,6 +80,7 @@ async function main(): Promise<void> {
     tp1: target.tp1,
     tp2: target.tp2,
     rationale: target.rationale,
+    leverage: target.leverage,
   });
   console.log('\n[ai] commentary:\n');
   console.log(commentary);

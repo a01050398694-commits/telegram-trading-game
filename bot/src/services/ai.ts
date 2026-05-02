@@ -110,6 +110,7 @@ interface SignalCommentaryInput {
   tp1: number;
   tp2: number;
   rationale: string[];
+  leverage: number;
 }
 
 const SIGNAL_PROMPT = `You're a senior crypto trader posting a setup in a Telegram group.
@@ -133,12 +134,14 @@ export function formatSignalPlain(s: SignalCommentaryInput): string {
   const arrow = s.direction === 'long' ? '🟢 LONG' : s.direction === 'short' ? '🔴 SHORT' : '⏸ SKIP';
   const head = `${arrow} *${s.symbol}* @ ${formatPrice(s.currentPrice)}`;
   const why = s.rationale.length > 0 ? `_${s.rationale.slice(0, 2).join(' · ')}_` : '';
+  const leverageLine = s.direction === 'skip' ? '' : `Leverage: ${s.leverage}x`;
   const lines = [
     head,
     why,
     `Entry: ${formatPrice(s.entry)}`,
     `SL: ${formatPrice(s.stopLoss)}`,
     `TP1: ${formatPrice(s.tp1)} · TP2: ${formatPrice(s.tp2)}`,
+    leverageLine,
   ].filter((line) => line.length > 0);
   return lines.join('\n');
 }
@@ -158,6 +161,7 @@ export async function getSignalCommentary(signal: SignalCommentaryInput): Promis
     tp1: signal.tp1,
     tp2: signal.tp2,
     rationale: signal.rationale,
+    leverage: signal.leverage,
   });
 
   try {

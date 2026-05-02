@@ -16,6 +16,7 @@ export interface Signal {
   tp1: number;
   tp2: number;
   rationale: string[];
+  leverage: number;
 }
 
 export interface BuildSignalInput {
@@ -123,6 +124,9 @@ export function buildSignal(input: BuildSignalInput): Signal {
   // Levels — use ATR fallback (2% of price) if TA didn't return one.
   const atr = indicators.atr14 ?? currentPrice * 0.02;
 
+  // Score-tiered leverage. Higher conviction = more leverage allowed in the suggested setup.
+  const leverage = score >= 55 ? 10 : score >= 45 ? 5 : 3;
+
   if (direction === 'skip') {
     return {
       symbol,
@@ -134,6 +138,7 @@ export function buildSignal(input: BuildSignalInput): Signal {
       tp1: 0,
       tp2: 0,
       rationale,
+      leverage,
     };
   }
 
@@ -153,5 +158,6 @@ export function buildSignal(input: BuildSignalInput): Signal {
     tp1,
     tp2,
     rationale,
+    leverage,
   };
 }

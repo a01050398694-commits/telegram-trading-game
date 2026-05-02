@@ -88,14 +88,17 @@ async function main(): Promise<void> {
         // 0.5% 이상 변동 시 알림
         if (Math.abs(diffPercent) >= 0.5) {
           lastAlertTime = now;
-          const isPump = diffPercent > 0;
-          const icon = isPump ? '🚀' : '🩸';
-          const direction = isPump ? 'pump' : 'dump';
-          const msg = `🚨 *BTC Volatility Alert* 🚨\n\nBTC moved *${Math.abs(diffPercent).toFixed(2)}% ${direction}* in the last 5 min!\n(now: $${update.price.toLocaleString('en-US')})\n\nMarket's heating up — jump in!`;
-
-          if (env.COMMUNITY_CHAT_ID) {
-            const kb = new InlineKeyboard().url('⚔️ Jump In Live', webAppDeepLink('btc_alert'));
-            void bot.api.sendMessage(env.COMMUNITY_CHAT_ID, msg, { parse_mode: 'Markdown', reply_markup: kb }).catch(console.error);
+          // disabled per Stage 16: data-only bot, signalCron only emits to group
+          if (false) {
+            const isPump = diffPercent > 0;
+            const icon = isPump ? '🚀' : '🩸';
+            const direction = isPump ? 'pump' : 'dump';
+            const msg = `🚨 *BTC Volatility Alert* 🚨\n\nBTC moved *${Math.abs(diffPercent).toFixed(2)}% ${direction}* in the last 5 min!\n(now: $${update.price.toLocaleString('en-US')})\n\nMarket's heating up — jump in!`;
+            void icon;
+            if (env.COMMUNITY_CHAT_ID) {
+              const kb = new InlineKeyboard().url('⚔️ Jump In Live', webAppDeepLink('btc_alert'));
+              void bot.api.sendMessage(env.COMMUNITY_CHAT_ID, msg, { parse_mode: 'Markdown', reply_markup: kb }).catch(console.error);
+            }
           }
         }
       }
