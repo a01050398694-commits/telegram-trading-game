@@ -32,6 +32,7 @@ export async function fetchFearGreed(): Promise<FearGreedResult | null> {
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
     if (!res.ok) {
+      console.warn(`[fearGreed] HTTP ${res.status}`);
       cache = { value: null, expiresAt: Date.now() + CACHE_TTL_MS };
       return null;
     }
@@ -58,7 +59,8 @@ export async function fetchFearGreed(): Promise<FearGreedResult | null> {
     };
     cache = { value: result, expiresAt: Date.now() + CACHE_TTL_MS };
     return result;
-  } catch {
+  } catch (e) {
+    console.warn('[fearGreed] threw:', e instanceof Error ? e.message : String(e));
     cache = { value: null, expiresAt: Date.now() + CACHE_TTL_MS };
     return null;
   }

@@ -54,9 +54,12 @@ export async function fetchKlines(
   if (cached !== undefined) return cached;
 
   try {
-    const url = `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=1d&limit=${limit}`;
+    // Why: Binance Futures (fapi) is geo-blocked from US IPs (Render Oregon).
+    // Spot endpoint returns identical kline row shape and serves all regions.
+    const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1d&limit=${limit}`;
     const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
     if (!res.ok) {
+      console.warn(`[marketData] klines ${symbol} HTTP ${res.status}`);
       setCached<KlineSeries | null>(key, null);
       return null;
     }
@@ -91,7 +94,8 @@ export async function fetchKlines(
     const series: KlineSeries = { closes, highs, lows };
     setCached(key, series);
     return series;
-  } catch {
+  } catch (e) {
+    console.warn(`[marketData] klines ${symbol} threw:`, e instanceof Error ? e.message : String(e));
     // Cache the failure briefly to avoid hammering the API on outage.
     setCached<KlineSeries | null>(key, null);
     return null;
@@ -112,14 +116,23 @@ export async function fetchFundingAndOI(symbol: FuturesSymbol): Promise<FundingA
     const [fundingRes, oiRes, ratioRes] = await Promise.all([
       fetch(`https://fapi.binance.com/fapi/v1/fundingRate?symbol=${symbol}&limit=1`, {
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      }).catch(() => null),
+      }).catch((e) => {
+        console.warn(`[marketData] fundingRate ${symbol} threw:`, e instanceof Error ? e.message : String(e));
+        return null;
+      }),
       fetch(`https://fapi.binance.com/fapi/v1/openInterest?symbol=${symbol}`, {
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      }).catch(() => null),
+      }).catch((e) => {
+        console.warn(`[marketData] openInterest ${symbol} threw:`, e instanceof Error ? e.message : String(e));
+        return null;
+      }),
       fetch(
         `https://fapi.binance.com/futures/data/globalLongShortAccountRatio?symbol=${symbol}&period=5m&limit=1`,
         { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) }
-      ).catch(() => null),
+      ).catch((e) => {
+        console.warn(`[marketData] longShortRatio ${symbol} threw:`, e instanceof Error ? e.message : String(e));
+        return null;
+      }),
     ]);
 
     let fundingRate: number | null = null;
