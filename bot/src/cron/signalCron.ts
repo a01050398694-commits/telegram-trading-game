@@ -4,11 +4,9 @@ import { env } from '../env.js';
 import { webAppDeepLink } from '../lib/webappUrl.js';
 import type { PriceCache } from '../priceCache.js';
 import {
-  fetchKlines,
-  fetchFundingAndOI,
+  fetchMultiTimeframeKlines,
   type FuturesSymbol,
 } from '../services/marketData.js';
-import { fetchFearGreed } from '../services/fearGreed.js';
 import {
   computeRSI,
   computeSMA,
@@ -142,32 +140,20 @@ export class SignalCron {
         const lastPosted = this.lastPostedAt.get(symbol) ?? 0;
         if (Date.now() - lastPosted < COOLDOWN_MS) continue;
 
-        const klines = await fetchKlines(symbol as FuturesSymbol, 200);
-        if (!klines) {
-          console.warn(`[signalCron] fetchKlines null for ${symbol}, skipping`);
+        const mtf = await fetchMultiTimeframeKlines(symbol as FuturesSymbol);
+        if (!mtf) {
+          console.warn(`[signalCron] fetchMultiTimeframeKlines null for ${symbol}, skipping`);
           continue;
         }
 
-        const fundingOI = await fetchFundingAndOI(symbol as FuturesSymbol);
-        const fgi = await fetchFearGreed();
-
         const livePrice = snap[symbol.toLowerCase()];
-        const lastClose = klines.closes.at(-1) ?? 0;
+        const lastClose = mtf.h1.closes.at(-1) ?? mtf.d1.closes.at(-1) ?? 0;
         const currentPrice = livePrice ?? lastClose;
-
-        const indicators = computeAllIndicators(
-          klines.closes,
-          klines.highs,
-          klines.lows,
-          symbol
-        );
 
         const signal = buildSignal({
           symbol: symbol as FuturesSymbol,
           currentPrice,
-          indicators,
-          fundingRate: fundingOI?.fundingRate ?? null,
-          fearGreed: fgi?.value ?? null,
+          klines: mtf,
         });
 
         if (signal.direction === 'skip') {

@@ -2,9 +2,8 @@
 // Why: Binance.com (Spot AND fapi) returns HTTP 451 from US IPs (Render Oregon).
 // Bybit blocks US too (HTTP 403). Binance.US is the US-licensed subsidiary, accepts US traffic,
 // and exposes the same /api/v3/klines response shape as Binance.com.
-//
-// Limitation: Binance.US has no derivatives. fetchFundingAndOI returns all-null;
-// signalEngine already handles null fields by zeroing those weights.
+// Stage 17 v4: derivatives layers (funding/OI/LSR) permanently dropped — Binance.US has no
+// derivatives endpoints, and the new multi-TF + structure scoring covers the gap on its own.
 
 export type FuturesSymbol = 'BTCUSDT' | 'ETHUSDT' | 'SOLUSDT' | 'XRPUSDT';
 
@@ -12,13 +11,17 @@ export interface KlineSeries {
   closes: number[];
   highs: number[];
   lows: number[];
+  volumes: number[];
 }
 
-export interface FundingAndOI {
-  fundingRate: number | null;
-  openInterest: number | null;
-  longShortRatio: number | null;
+export interface MultiTimeframeKlines {
+  m15: KlineSeries;
+  h1: KlineSeries;
+  h4: KlineSeries;
+  d1: KlineSeries;
 }
+
+export type KlineInterval = '15m' | '1h' | '4h' | '1d';
 
 interface CacheEntry<T> {
   value: T;
@@ -30,9 +33,6 @@ const cache = new Map<string, CacheEntry<unknown>>();
 
 const CACHE_TTL_MS = 60 * 1000;
 const FETCH_TIMEOUT_MS = 8000;
-
-// One-time module-load warn so the operator sees this in boot logs once, not per-tick.
-console.warn('[marketData] funding/OI/LSR not available on Binance.US — signal will skip those weights');
 
 function getCached<T>(key: string): T | undefined {
   const hit = cache.get(key);
@@ -49,23 +49,24 @@ function setCached<T>(key: string, value: T, ttlMs: number = CACHE_TTL_MS): void
 }
 
 /**
- * Daily klines for a symbol. Returns oldest-first arrays (Binance.US returns oldest-first natively).
- * Caches under key `klines:${symbol}:${limit}` for 60s.
+ * Klines for a symbol on a given interval. Returns oldest-first arrays (Binance.US returns oldest-first natively).
+ * Caches under key `klines:${symbol}:${interval}:${limit}` for 60s.
  * Returns null on network/parse failure (never throws).
  */
 export async function fetchKlines(
   symbol: FuturesSymbol,
-  limit: number = 200
+  limit: number = 200,
+  interval: KlineInterval = '1d'
 ): Promise<KlineSeries | null> {
-  const key = `klines:${symbol}:${limit}`;
+  const key = `klines:${symbol}:${interval}:${limit}`;
   const cached = getCached<KlineSeries | null>(key);
   if (cached !== undefined) return cached;
 
   try {
-    const url = `https://api.binance.us/api/v3/klines?symbol=${symbol}&interval=1d&limit=${limit}`;
+    const url = `https://api.binance.us/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
     const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
     if (!res.ok) {
-      console.warn(`[marketData] klines ${symbol} HTTP ${res.status}`);
+      console.warn(`[marketData] klines ${symbol} ${interval} HTTP ${res.status}`);
       setCached<KlineSeries | null>(key, null);
       return null;
     }
@@ -83,35 +84,51 @@ export async function fetchKlines(
     const closes: number[] = [];
     const highs: number[] = [];
     const lows: number[] = [];
+    const volumes: number[] = [];
     for (const row of rows) {
       const open = Number(row[1]);
       const high = Number(row[2]);
       const low = Number(row[3]);
       const close = Number(row[4]);
-      if (!Number.isFinite(open) || !Number.isFinite(high) || !Number.isFinite(low) || !Number.isFinite(close)) {
+      const volume = Number(row[5]);
+      if (
+        !Number.isFinite(open) ||
+        !Number.isFinite(high) ||
+        !Number.isFinite(low) ||
+        !Number.isFinite(close)
+      ) {
         setCached<KlineSeries | null>(key, null);
         return null;
       }
       highs.push(high);
       lows.push(low);
       closes.push(close);
+      volumes.push(Number.isFinite(volume) ? volume : 0);
     }
 
-    const series: KlineSeries = { closes, highs, lows };
+    const series: KlineSeries = { closes, highs, lows, volumes };
     setCached(key, series);
     return series;
   } catch (e) {
-    console.warn(`[marketData] klines ${symbol} threw:`, e instanceof Error ? e.message : String(e));
+    console.warn(`[marketData] klines ${symbol} ${interval} threw:`, e instanceof Error ? e.message : String(e));
     setCached<KlineSeries | null>(key, null);
     return null;
   }
 }
 
 /**
- * Funding / open interest / long-short ratio.
- * Binance.US is spot-only — no derivatives endpoints. Always returns all-null.
- * Function signature preserved so signalEngine continues to compile and zero those weights.
+ * Fetch 4 timeframes (15m / 1h / 4h / 1d) in parallel for multi-TF analysis.
+ * Returns null if ANY single TF fetch fails — caller treats as data-incomplete.
  */
-export async function fetchFundingAndOI(_symbol: FuturesSymbol): Promise<FundingAndOI | null> {
-  return { fundingRate: null, openInterest: null, longShortRatio: null };
+export async function fetchMultiTimeframeKlines(
+  symbol: FuturesSymbol
+): Promise<MultiTimeframeKlines | null> {
+  const [m15, h1, h4, d1] = await Promise.all([
+    fetchKlines(symbol, 200, '15m'),
+    fetchKlines(symbol, 200, '1h'),
+    fetchKlines(symbol, 200, '4h'),
+    fetchKlines(symbol, 200, '1d'),
+  ]);
+  if (!m15 || !h1 || !h4 || !d1) return null;
+  return { m15, h1, h4, d1 };
 }

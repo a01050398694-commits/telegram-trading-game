@@ -113,6 +113,27 @@ interface SignalCommentaryInput {
   rationale: string[];
   leverage: number;
   score?: number;
+  confidence?: 'high' | 'medium' | 'low' | 'none';
+  multiTimeframeAlignment?: {
+    m15: 'bullish' | 'bearish' | 'neutral';
+    h1: 'bullish' | 'bearish' | 'neutral';
+    h4: 'bullish' | 'bearish' | 'neutral';
+    d1: 'bullish' | 'bearish' | 'neutral';
+    alignmentScore: number;
+  };
+  structure?: {
+    trend: 'bullish' | 'bearish' | 'ranging';
+    recentSwingHigh: number;
+    recentSwingLow: number;
+    bosDetected: boolean;
+  };
+  keyLevels?: {
+    nearestResistance: number;
+    nearestSupport: number;
+    pivot: number;
+  };
+  divergence?: { bullish: boolean; bearish: boolean };
+  volumeConfirmation?: 'confirmed' | 'weak' | 'none';
   macro?: FullMacroSnapshot;
 }
 
@@ -217,7 +238,31 @@ sit out til the noise dies.
 
 [correlation-driven skip]
 btc.eth correlation 0.95 today. all alts in lockstep.
-no edge in alt-specific play. wait for divergence.`;
+no edge in alt-specific play. wait for divergence.
+
+STRUCTURE & MOMENTUM CONTEXT (always available in input):
+
+- input.multiTimeframeAlignment: { m15, h1, h4, d1 trends + alignmentScore 0-1 }
+  • alignmentScore 1.0 = all 4 TF agree → "alignment 4 TF" or "fully aligned"
+  • 0.75 = 3/4 → "h4/h1/d1 all bearish, m15 mixed"
+  • 0.5 or below → mention only when explaining a skip
+- input.structure: { trend, recentSwingHigh, recentSwingLow, bosDetected }
+  • bosDetected = true → "structure broken" / "BOS confirmed"
+  • Use swingHigh/swingLow as the SL anchor in commentary ("sl above the swing high at 88")
+- input.divergence: { bullish, bearish }
+  • Either true → "rsi divergence on h1/h4 — textbook reversal" / "juicy divergence"
+- input.volumeConfirmation: 'confirmed' | 'weak' | 'none'
+  • 'confirmed' → "volume confirms the move"
+  • 'weak' → "volume not great but bias is clear"
+  • 'none' → don't mention or use as caution
+
+WHEN to use these layers:
+- For LONG/SHORT messages: pick 1-2 strongest layers and weave them naturally.
+  "structure broken on 4h, sma flip on 1h, alignment 4 TF" beats listing all six.
+- For SKIP messages: lean macro-heavy (DXY/news/fgi). Structure layers go in only
+  if they explain *why* skip ("alignment only 2/4 TF, no edge").
+- Divergence is a HIGH-IMPACT signal — if true, lead with it.
+- BOS (break of structure) = strong continuation signal — mention when bosDetected=true.`;
 
 function formatPrice(p: number): string {
   // Whole-number-ish for high-priced coins; up to 4 decimals for low-priced (e.g. XRP).
@@ -247,11 +292,13 @@ export async function getSignalCommentary(signal: SignalCommentaryInput): Promis
   if (!openai) return fallback;
   if (!checkAndIncrementCallBudget()) return fallback;
 
-  // Why: AI gets the raw numbers + rationale + macro context, then writes the setup like a trader.
+  // Why: AI gets raw numbers + rationale + structure/divergence/volume + macro,
+  //   then writes the setup like a trader. Free-form length, varied tone (per SIGNAL_PROMPT).
   const userPayload = JSON.stringify({
     symbol: signal.symbol,
     direction: signal.direction,
     score: signal.score,
+    confidence: signal.confidence,
     currentPrice: signal.currentPrice,
     entry: signal.entry,
     stopLoss: signal.stopLoss,
@@ -259,6 +306,11 @@ export async function getSignalCommentary(signal: SignalCommentaryInput): Promis
     tp2: signal.tp2,
     rationale: signal.rationale,
     leverage: signal.leverage,
+    multiTimeframeAlignment: signal.multiTimeframeAlignment,
+    structure: signal.structure,
+    keyLevels: signal.keyLevels,
+    divergence: signal.divergence,
+    volumeConfirmation: signal.volumeConfirmation,
     macro: signal.macro,
   });
 
