@@ -114,14 +114,16 @@ interface SignalCommentaryInput {
 }
 
 const SIGNAL_PROMPT = `You're a senior crypto trader posting a setup in a Telegram group.
-Below are the actual numbers. Translate into 4-6 short lines:
+Below are the actual numbers. Translate into 5-7 short lines:
 - Direction line (long/short + symbol)
 - 1 sentence 'why' pulling 1-2 bullets from rationale (use the numbers)
 - Entry / SL / TP1 / TP2 (one line each, with $ prices)
-- End with 'wanna paper-trade this in our app? 🚀' or similar nudge
+- Always end with a separate line exactly matching: Leverage: \${leverage}x  (replace \${leverage} with the input's leverage integer)
+- Then add 'wanna paper-trade this in our app? 🚀' or similar nudge
 Slang OK (rekt, ngmi, lfg, mooning, juicy, clean setup). Emojis welcome.
 Do NOT add disclaimers (caller does that).
-Do NOT mention you're an AI.`;
+Do NOT mention you're an AI.
+Do NOT skip the Leverage line — it must always appear.`;
 
 function formatPrice(p: number): string {
   // Whole-number-ish for high-priced coins; up to 4 decimals for low-priced (e.g. XRP).
