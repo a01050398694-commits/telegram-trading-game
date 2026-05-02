@@ -28,12 +28,12 @@ export function setupCommunityFeatures(bot: Bot) {
   // 자율형 AI 봇 선제적 발화 루프 (5분 ~ 10분 사이 랜덤 간격으로 계속 말걸기)
   const proactiveLoop = async () => {
     try {
-      for (const chatId of activeGroups) {
-        const msg = await getProactiveAiMessage();
-        if (msg) {
-          const kb = new InlineKeyboard().url('📱 Try the App', webAppDeepLink('proactive'));
-          await bot.api.sendMessage(chatId, msg, { reply_markup: kb }).catch(() => {});
-        }
+      for (const _chatId of activeGroups) {
+        // const msg = await getProactiveAiMessage();
+        // if (msg) {
+        //   const kb = new InlineKeyboard().url('📱 Try the App', webAppDeepLink('proactive'));
+        //   await bot.api.sendMessage(_chatId, msg, { reply_markup: kb }).catch(() => {});
+        // }
       }
     } catch (e) {
       console.error('[community] Proactive loop error:', e);
@@ -44,7 +44,7 @@ export function setupCommunityFeatures(bot: Bot) {
   };
   
   // 최초 1회는 1분 뒤 시작
-  setTimeout(proactiveLoop, 60_000);
+  // setTimeout(proactiveLoop, 60_000); — disabled per Stage 16: data-only bot
   
   
   // 1. 신규 유저 웰컴 메시지 (스팸/봇이면 차단)
@@ -170,41 +170,35 @@ export function setupCommunityFeatures(bot: Bot) {
     if (text) {
       shillEngine.pushUserMessage(username, text);
 
-      // [🎣 자율형 유저 푸념 낚시]
-      if (COMPLAINT_REGEX.test(text) && !isAdmin && !text.includes(`@${ctx.me.username}`)) {
-        const kb = new InlineKeyboard().url('🛡️ Mental Recovery Simulator', webAppDeepLink('complaint'));
-        const replyText = `Ouch, that hurts 😭. Before risking real seed money, try our academy simulator to drill risk management. I'll help you out 💪`;
-        
-        await ctx.reply(replyText, {
-          reply_to_message_id: ctx.message.message_id,
-          reply_markup: kb
-        }).catch(() => {});
-      }
+      // [🎣 자율형 유저 푸념 낚시] — disabled per Stage 16: data-only bot
+      // if (COMPLAINT_REGEX.test(text) && !isAdmin && !text.includes(`@${ctx.me.username}`)) {
+      //   const kb = new InlineKeyboard().url('🛡️ Mental Recovery Simulator', webAppDeepLink('complaint'));
+      //   const replyText = `Ouch, that hurts 😭. Before risking real seed money, try our academy simulator to drill risk management. I'll help you out 💪`;
+      //
+      //   await ctx.reply(replyText, {
+      //     reply_to_message_id: ctx.message.message_id,
+      //     reply_markup: kb
+      //   }).catch(() => {});
+      // }
     }
 
-    // [AI 대화] 봇을 멘션하거나 답장(Reply)한 경우 AI 가 응답
-    const isMentioned = text.includes(`@${ctx.me.username}`);
-    const isReplied = ctx.message.reply_to_message?.from?.id === ctx.me.id;
-
-    if (isMentioned || isReplied) {
-      // 봇 멘션 태그 지우기
-      const cleanText = text.replace(new RegExp(`@${ctx.me.username}`, 'gi'), '').trim();
-      
-      if (cleanText.length > 0) {
-        // AI가 입력 중(typing)이라는 액션 표시
-        await ctx.replyWithChatAction('typing');
-        
-        const aiReply = await getAiChatResponse(cleanText, username);
-        
-        // 인라인 키보드 살짝 섞기 (확률적/또는 고정)
-        const kb = new InlineKeyboard().url('🚀 Practice Now', webAppDeepLink('ai_chat'));
-
-        await ctx.reply(aiReply, { 
-          reply_to_message_id: ctx.message.message_id,
-          reply_markup: kb
-        });
-      }
-    }
+    // [AI 대화] 봇 멘션/답장 응답 — disabled per Stage 16: data-only bot
+    // const isMentioned = text.includes(`@${ctx.me.username}`);
+    // const isReplied = ctx.message.reply_to_message?.from?.id === ctx.me.id;
+    //
+    // if (isMentioned || isReplied) {
+    //   const cleanText = text.replace(new RegExp(`@${ctx.me.username}`, 'gi'), '').trim();
+    //
+    //   if (cleanText.length > 0) {
+    //     await ctx.replyWithChatAction('typing');
+    //     const aiReply = await getAiChatResponse(cleanText, username);
+    //     const kb = new InlineKeyboard().url('🚀 Practice Now', webAppDeepLink('ai_chat'));
+    //     await ctx.reply(aiReply, {
+    //       reply_to_message_id: ctx.message.message_id,
+    //       reply_markup: kb
+    //     });
+    //   }
+    // }
 
     return next();
   });

@@ -160,7 +160,7 @@ async function main(): Promise<void> {
   chatSwitcher.start();
   retentionCron.start();
   affiliateReconcileCron.start();
-  marketBriefCron.start();
+  // marketBriefCron.start(); — disabled per Stage 16: data-only bot
   weeklyReportCron.start();
   signalCron.start();
   shillEngine.setPriceCache(priceCache);
@@ -178,7 +178,7 @@ async function main(): Promise<void> {
     console.log(`[bot] received ${signal}, shutting down`);
     weeklyReportCron.stop();
     signalCron.stop();
-    marketBriefCron.stop();
+    // marketBriefCron.stop(); — disabled per Stage 16: data-only bot
     shillEngine.stop();
     retentionCron.stop();
     affiliateReconcileCron.stop();
