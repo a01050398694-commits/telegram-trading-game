@@ -82,18 +82,18 @@ export class MarketBriefCron {
 
       // 주제 로테이션
       const hooks = [
-        `"RSI 등 기술적 지표나 현재 시황을 빗대어 모의투자를 유도해라. 예: RSI가 과매수네요, 조만간 숏 자리 아닐까요? 연습해보세요!"`,
-        `"수익률이나 랭킹에 대한 경쟁심리를 자극해라. 예: 오늘 1등 수익률이 어마어마하네요! 당신도 엘리트 클럽에 도전하세요!"`,
-        `"단순 시황을 브리핑하며 스캘핑을 권유해라. 예: 비트가 횡보하네요. 이럴 땐 알트 단타가 제격이죠. 타점 연습 어때요?"`
+        `"Use RSI or current chart to nudge practice trading. e.g. 'RSI's overbought af, short setup brewing? practice it first!'"`,
+        `"Stir competitive ranking energy. e.g. 'today's #1 PnL is INSANE. think you can crack the elite club?'"`,
+        `"Brief market + push scalping practice. e.g. 'BTC chopping. perfect for alt scalps — wanna sharpen entries?'"`
       ];
       const selectedHook = hooks[Math.floor(Math.random() * hooks.length)];
 
-      const prompt = `현재 비트코인 가격은 $${btcNow?.toFixed(2)}, 이더리움은 $${ethNow?.toFixed(2)} 입니다. (지난 주기 대비 변동폭 비트: ${btcChange > 0 ? '+' : ''}${btcChange.toFixed(2)}%, 이더: ${ethChange > 0 ? '+' : ''}${ethChange.toFixed(2)}%).
-이 데이터를 바탕으로 텔레그램 트레이딩 커뮤니티 유저들에게 수다를 떠는 것처럼 먼저 말을 걸어주세요. 
-이번 발언의 핵심 지침: ${selectedHook}
-- 길이는 2~3문장으로 아주 짧게 쓰세요.
-- 딱딱한 시황 브리핑 절대 금지, 진짜 커뮤니티의 사람(트레이더)처럼 자연스러운 말투, 비속어 필터링 없이 거친 슬랭(rekt, ngmi, 떡상 등)과 이모지를 사용하세요.
-- 대화 중간에 무조건 딥링크 버튼을 누르게끔 넛지(Nudge)하세요.`;
+      const prompt = `Current BTC: $${btcNow?.toFixed(2)}, ETH: $${ethNow?.toFixed(2)}. (Change vs last tick — BTC: ${btcChange > 0 ? '+' : ''}${btcChange.toFixed(2)}%, ETH: ${ethChange > 0 ? '+' : ''}${ethChange.toFixed(2)}%).
+Drop a casual line into a Telegram trading community based on this data — like you're starting convo, not briefing.
+Today's vibe: ${selectedHook}
+- Length: 2-3 sentences, super short.
+- NEVER sound like a market report. Talk like a real trader — slang welcome (rekt, ngmi, moon, lfg, etc.) + emojis.
+- Slip in a nudge to tap the deep-link button mid-message.`;
 
       if (!checkAndIncrementCallBudget()) return;
       const response = await openai.chat.completions.create({
@@ -106,7 +106,7 @@ export class MarketBriefCron {
       const brief = response.choices[0]?.message?.content?.trim();
       if (!brief) return;
 
-      const kb = new InlineKeyboard().url('🚀 모의 투자 시작하기', webAppDeepLink('market_brief'));
+      const kb = new InlineKeyboard().url('🚀 Start Practice Trading', webAppDeepLink('market_brief'));
 
       await this.bot.api.sendMessage(targetChat, brief, {
         parse_mode: 'HTML',

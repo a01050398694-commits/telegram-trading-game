@@ -31,7 +31,7 @@ export function setupCommunityFeatures(bot: Bot) {
       for (const chatId of activeGroups) {
         const msg = await getProactiveAiMessage();
         if (msg) {
-          const kb = new InlineKeyboard().url('📱 모의 투자', webAppDeepLink('proactive'));
+          const kb = new InlineKeyboard().url('📱 Practice Trading', webAppDeepLink('proactive'));
           await bot.api.sendMessage(chatId, msg, { reply_markup: kb }).catch(() => {});
         }
       }
@@ -66,14 +66,14 @@ export function setupCommunityFeatures(bot: Bot) {
         }
 
         const kb = new InlineKeyboard()
-          .url('📱 모의 투자 시작하기', webAppDeepLink('welcome'))
+          .url('📱 Start Practice Trading', webAppDeepLink('welcome'))
           .row()
-          .url('📢 공지 채널', 'https://t.me/academy_premium_ch');
+          .url('📢 Announcements', 'https://t.me/academy_premium_ch');
 
         const welcomePhotoUrl = 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?q=80&w=1200&auto=format&fit=crop';
-        
+
         const welcomeMsg = await ctx.replyWithPhoto(welcomePhotoUrl, {
-          caption: `환영합니다, <b>${member.first_name}</b>님! 🎉\n\n이곳은 트레이딩 아카데미 자유 소통방입니다.\n저를 부르시려면 <code>@${ctx.me.username}</code> 태그하고 질문해 주세요!\n\n👇 아래 버튼을 눌러 리스크 없는 모의 투자를 바로 시작해보세요!`,
+          caption: `Welcome, <b>${member.first_name}</b>! 🎉\n\nThis is the Trading Academy free chat. Tag <code>@${ctx.me.username}</code> if you wanna ask me anything!\n\n👇 Tap below to start risk-free practice trading right now!`,
           parse_mode: 'HTML',
           reply_markup: kb
         });
@@ -105,7 +105,7 @@ export function setupCommunityFeatures(bot: Bot) {
 
     const text = ctx.message.text || '';
     const userId = ctx.from?.id;
-    const username = ctx.from?.first_name || '유저';
+    const username = ctx.from?.first_name || 'trader';
 
     // [스팸 차단] 관리자인지 확인 (관리자면 패스)
     let isAdmin = false;
@@ -172,8 +172,8 @@ export function setupCommunityFeatures(bot: Bot) {
 
       // [🎣 자율형 유저 푸념 낚시]
       if (COMPLAINT_REGEX.test(text) && !isAdmin && !text.includes(`@${ctx.me.username}`)) {
-        const kb = new InlineKeyboard().url('🛡️ 멘탈 회복 모의투자', webAppDeepLink('complaint'));
-        const replyText = `앗... 괜찮으신가요? 😭\n실전에서 소중한 시드를 잃기 전에, 당분간 아카데미 시뮬레이터에서 리스크 관리부터 연습해보시는 걸 강력히 추천드립니다! 제가 도와드릴게요.`;
+        const kb = new InlineKeyboard().url('🛡️ Reset on the Simulator', webAppDeepLink('complaint'));
+        const replyText = `Damn... you good? 😭\nBefore you blow real money, come reset on the academy simulator and drill risk management first. I got you.`;
         
         await ctx.reply(replyText, {
           reply_to_message_id: ctx.message.message_id,
@@ -197,7 +197,7 @@ export function setupCommunityFeatures(bot: Bot) {
         const aiReply = await getAiChatResponse(cleanText, username);
         
         // 인라인 키보드 살짝 섞기 (확률적/또는 고정)
-        const kb = new InlineKeyboard().url('🚀 거래 연습하러 가기', webAppDeepLink('ai_chat'));
+        const kb = new InlineKeyboard().url('🚀 Practice Trading', webAppDeepLink('ai_chat'));
 
         await ctx.reply(aiReply, { 
           reply_to_message_id: ctx.message.message_id,

@@ -88,11 +88,11 @@ async function main(): Promise<void> {
           lastAlertTime = now;
           const isPump = diffPercent > 0;
           const icon = isPump ? '🚀' : '🩸';
-          const direction = isPump ? '급등' : '급락';
-          const msg = `🚨 *비트코인 변동성 경보* 🚨\n\n최근 5분 동안 비트코인이 *${Math.abs(diffPercent).toFixed(2)}% ${direction}*했습니다!\n(현재가: $${update.price.toLocaleString('en-US')})\n\n시장 변동성이 폭발 중입니다. 지금 바로 타점을 잡아보세요!`;
-          
+          const direction = isPump ? 'pump' : 'dump';
+          const msg = `🚨 *BTC Volatility Alert* 🚨\n\nBTC moved *${Math.abs(diffPercent).toFixed(2)}% ${direction}* in the last 5 min!\n(now: $${update.price.toLocaleString('en-US')})\n\nMarket's heating up — jump in!`;
+
           if (env.COMMUNITY_CHAT_ID) {
-            const kb = new InlineKeyboard().url('⚔️ 실시간 마켓 참여하기', webAppDeepLink('btc_alert'));
+            const kb = new InlineKeyboard().url('⚔️ Jump In Live', webAppDeepLink('btc_alert'));
             void bot.api.sendMessage(env.COMMUNITY_CHAT_ID, msg, { parse_mode: 'Markdown', reply_markup: kb }).catch(console.error);
           }
         }
