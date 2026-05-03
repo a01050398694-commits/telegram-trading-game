@@ -19,6 +19,32 @@ import {
 } from '../lib/ta.js';
 import type { FuturesSymbol, KlineSeries, MultiTimeframeKlines } from './marketData.js';
 
+// Stage 19 — R:R Hardening
+// Why: live 03:03 BTC LONG R:R 0.14 — TP too close, SL too far. Gate blocks unprofitable signals.
+const MIN_TP1_RR_RATIO = 1.0;
+const MIN_TP2_RR_RATIO = 1.5;
+const MAX_SL_ATR_MULT = 2.5;
+const SL_ATR_FALLBACK_PCT = 0.025;
+
+export interface RiskReward {
+  rrTp1: number;
+  rrTp2: number;
+}
+
+export function computeRiskReward(
+  entry: number,
+  stopLoss: number,
+  tp1: number,
+  tp2: number
+): RiskReward {
+  const slDistance = Math.abs(entry - stopLoss);
+  if (slDistance === 0) return { rrTp1: 0, rrTp2: 0 };
+  return {
+    rrTp1: Math.abs(tp1 - entry) / slDistance,
+    rrTp2: Math.abs(tp2 - entry) / slDistance,
+  };
+}
+
 export type SignalDirection = 'long' | 'short' | 'skip';
 export type Confidence = 'high' | 'medium' | 'low' | 'none';
 export type TFTrend = 'bullish' | 'bearish' | 'neutral';
@@ -269,6 +295,34 @@ export function buildSignal(input: BuildSignalInput): Signal {
     tp2 = deeperSupports[0] ?? tp1 * 0.97;
   }
 
+  // Stage 19 R:R Hardening — SL distance cap + R:R Gate.
+  // Why: H4 swings are sometimes very far (BTC 78k entry, swing-low 74.6k → SL -4.7%, TP +0.7%).
+  //   Cap SL at ATR×2.5 (or 2.5% if ATR missing), then reject any signal where TP is too close.
+  let rrTp1 = 0;
+  let rrTp2 = 0;
+  if (direction === 'long' || direction === 'short') {
+    const slDistance = Math.abs(entry - stopLoss);
+    const maxSlDistance = atr1h != null && atr1h > 0
+      ? atr1h * MAX_SL_ATR_MULT
+      : entry * SL_ATR_FALLBACK_PCT;
+
+    if (slDistance > maxSlDistance) {
+      stopLoss = direction === 'long'
+        ? entry - maxSlDistance
+        : entry + maxSlDistance;
+    }
+
+    const finalSlDistance = Math.abs(entry - stopLoss);
+    if (finalSlDistance > 0) {
+      rrTp1 = Math.abs(tp1 - entry) / finalSlDistance;
+      rrTp2 = Math.abs(tp2 - entry) / finalSlDistance;
+    }
+
+    if (rrTp1 < MIN_TP1_RR_RATIO || rrTp2 < MIN_TP2_RR_RATIO) {
+      direction = 'skip';
+    }
+  }
+
   // Leverage — confidence + ATR cap.
   let leverage = 0;
   if (confidence === 'high') leverage = atrPct > 3 ? 5 : 10;
@@ -306,6 +360,16 @@ export function buildSignal(input: BuildSignalInput): Signal {
     `keyLevels nearestSupport=${keyLevels.nearestSupport.toFixed(2)}, nearestResistance=${keyLevels.nearestResistance.toFixed(2)}, pivot=${pivot.toFixed(2)}`
   );
   rationale.push(`volume ${volumeConfirm}`);
+
+  // Stage 19 — R:R evidence layer (always recorded, even on skip — explains WHY skipping).
+  if (rrTp1 > 0 || rrTp2 > 0) {
+    const slPct = entry > 0 ? (Math.abs(entry - stopLoss) / entry) * 100 : 0;
+    rationale.push(
+      `riskReward TP1=${rrTp1.toFixed(2)}R TP2=${rrTp2.toFixed(2)}R, slDist=${slPct.toFixed(2)}%`
+    );
+  } else if (direction === 'skip') {
+    rationale.push('riskReward N/A (skip)');
+  }
 
   return {
     symbol,
