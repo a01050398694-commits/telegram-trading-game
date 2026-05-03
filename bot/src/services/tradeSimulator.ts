@@ -1,9 +1,11 @@
-// Stage 19 — Trade outcome simulator for backtesting.
-// Why: deterministic SL/TP hit decision. When SL and TP are both touched within the same candle
-//   (intra-candle order is unknown), assume SL hits first. This is the conservative pessimistic
-//   choice — backtest results bias toward LOWER realized R rather than overstating wins.
+// Stage 20 — Trade simulator for live outcome tracking + backtest.
+// Moved from scripts/lib/simulateTrade.ts so live signalOutcome.ts can reuse it.
+// Why: deterministic SL/TP hit decision. SL takes priority when both touched in the same candle
+//   (intra-candle order is unknown) — pessimistic choice; backtest results never overstate wins.
 
-import type { Candle } from './historicalFetch.js';
+import type { OhlcCandle } from './marketData.js';
+
+export type { OhlcCandle };
 
 export interface TradeSignal {
   direction: 'long' | 'short';
@@ -22,7 +24,7 @@ export type TradeOutcome =
 
 const TIMEOUT_HOURS = 48;
 
-export function simulateTrade(signal: TradeSignal, futureCandles: Candle[]): TradeOutcome {
+export function simulateTrade(signal: TradeSignal, futureCandles: OhlcCandle[]): TradeOutcome {
   const slDistance = Math.abs(signal.entry - signal.stopLoss);
   if (slDistance === 0 || futureCandles.length === 0) {
     return {
@@ -99,11 +101,11 @@ export function simulateTrade(signal: TradeSignal, futureCandles: Candle[]): Tra
     }
   }
 
-  // Timeout — mark to market on the last available candle.
   const last = futureCandles[futureCandles.length - 1]!;
-  const unrealizedR = signal.direction === 'long'
-    ? (last.close - signal.entry) / slDistance
-    : (signal.entry - last.close) / slDistance;
+  const unrealizedR =
+    signal.direction === 'long'
+      ? (last.close - signal.entry) / slDistance
+      : (signal.entry - last.close) / slDistance;
   return {
     hit: 'timeout',
     exitTime: last.openTime,
