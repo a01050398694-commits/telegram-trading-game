@@ -25,6 +25,11 @@ import {
   type SignalMood,
 } from '../services/ai.js';
 import { getFullMacroSnapshot } from '../services/macroBundle.js';
+// Stage 20 imports
+import { detectRegime, applyRegimeFilter } from '../services/marketRegime.js';
+import { isInCooldown } from '../services/drawdownBrake.js';
+import { formatTradePlan } from '../services/tradePlan.js';
+import { trackSignalOutcome } from '../services/signalOutcome.js';
 
 interface SignalPreset {
   style: SignalStyle;
@@ -46,13 +51,21 @@ function shuffleAndAssign(symbols: readonly string[]): Map<string, SignalPreset>
   return map;
 }
 
-const SIGNAL_SYMBOLS = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT'] as const;
+// Stage 20 — env-driven configuration. Default: 3 symbols (BTC/ETH/SOL), 83-min tick,
+// no entry/skip cooldown so every tick fires for every symbol.
+const SUPPORTED_SYMBOLS = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT'] as const;
+const SIGNAL_SYMBOLS = (env.SIGNAL_SYMBOLS as readonly string[])
+  .map((s) => s.toUpperCase())
+  .filter((s): s is FuturesSymbol =>
+    (SUPPORTED_SYMBOLS as readonly string[]).includes(s)
+  );
 const DISCLAIMER = '';
-const COOLDOWN_MS = 2 * 3600_000;
-const SKIP_COOLDOWN_MS = 1 * 3600_000;
+const COOLDOWN_MS = 0;
+const SKIP_COOLDOWN_MS = 0;
 const HOURLY_CAP = 8;
-const DAILY_CAP = 50;
-const TICK_INTERVAL_MS = 30 * 60_000;
+// Stage 20 — DAILY_CAP raised 50→60: every-83-min × 3 symbols ≈ 51/day, leaves headroom.
+const DAILY_CAP = 60;
+const TICK_INTERVAL_MS = env.SIGNAL_TICK_INTERVAL_MIN * 60_000;
 const SYMBOL_SPACING_MS = 1500;
 
 /**
@@ -184,6 +197,23 @@ export class SignalCron {
           klines: mtf,
         });
 
+        // Stage 20 — regime filter (BTC.D + DXY + FGI). Suppress alt-LONG in btc-strong, etc.
+        const regime = detectRegime(macro);
+        const regimeDecision = applyRegimeFilter(symbol, signal.direction, regime);
+        if (regimeDecision.shouldSkip && signal.direction !== 'skip') {
+          signal.direction = 'skip';
+          signal.rationale.push(`regime filter: ${regimeDecision.reason}`);
+        }
+
+        // Stage 20 — drawdown brake (5 consecutive losses → 4h cooldown). DB-reconciled.
+        const brake = await isInCooldown();
+        if (brake.active && signal.direction !== 'skip') {
+          signal.direction = 'skip';
+          signal.rationale.push(
+            `drawdown brake: cooldown until ${new Date(brake.until).toISOString()}`
+          );
+        }
+
         if (signal.direction === 'skip') {
           const lastSkip = this.lastSkipPostedAt.get(symbol) ?? 0;
           if (Date.now() - lastSkip < SKIP_COOLDOWN_MS) continue;
@@ -192,20 +222,34 @@ export class SignalCron {
         if (isDryRun) {
           console.log('[signalCron][DRY]', JSON.stringify(signal));
         } else {
+          // Stage 20 — env flag drives commentary mode. Default: trade-plan (no AI fluff).
+          const useAi = env.SIGNAL_AI_COMMENTARY === 'true';
           const preset = presetMap.get(symbol);
-          const commentary = await getSignalCommentary({ ...signal, macro }, preset);
+          const commentary = useAi
+            ? await getSignalCommentary({ ...signal, macro }, preset)
+            : formatTradePlan(signal);
+          const finalMessage = useAi ? commentary + DISCLAIMER : commentary;
           const kb = new InlineKeyboard().url(
             '🚀 Practice This Setup',
             webAppDeepLink('signal')
           );
           await this.bot.api.sendMessage(
             env.COMMUNITY_CHAT_ID,
-            commentary + DISCLAIMER,
+            finalMessage,
             { reply_markup: kb, parse_mode: 'Markdown' }
           );
           console.log(
-            `[signalCron] posted ${signal.direction} ${symbol} score=${signal.score} style=${preset?.style ?? 'rand'} mood=${preset?.mood ?? 'rand'}`
+            `[signalCron] posted ${signal.direction} ${symbol} score=${signal.score} regime=${regime} mode=${useAi ? 'ai' : 'plan'}`
           );
+
+          // Stage 20 — fire-and-forget outcome tracking. Errors logged inside trackSignalOutcome.
+          if (env.SIGNAL_OUTCOME_TRACKING === 'true' && signal.direction !== 'skip') {
+            void trackSignalOutcome({
+              signal,
+              entryTime: Date.now(),
+              entryPrice: signal.entry,
+            }).catch((err) => console.error('[signalCron] outcome track error:', err));
+          }
         }
 
         if (signal.direction === 'skip') {
