@@ -180,6 +180,31 @@ EVIDENCE RULES — for entry signals (long/short):
 - For SKIP messages, evidence is OPTIONAL but still must be specific (alignment 1/4, fgi 22, dxy 105.4) — never vague.
 
 ────────────────────────────────────────
+RISK:REWARD & INVALIDATION RULES (Stage 19):
+
+You receive evidence.rationale[] which contains a "riskReward TP1=X.XXR TP2=X.XXR, slDist=Y.YY%" line.
+
+For ENTRY signals (long/short), you MUST:
+1. Mention the R:R explicitly. Examples:
+   - "tp1 sits at 1.6r, tp2 at 2.4r"
+   - "1.5R to first target, 2.8R to second"
+   - "risk 1, reward up to 2.5"
+2. Include an explicit invalidation line. Examples:
+   - "invalid if it loses 78,250 on a 15m close"
+   - "throw it out if h1 closes back inside the range"
+   - "kill it if dxy reclaims 105"
+
+For SKIP signals where rationale shows "riskReward TP1=X" with X below 1.0 or "riskReward N/A":
+- Mention WHY skipping in R:R terms. Examples:
+  - "TP barely 0.4r away — not worth the risk"
+  - "stop's miles away vs target 30 ticks. pass."
+  - "1:0.3 r:r? hard pass."
+
+NEVER:
+- Use vague phrases without R:R numbers: "looks juicy", "vibe is bullish", "feels good", "not a slam dunk", "tread carefully", "tread lightly", "kinda shaky", "sit this out".
+- Show entry/sl/tp prices when direction = skip.
+
+────────────────────────────────────────
 ANTI-REPETITION:
 - DO NOT start with the symbol name + direction ("sol short.", "btc long."). Vary openers.
   Good openers: "structure broken on the 4h", "yeah this one's clean", "alts cooked today",
@@ -279,6 +304,17 @@ trump tariff news dropped, dxy spiked +0.7%.
 everyone short btc here, but fgi 18 = extreme fear historically the bottom.
 contrarian long 75800, sl 73800 (key support). tp1 78400, tp2 80200. 3x — small size, this is a fade.
 
+[narrative / sharp / cautious]  (entry, R:R + invalidation, Stage 19)
+sol short, clean entry. h1 + h4 both bearish, alignment 3/4.
+in at 83.55, sl 84.35 (just above the recent rejection wick).
+tp1 82.10 — that's 1.8r. tp2 81.15 for 3r if it follows through.
+invalid if 84.35 breaks back through and 15m closes above. that's the line.
+
+[fragmented / sharp / frustrated]  (skip with explicit r:r reasoning, Stage 19)
+xrp setup looks aligned but the math is brutal.
+sl would be 4% away, tp1 only 0.6% — that's 1:0.15 r:r.
+not touching that with a stick. wait for a tighter structure.
+
 ────────────────────────────────────────
 CRITICAL FINAL CHECK:
 - DO NOT add disclaimers.
@@ -325,6 +361,14 @@ const BAN_PATTERNS: RegExp[] = [
   /educational\s+purposes/i,
   /\b(i'?m|i\s+am)\s+an?\s+(ai|assistant|model|language\s+model)/i,
   /as\s+an?\s+ai/i,
+  // Stage 19 — fluff phrases flagged by external trader critique.
+  /\blooks?\s+(juicy|tasty|spicy|delicious)/i,
+  /\b(vibe|vibes)\s+(is|are|feels?)\b/i,
+  /\bnot\s+a\s+slam\s+dunk\b/i,
+  /\btread\s+(carefully|lightly|softly)\b/i,
+  /\b(kinda|kind of)\s+(shaky|risky|sketchy)\b/i,
+  /\bjuicy\s+(setup|one|play)\b/i,
+  /\bfeels?\s+(shaky|good|right|off)\b/i,
 ];
 
 export function detectBanPhrase(text: string): RegExp | null {
@@ -375,12 +419,25 @@ export function formatSignalPlain(s: SignalCommentaryInput): string {
   const head = `${arrow} *${s.symbol}* @ ${formatPrice(s.currentPrice)}`;
   const why = s.rationale.length > 0 ? `_${s.rationale.slice(0, 2).join(' · ')}_` : '';
   const leverageLine = s.direction === 'skip' ? '' : `Leverage: ${s.leverage}x`;
+
+  // Stage 19 — show R:R for entry signals so traders can eyeball the math at a glance.
+  let rrLine = '';
+  if (s.direction !== 'skip') {
+    const slDist = Math.abs(s.entry - s.stopLoss);
+    if (slDist > 0) {
+      const rr1 = (Math.abs(s.tp1 - s.entry) / slDist).toFixed(2);
+      const rr2 = (Math.abs(s.tp2 - s.entry) / slDist).toFixed(2);
+      rrLine = `R:R TP1=${rr1}R · TP2=${rr2}R`;
+    }
+  }
+
   const lines = [
     head,
     why,
-    `Entry: ${formatPrice(s.entry)}`,
-    `SL: ${formatPrice(s.stopLoss)}`,
-    `TP1: ${formatPrice(s.tp1)} · TP2: ${formatPrice(s.tp2)}`,
+    s.direction !== 'skip' ? `Entry: ${formatPrice(s.entry)}` : '',
+    s.direction !== 'skip' ? `SL: ${formatPrice(s.stopLoss)}` : '',
+    s.direction !== 'skip' ? `TP1: ${formatPrice(s.tp1)} · TP2: ${formatPrice(s.tp2)}` : '',
+    rrLine,
     leverageLine,
   ].filter((line) => line.length > 0);
   return lines.join('\n');
