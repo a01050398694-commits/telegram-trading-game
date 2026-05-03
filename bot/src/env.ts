@@ -86,6 +86,12 @@ export const env = {
   // Signal Cron — defaults to dry-run; Render must explicitly set 'false' to broadcast.
   SIGNAL_CRON_DRY_RUN: optional('SIGNAL_CRON_DRY_RUN', 'true'),
 
+  // Stage 20 — Algorithmic trader bot mode. Default: 3 symbols, 83-min tick, AI persona OFF, outcome tracking ON.
+  SIGNAL_SYMBOLS: list('SIGNAL_SYMBOLS', 'btcusdt,ethusdt,solusdt'),
+  SIGNAL_TICK_INTERVAL_MIN: Number(optional('SIGNAL_TICK_INTERVAL_MIN', '83')),
+  SIGNAL_AI_COMMENTARY: optional('SIGNAL_AI_COMMENTARY', 'false'),
+  SIGNAL_OUTCOME_TRACKING: optional('SIGNAL_OUTCOME_TRACKING', 'true'),
+
   // Stage 17 C13 — FRED (St. Louis Fed) for fedRate / CPI / unemployment / GDP.
   // Optional: macro.ts skips FRED block when empty, Yahoo Finance still works.
   FRED_API_KEY: optional('FRED_API_KEY', ''),
