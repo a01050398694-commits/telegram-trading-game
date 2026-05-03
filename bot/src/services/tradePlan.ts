@@ -1,14 +1,16 @@
-// Stage 20 — Korean trade-plan formatter.
+// Stage 20 — English trade-plan formatter (Stage 20.1 patch).
 // Why: external trader critique flagged AI persona ("looks juicy", "vibe is bullish") as unfit for
 //   actual execution. Replaces commentary with a structured plan: entry/SL/TP1+weight/TP2+weight,
 //   cancel conditions, scenario-based handling. No AI fluff.
+// Why English: the @Trader_club community is mostly non-Korean (handover §12 GOTCHA #6).
+//   KST timestamp kept because the operator and most active members are KST-based.
 
 import type { Signal } from './signalEngine.js';
 
 const KST_TZ = 'Asia/Seoul';
 
 function formatKST(timestamp: number): string {
-  return new Date(timestamp).toLocaleString('ko-KR', {
+  return new Date(timestamp).toLocaleString('en-GB', {
     timeZone: KST_TZ,
     year: 'numeric',
     month: '2-digit',
@@ -62,37 +64,37 @@ function formatEntryPlan(signal: Signal, timeStr: string): string {
   const tp1Pct = signal.entry > 0 ? (tp1Dist / signal.entry) * 100 * sign : 0;
   const tp2Pct = signal.entry > 0 ? (tp2Dist / signal.entry) * 100 * sign : 0;
 
-  const cancelTime = '진입 후 30분 안에 미체결 시 무효';
+  const cancelTime = 'Void if not filled within 30 minutes';
   const invalidPrice =
     signal.direction === 'long' ? signal.entry * 0.997 : signal.entry * 1.003;
   const cancelPrice =
     signal.direction === 'long'
-      ? `${formatPrice(invalidPrice)} 위에서 15m 마감 미발생 시 무효`
-      : `${formatPrice(invalidPrice)} 아래에서 15m 마감 미발생 시 무효`;
+      ? `Void if no 15m close above ${formatPrice(invalidPrice)}`
+      : `Void if no 15m close below ${formatPrice(invalidPrice)}`;
 
   return [
     `${directionLabel} ${signal.symbol}`,
     `📅 ${timeStr} KST`,
     ``,
-    `진입가: ${formatPrice(signal.entry)}`,
-    `손절가: ${formatPrice(signal.stopLoss)} (${formatPct(-slPct)})`,
-    `1차 익절: ${formatPrice(signal.tp1)} (${formatPct(tp1Pct)}) — 비중 ${tp1Weight}%`,
-    `2차 익절: ${formatPrice(signal.tp2)} (${formatPct(tp2Pct)}) — 비중 ${tp2Weight}%`,
+    `Entry: ${formatPrice(signal.entry)}`,
+    `Stop Loss: ${formatPrice(signal.stopLoss)} (${formatPct(-slPct)})`,
+    `TP1: ${formatPrice(signal.tp1)} (${formatPct(tp1Pct)}) — size ${tp1Weight}%`,
+    `TP2: ${formatPrice(signal.tp2)} (${formatPct(tp2Pct)}) — size ${tp2Weight}%`,
     ``,
-    `손익비: TP1 ${rr1.toFixed(2)}R · TP2 ${rr2.toFixed(2)}R`,
-    `레버리지: ${signal.leverage}x (확신도 ${signal.confidence})`,
+    `R:R: TP1 ${rr1.toFixed(2)}R · TP2 ${rr2.toFixed(2)}R`,
+    `Leverage: ${signal.leverage}x (confidence: ${signal.confidence})`,
     ``,
-    `📌 진입 취소 조건:`,
+    `📌 Cancel conditions:`,
     `  • ${cancelTime}`,
     `  • ${cancelPrice}`,
     ``,
-    `📋 시나리오별 대처:`,
-    `  • TP1 도달 → SL을 진입가로 이동 (break-even), ${tp1Weight}% 청산 후 잔여 ${tp2Weight}% TP2 노림`,
-    `  • SL 도달 → 100% 청산`,
-    `  • 24h 무반응 → 절반 축소 권장 (자동 청산 X)`,
-    `  • 48h 미체결 → 100% 청산 (timeout)`,
+    `📋 Scenario plan:`,
+    `  • TP1 hit → move SL to entry (break-even), close ${tp1Weight}%, let remaining ${tp2Weight}% target TP2`,
+    `  • SL hit → close 100%`,
+    `  • 24h no reaction → consider trimming half (no auto-close)`,
+    `  • 48h not filled → close 100% (timeout)`,
     ``,
-    `🔍 근거: ${signal.rationale.slice(0, 3).join(' · ')}`,
+    `🔍 Basis: ${signal.rationale.slice(0, 3).join(' · ')}`,
   ].join('\n');
 }
 
@@ -101,9 +103,9 @@ function formatHoldPlan(signal: Signal, timeStr: string): string {
     `⏸ HOLD ${signal.symbol}`,
     `📅 ${timeStr} KST`,
     ``,
-    `현재가: ${formatPrice(signal.currentPrice)}`,
-    `사유: ${signal.rationale.slice(0, 2).join(' · ')}`,
+    `Price: ${formatPrice(signal.currentPrice)}`,
+    `Reason: ${signal.rationale.slice(0, 2).join(' · ')}`,
     ``,
-    `진입 안 함 — 다음 tick까지 관망.`,
+    `No entry — holding off until next tick.`,
   ].join('\n');
 }

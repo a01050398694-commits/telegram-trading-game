@@ -11,8 +11,8 @@ export async function runDailyReport(bot: Bot): Promise<{ sent: boolean; error?:
       return { sent: false, error: 'COMMUNITY_CHAT_ID missing' };
     }
     const stats = await computeStats(1);
-    const dateStr = new Date().toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
-    const header = `📊 *${dateStr} 일일 성과 보고*\n\n`;
+    const dateStr = new Date().toLocaleDateString('en-GB', { timeZone: 'Asia/Seoul' });
+    const header = `📊 *Daily report — ${dateStr} KST*\n\n`;
     const body = formatStatsForTelegram(stats);
     await bot.api.sendMessage(env.COMMUNITY_CHAT_ID, header + body, {
       parse_mode: 'Markdown',

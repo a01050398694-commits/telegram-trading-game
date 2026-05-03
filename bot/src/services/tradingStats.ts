@@ -200,43 +200,43 @@ function rstr(n: number): string {
 
 export function formatStatsForTelegram(stats: PerformanceStats): string {
   const lines: string[] = [];
-  lines.push(`📊 *최근 ${stats.windowDays}일 성과*`);
+  lines.push(`📊 *Last ${stats.windowDays}d performance*`);
   lines.push('');
-  lines.push(`총 발화: ${stats.totalSignals} (마감 ${stats.closedSignals} / 진행 ${stats.openSignals})`);
+  lines.push(`Total signals: ${stats.totalSignals} (closed ${stats.closedSignals} / open ${stats.openSignals})`);
   if (stats.closedSignals === 0) {
-    lines.push('마감된 신호 없음 — 첫 48h 추적 중.');
+    lines.push('No closed signals yet — first 48h tracking window in progress.');
     return lines.join('\n');
   }
-  lines.push(`승률: ${pct(stats.winRate)} (W ${stats.wins} / L ${stats.losses} / T ${stats.timeouts})`);
-  lines.push(`평균 R: ${rstr(stats.avgPnlR)}`);
-  lines.push(`누적 R: ${rstr(stats.totalPnlR)}`);
-  lines.push(`최대 연속 패: ${stats.maxConsecutiveLosses}`);
-  lines.push(`최대 drawdown: ${rstr(-stats.maxDrawdownR)}`);
+  lines.push(`Win rate: ${pct(stats.winRate)} (W ${stats.wins} / L ${stats.losses} / T ${stats.timeouts})`);
+  lines.push(`Avg R: ${rstr(stats.avgPnlR)}`);
+  lines.push(`Total R: ${rstr(stats.totalPnlR)}`);
+  lines.push(`Max consecutive losses: ${stats.maxConsecutiveLosses}`);
+  lines.push(`Max drawdown: ${rstr(-stats.maxDrawdownR)}`);
 
   if (stats.perSymbol.length > 0) {
     lines.push('');
-    lines.push('*심볼별*');
+    lines.push('*By symbol*');
     for (const s of stats.perSymbol) {
       lines.push(
-        `• ${s.symbol}: ${pct(s.winRate)} (${s.entries}건) · 평균 ${rstr(s.avgPnlR)} · 누적 ${rstr(s.totalPnlR)}`
+        `• ${s.symbol}: ${pct(s.winRate)} (${s.entries}) · avg ${rstr(s.avgPnlR)} · total ${rstr(s.totalPnlR)}`
       );
     }
   }
 
   lines.push('');
-  lines.push('*방향별*');
+  lines.push('*By direction*');
   lines.push(
-    `• LONG: ${pct(stats.perDirection.long.winRate)} (${stats.perDirection.long.count}건) · 평균 ${rstr(stats.perDirection.long.avgPnlR)}`
+    `• LONG: ${pct(stats.perDirection.long.winRate)} (${stats.perDirection.long.count}) · avg ${rstr(stats.perDirection.long.avgPnlR)}`
   );
   lines.push(
-    `• SHORT: ${pct(stats.perDirection.short.winRate)} (${stats.perDirection.short.count}건) · 평균 ${rstr(stats.perDirection.short.avgPnlR)}`
+    `• SHORT: ${pct(stats.perDirection.short.winRate)} (${stats.perDirection.short.count}) · avg ${rstr(stats.perDirection.short.avgPnlR)}`
   );
 
   if (stats.monthlyReturns.length > 0) {
     lines.push('');
-    lines.push('*월별 순수익*');
+    lines.push('*Monthly net*');
     for (const m of stats.monthlyReturns) {
-      lines.push(`• ${m.month}: ${rstr(m.netPnlR)} (${m.entries}건)`);
+      lines.push(`• ${m.month}: ${rstr(m.netPnlR)} (${m.entries})`);
     }
   }
 

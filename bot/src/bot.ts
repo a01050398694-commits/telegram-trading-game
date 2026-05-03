@@ -341,7 +341,7 @@ export function createBot(engine: TradingEngine): Bot {
       await ctx.reply(message, { parse_mode: 'Markdown' });
     } catch (err) {
       console.error('[stats] command error:', err);
-      await ctx.reply('성과 집계 실패. 잠시 후 다시 시도해줘.');
+      await ctx.reply('Stats unavailable. Please try again shortly.');
     }
   });
 
