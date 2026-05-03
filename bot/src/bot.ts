@@ -4,6 +4,7 @@ import type { TradingEngine } from './engine/trading.js';
 import { setupCommunityFeatures } from './engine/community.js';
 import { botLocales, SupportedLang } from './locales.js';
 import { setupInviteMemberSync } from './handlers/inviteMemberSync.js';
+import { computeStats, formatStatsForTelegram } from './services/tradingStats.js';
 
 function formatBalance(n: number): string {
   return `$${n.toLocaleString('en-US')}`;
@@ -328,6 +329,20 @@ export function createBot(engine: TradingEngine): Bot {
 
   bot.command('ping', async (ctx) => {
     await ctx.reply('pong');
+  });
+
+  // Stage 20 — algorithmic trader performance lookup. Public (read-only stats).
+  bot.command('stats', async (ctx) => {
+    const arg = typeof ctx.match === 'string' ? ctx.match.trim() : '';
+    const days = arg && /^\d+$/.test(arg) ? Math.min(parseInt(arg, 10), 90) : 30;
+    try {
+      const stats = await computeStats(days);
+      const message = formatStatsForTelegram(stats);
+      await ctx.reply(message, { parse_mode: 'Markdown' });
+    } catch (err) {
+      console.error('[stats] command error:', err);
+      await ctx.reply('성과 집계 실패. 잠시 후 다시 시도해줘.');
+    }
   });
 
   bot.command('whereami', async (ctx) => {
