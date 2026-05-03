@@ -13,7 +13,8 @@
     "test:watch": "vitest",
     "verify:ta": "tsx scripts/verify-ta.ts",
     "smoke:data": "tsx scripts/smoke-data.ts",
-    "smoke:signal": "tsx scripts/smoke-signal.ts"
+    "smoke:signal": "tsx scripts/smoke-signal.ts",
+    "backtest": "tsx scripts/backtest.ts"
   },
   "dependencies": {
     "@sentry/node": "^8.47.0",
