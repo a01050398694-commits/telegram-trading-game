@@ -2,10 +2,9 @@
 // Why: pin SL-priority assumption + R math so backtest interpretation is unambiguous.
 
 import { describe, it, expect } from 'vitest';
-import { simulateTrade } from '../../scripts/lib/simulateTrade.js';
-import type { Candle } from '../../scripts/lib/historicalFetch.js';
+import { simulateTrade, type OhlcCandle } from '../services/tradeSimulator.js';
 
-function candle(openTime: number, low: number, high: number, close: number): Candle {
+function candle(openTime: number, low: number, high: number, close: number): OhlcCandle {
   return {
     openTime,
     open: close,

@@ -10,7 +10,7 @@ import {
   type MultiTimeframeKlines,
 } from '../src/services/signalEngine.js';
 import { fetchHistorical, type Candle, type HistoricalDataset } from './lib/historicalFetch.js';
-import { simulateTrade, type TradeSignal } from './lib/simulateTrade.js';
+import { simulateTrade, type TradeSignal } from '../src/services/tradeSimulator.js';
 import {
   computeStatistics,
   printTable,
