@@ -241,10 +241,11 @@ export function buildSignal(input: BuildSignalInput): Signal {
     direction = 'skip';
   }
 
-  // Confidence tiers.
+  // Confidence tiers — Stage 20: Stage 19 backtest produced only 2 high-confidence signals
+  //   under the old 75/55/30 thresholds. Loosened to 65/45/30 so 'high' becomes meaningfully populated.
   let confidence: Confidence;
-  if (totalScore >= 75) confidence = 'high';
-  else if (totalScore >= 55) confidence = 'medium';
+  if (totalScore >= 65) confidence = 'high';
+  else if (totalScore >= 45) confidence = 'medium';
   else if (totalScore >= 30) confidence = 'low';
   else confidence = 'none';
 
@@ -323,11 +324,15 @@ export function buildSignal(input: BuildSignalInput): Signal {
     }
   }
 
-  // Leverage — confidence + ATR cap.
+  // Leverage — confidence + ATR cap. Stage 20: alt symbols capped at 60% of BTC leverage
+  //   (SOL 10.3% win rate in Stage 19 → cut size, not signal frequency).
+  const isAlt = symbol !== 'BTCUSDT';
+  const altCap = isAlt ? 0.6 : 1.0;
   let leverage = 0;
   if (confidence === 'high') leverage = atrPct > 3 ? 5 : 10;
   else if (confidence === 'medium') leverage = atrPct > 3 ? 3 : 5;
   else if (confidence === 'low') leverage = atrPct > 3 ? 1 : 3;
+  if (leverage > 0) leverage = Math.max(1, Math.floor(leverage * altCap));
 
   // Stage 18 T4 — rationale as structured evidence layers (one line per layer, always emitted
   //   so the LLM can pick 2-3 from a known set). Score calc above is unchanged.
