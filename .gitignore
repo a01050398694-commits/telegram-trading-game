@@ -46,3 +46,6 @@ coverage/
 *.db
 
 .vercel
+
+# Stage 19 — backtest result dumps
+bot/scripts/backtest-results/
