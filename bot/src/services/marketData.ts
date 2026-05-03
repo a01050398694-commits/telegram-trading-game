@@ -21,7 +21,7 @@ export interface MultiTimeframeKlines {
   d1: KlineSeries;
 }
 
-export type KlineInterval = '15m' | '1h' | '4h' | '1d';
+export type KlineInterval = '5m' | '15m' | '1h' | '4h' | '1d';
 
 interface CacheEntry<T> {
   value: T;
@@ -58,15 +58,17 @@ export async function fetchKlines(
   limit: number = 200,
   interval: KlineInterval = '1d'
 ): Promise<KlineSeries | null> {
-  const key = `klines:${symbol}:${interval}:${limit}`;
+  // Stage 19 — Binance.US max limit is 1000. Cap to prevent silent truncation if a caller asks for more.
+  const effectiveLimit = Math.min(Math.max(1, limit), 1000);
+  const key = `klines:${symbol}:${interval}:${effectiveLimit}`;
   const cached = getCached<KlineSeries | null>(key);
   if (cached !== undefined) return cached;
 
   try {
-    const url = `https://api.binance.us/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
+    const url = `https://api.binance.us/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${effectiveLimit}`;
     const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
     if (!res.ok) {
-      console.warn(`[marketData] klines ${symbol} ${interval} HTTP ${res.status}`);
+      console.warn(`[marketData] klines ${symbol} ${interval} HTTP ${res.status} (limit=${effectiveLimit})`);
       setCached<KlineSeries | null>(key, null);
       return null;
     }
