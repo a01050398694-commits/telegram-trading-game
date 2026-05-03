@@ -227,7 +227,7 @@ export class SignalCron {
           const preset = presetMap.get(symbol);
           const commentary = useAi
             ? await getSignalCommentary({ ...signal, macro }, preset)
-            : formatTradePlan(signal);
+            : formatTradePlan(signal, { macro });
           const finalMessage = useAi ? commentary + DISCLAIMER : commentary;
           const kb = new InlineKeyboard().url(
             '🚀 Practice This Setup',
@@ -236,7 +236,11 @@ export class SignalCron {
           await this.bot.api.sendMessage(
             env.COMMUNITY_CHAT_ID,
             finalMessage,
-            { reply_markup: kb, parse_mode: 'Markdown' }
+            // Why: trade-plan is plain text with $, (), %, → that collide with Markdown.
+            // AI mode keeps Markdown for *bold* / _italic_ in persona output.
+            useAi
+              ? { reply_markup: kb, parse_mode: 'Markdown' }
+              : { reply_markup: kb }
           );
           console.log(
             `[signalCron] posted ${signal.direction} ${symbol} score=${signal.score} regime=${regime} mode=${useAi ? 'ai' : 'plan'}`

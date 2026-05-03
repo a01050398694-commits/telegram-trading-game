@@ -11,12 +11,9 @@ export async function runMonthlyReport(bot: Bot): Promise<{ sent: boolean; error
       return { sent: false, error: 'COMMUNITY_CHAT_ID missing' };
     }
     const stats = await computeStats(30);
-    const monthStr = new Date().toLocaleDateString('en-US', {
-      timeZone: 'Asia/Seoul',
-      year: 'numeric',
-      month: 'long',
-    });
-    const header = `📊 *Monthly report — ${monthStr} KST*\n\n`;
+    // ISO YYYY-MM in UTC for global consistency.
+    const monthStr = new Date().toISOString().slice(0, 7);
+    const header = `📊 *Monthly report — ${monthStr} UTC*\n\n`;
     const body = formatStatsForTelegram(stats);
     await bot.api.sendMessage(env.COMMUNITY_CHAT_ID, header + body, {
       parse_mode: 'Markdown',
