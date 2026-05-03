@@ -13,6 +13,9 @@ import { setupLiquidationRecovery } from './cron/recovery.js';
 import { MarketBriefCron } from './cron/marketBrief.js';
 import { WeeklyReportCron } from './cron/weeklyReport.js';
 import { SignalCron } from './cron/signalCron.js';
+import { runDailyReport } from './cron/dailyReport.js';
+import { runMonthlyReport } from './cron/monthlyReport.js';
+import { runSignalCleanup } from './cron/signalCleanup.js';
 import { shillEngine } from './engine/shillEngine.js';
 import { BinancePriceFeed, type PriceUpdate } from './services/binance.js';
 import { PriceCache } from './priceCache.js';
@@ -166,6 +169,35 @@ async function main(): Promise<void> {
   // marketBriefCron.start(); — disabled per Stage 16: data-only bot
   weeklyReportCron.start();
   signalCron.start();
+
+  // Stage 20 — daily/monthly report + cleanup intervals.
+  // Why: setInterval can fire multiple times within the same minute (drift); guard with last-fire-date
+  //   so we never double-broadcast. KST midnight = UTC 15:00.
+  let lastDailyReportDate = '';
+  let lastMonthlyReportYM = '';
+  setInterval(async () => {
+    const now = new Date();
+    if (now.getUTCHours() !== 15 || now.getUTCMinutes() !== 0) return;
+    const kst = new Date(now.getTime() + 9 * 3600_000);
+    const kstDate = kst.toISOString().slice(0, 10);
+    const kstYM = kstDate.slice(0, 7);
+    const isFirstOfMonth = kstDate.endsWith('-01');
+
+    if (kstDate !== lastDailyReportDate) {
+      lastDailyReportDate = kstDate;
+      await runDailyReport(bot).catch((err) => console.error('[dailyReport] interval error:', err));
+    }
+    if (isFirstOfMonth && kstYM !== lastMonthlyReportYM) {
+      lastMonthlyReportYM = kstYM;
+      await runMonthlyReport(bot).catch((err) => console.error('[monthlyReport] interval error:', err));
+    }
+  }, 60_000);
+
+  // Cleanup orphaned outcomes every 1h + on boot (catches anything missed during restart).
+  setInterval(() => {
+    runSignalCleanup().catch((err) => console.error('[signalCleanup] interval error:', err));
+  }, 60 * 60_000);
+  runSignalCleanup().catch((err) => console.error('[signalCleanup] boot error:', err));
   shillEngine.setPriceCache(priceCache);
   void shillEngine.start();
 
