@@ -118,6 +118,83 @@ export async function fetchKlines(
   }
 }
 
+// Stage 20 — full OHLC candle with openTime/closeTime for live polling.
+// Why: KlineSeries drops the timestamps; signalOutcome needs to know which 5m candle is "after entry".
+export interface OhlcCandle {
+  openTime: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  closeTime: number;
+}
+
+export async function fetchKlinesWithTime(
+  symbol: FuturesSymbol,
+  limit: number = 200,
+  interval: KlineInterval = '5m'
+): Promise<OhlcCandle[] | null> {
+  const effectiveLimit = Math.min(Math.max(1, limit), 1000);
+  const key = `klinesWithTime:${symbol}:${interval}:${effectiveLimit}`;
+  const cached = getCached<OhlcCandle[] | null>(key);
+  if (cached !== undefined) return cached;
+
+  try {
+    const url = `https://api.binance.us/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${effectiveLimit}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+    if (!res.ok) {
+      console.warn(`[marketData] klinesWithTime ${symbol} ${interval} HTTP ${res.status}`);
+      setCached<OhlcCandle[] | null>(key, null);
+      return null;
+    }
+    const raw = (await res.json()) as unknown[];
+    if (!Array.isArray(raw) || raw.length === 0) {
+      setCached<OhlcCandle[] | null>(key, null);
+      return null;
+    }
+    const rows = (raw as unknown[][]).slice().sort((a, b) => Number(a[0]) - Number(b[0]));
+    const candles: OhlcCandle[] = [];
+    for (const row of rows) {
+      const openTime = Number(row[0]);
+      const open = Number(row[1]);
+      const high = Number(row[2]);
+      const low = Number(row[3]);
+      const close = Number(row[4]);
+      const volume = Number(row[5]);
+      const closeTime = Number(row[6]);
+      if (
+        !Number.isFinite(openTime) ||
+        !Number.isFinite(open) ||
+        !Number.isFinite(high) ||
+        !Number.isFinite(low) ||
+        !Number.isFinite(close)
+      ) {
+        setCached<OhlcCandle[] | null>(key, null);
+        return null;
+      }
+      candles.push({
+        openTime,
+        open,
+        high,
+        low,
+        close,
+        volume: Number.isFinite(volume) ? volume : 0,
+        closeTime,
+      });
+    }
+    setCached<OhlcCandle[] | null>(key, candles);
+    return candles;
+  } catch (err) {
+    console.warn(
+      `[marketData] klinesWithTime ${symbol} ${interval} threw:`,
+      err instanceof Error ? err.message : String(err)
+    );
+    setCached<OhlcCandle[] | null>(key, null);
+    return null;
+  }
+}
+
 /**
  * Fetch 4 timeframes (15m / 1h / 4h / 1d) in parallel for multi-TF analysis.
  * Returns null if ANY single TF fetch fails — caller treats as data-incomplete.
