@@ -1,13 +1,17 @@
-// Stage 20.2 — US-trader-style trade plan formatter.
-// Why: prior version was "허술해 보임" + Korean-leaning (DD/MM date, KST tz, trailing zeros).
-//   Aligning with how Bybit/Binance/TradingView signals look in US trader rooms:
-//   - UTC timestamp (ISO + month name), no KST.
-//   - Comma-separated USD with $ prefix, no trailing zeros.
-//   - Visual structure (separator bars, aligned key:value, sectioned blocks).
-//   - Macro context inline (FGI, BTC.D) when available so HOLD has actionable color.
-//   - Entry signals carry explicit trigger + invalidation + scenario plan (R:R, fees, expiry).
+// Stage 20.3 — Mid-level trader, modern, scannable plan formatter.
+// Why prior version felt cramped:
+//   - Multi-TF row was one long inline parenthetical (m15:bullish h1:bearish ...) → unreadable.
+//   - No section breaks → key facts blur together.
+//   - Raw jargon (BOS, alignment, Macro) without visual cues.
+// Fix: numbered sections, modern emoji per block, ▲▼➡ arrows for TF trend, separator bars,
+//   short labels (Trend / Structure / Momentum / Macro), single-line key:value where possible.
 
-import type { Signal } from './signalEngine.js';
+import type {
+  Signal,
+  TFTrend,
+  MultiTimeframeAlignment,
+  SignalStructure,
+} from './signalEngine.js';
 import type { FullMacroSnapshot } from './macroBundle.js';
 
 const SEPARATOR = '━━━━━━━━━━━━━━━━━━━━';
@@ -15,12 +19,12 @@ const SEPARATOR = '━━━━━━━━━━━━━━━━━━━━'
 interface TradePlanOptions {
   generatedAt?: number;
   macro?: FullMacroSnapshot | null;
+  nextTickMinutes?: number;
 }
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
 function formatUtc(timestamp: number): string {
-  // e.g. "May 3, 2026 · 05:02 UTC"
   const d = new Date(timestamp);
   const month = d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
   const day = d.getUTCDate();
@@ -31,7 +35,6 @@ function formatUtc(timestamp: number): string {
 }
 
 function formatUsd(price: number): string {
-  // $78,403  /  $2,304  /  $83.75  /  $1.2624 — strip trailing zeros, keep precision floor.
   if (!Number.isFinite(price)) return '$—';
   const abs = Math.abs(price);
   let decimals: number;
@@ -39,11 +42,9 @@ function formatUsd(price: number): string {
   else if (abs >= 1) decimals = 4;
   else decimals = 6;
   const fixed = price.toFixed(decimals);
-  // strip trailing zeros after a real decimal point
   const trimmed = fixed.includes('.')
     ? fixed.replace(/0+$/, '').replace(/\.$/, '')
     : fixed;
-  // comma-thousands on the integer portion
   const [intPart, decPart] = trimmed.split('.');
   const withCommas = intPart!.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   return `$${withCommas}${decPart ? '.' + decPart : ''}`;
@@ -55,58 +56,66 @@ function formatPctSigned(value: number): string {
   return `${sign}${value.toFixed(2)}%`;
 }
 
-function pad(label: string, width = 12): string {
-  return label.length >= width ? label : label + ' '.repeat(width - label.length);
+function arrow(t: TFTrend): string {
+  if (t === 'bullish') return '▲';
+  if (t === 'bearish') return '▼';
+  return '➡';
 }
 
-function macroLine(macro?: FullMacroSnapshot | null): string | null {
-  if (!macro) return null;
-  const parts: string[] = [];
+function tfRow(tf: MultiTimeframeAlignment): string {
+  return `15m ${arrow(tf.m15)}   1h ${arrow(tf.h1)}   4h ${arrow(tf.h4)}   1d ${arrow(tf.d1)}`;
+}
+
+function alignedCount(tf: MultiTimeframeAlignment, direction: 'long' | 'short' | 'skip'): number {
+  if (direction === 'skip') {
+    // For skips, report dominant-side count for readability.
+    const trends = [tf.m15, tf.h1, tf.h4, tf.d1];
+    const bull = trends.filter((t) => t === 'bullish').length;
+    const bear = trends.filter((t) => t === 'bearish').length;
+    return Math.max(bull, bear);
+  }
+  const want = direction === 'long' ? 'bullish' : 'bearish';
+  return [tf.m15, tf.h1, tf.h4, tf.d1].filter((t) => t === want).length;
+}
+
+function structureLabel(s: SignalStructure): string {
+  const trend = s.trend === 'ranging' ? 'sideways' : s.trend;
+  const bos = s.bosDetected ? 'breakout confirmed' : 'no breakout';
+  return `${trend} · ${bos}`;
+}
+
+function fgiLabel(value: number): string {
+  if (value < 25) return 'extreme fear';
+  if (value < 45) return 'fear';
+  if (value > 75) return 'extreme greed';
+  if (value > 55) return 'greed';
+  return 'neutral';
+}
+
+interface MacroLines {
+  fgi: string | null;
+  btcD: string | null;
+  dxy: string | null;
+}
+
+function macroLines(macro?: FullMacroSnapshot | null): MacroLines {
+  const out: MacroLines = { fgi: null, btcD: null, dxy: null };
+  if (!macro) return out;
   const fgi = macro.fearGreed?.value;
-  if (typeof fgi === 'number') {
-    let label = 'neutral';
-    if (fgi < 25) label = 'extreme fear';
-    else if (fgi < 45) label = 'fear';
-    else if (fgi > 75) label = 'extreme greed';
-    else if (fgi > 55) label = 'greed';
-    parts.push(`FGI ${fgi} (${label})`);
-  }
+  if (typeof fgi === 'number') out.fgi = `FGI ${fgi} · ${fgiLabel(fgi)}`;
   const btcD = macro.global?.btcDominance;
-  if (typeof btcD === 'number') {
-    parts.push(`BTC.D ${btcD.toFixed(1)}%`);
-  }
+  if (typeof btcD === 'number') out.btcD = `BTC.D ${btcD.toFixed(1)}%`;
   const dxy = macro.macro?.dxy;
-  if (typeof dxy === 'number') {
-    parts.push(`DXY ${dxy.toFixed(2)}`);
-  }
-  if (parts.length === 0) return null;
-  return parts.join(' · ');
+  if (typeof dxy === 'number') out.dxy = `DXY ${dxy.toFixed(2)}`;
+  return out;
 }
 
-// Parse signal.rationale (positional Stage 18 evidence layers) into displayable bits.
-function extractAlignment(rationale: string[]): string | null {
-  const m = rationale.find((r) => r.startsWith('alignment '));
-  return m ? m.replace(/^alignment\s+/, '') : null;
-}
-function extractStructure(rationale: string[]): string | null {
-  const m = rationale.find((r) => r.startsWith('structure '));
-  return m ? m.replace(/^structure\s+/, '') : null;
-}
-function extractMomentum(rationale: string[]): string | null {
+// extract momentum from signal.rationale (Stage 18 layered text)
+function extractMomentumLine(rationale: string[]): string | null {
   const m = rationale.find((r) => r.startsWith('momentum '));
-  return m ? m.replace(/^momentum\s+/, '') : null;
-}
-function extractDivergence(rationale: string[]): string | null {
-  const m = rationale.find((r) => r.startsWith('divergence '));
-  return m ? m.replace(/^divergence\s+/, '') : null;
-}
-function extractKeyLevels(rationale: string[]): string | null {
-  const m = rationale.find((r) => r.startsWith('keyLevels '));
-  return m ? m.replace(/^keyLevels\s+/, '') : null;
-}
-function extractRR(rationale: string[]): string | null {
-  const m = rationale.find((r) => r.startsWith('riskReward '));
-  return m ? m.replace(/^riskReward\s+/, '') : null;
+  if (!m) return null;
+  // raw: "momentum 1h RSI=46, MACD=short"
+  return m.replace(/^momentum\s+/, '');
 }
 
 // ─── main ───────────────────────────────────────────────────────────────────
@@ -114,37 +123,67 @@ function extractRR(rationale: string[]): string | null {
 export function formatTradePlan(signal: Signal, options: TradePlanOptions = {}): string {
   const now = options.generatedAt ?? Date.now();
   const ts = formatUtc(now);
+  const nextMin = options.nextTickMinutes ?? 83;
+  const macro = options.macro ?? null;
 
   if (signal.direction === 'skip') {
-    return formatHoldPlan(signal, ts, options.macro ?? null);
+    return formatHoldPlan(signal, ts, macro, nextMin);
   }
-  return formatEntryPlan(signal, ts, options.macro ?? null);
+  return formatEntryPlan(signal, ts, macro);
 }
 
-function formatHoldPlan(signal: Signal, ts: string, macro: FullMacroSnapshot | null): string {
-  const align = extractAlignment(signal.rationale);
-  const structure = extractStructure(signal.rationale);
-  const momentum = extractMomentum(signal.rationale);
-  const divergence = extractDivergence(signal.rationale);
-  const macroStr = macroLine(macro);
+function formatHoldPlan(
+  signal: Signal,
+  ts: string,
+  macro: FullMacroSnapshot | null,
+  nextMin: number
+): string {
+  const tf = signal.multiTimeframeAlignment;
+  const aligned = alignedCount(tf, 'skip');
+  const momentum = extractMomentumLine(signal.rationale);
+  const m = macroLines(macro);
+  const macroParts = [m.fgi, m.btcD, m.dxy].filter(Boolean).join(' · ');
 
   const lines: string[] = [];
-  lines.push(`⏸ HOLD ${signal.symbol} — ${ts}`);
+  lines.push(`⏸ HOLD ${signal.symbol}`);
+  lines.push(`🕐 ${ts}`);
+  lines.push(`💰 ${formatUsd(signal.currentPrice)}`);
+  lines.push('');
   lines.push(SEPARATOR);
   lines.push('');
-  lines.push(`${pad('Price')}${formatUsd(signal.currentPrice)}`);
-  if (align) lines.push(`${pad('Multi-TF')}${align}`);
-  if (structure) lines.push(`${pad('Structure')}${structure}`);
-  if (momentum) lines.push(`${pad('Momentum')}${momentum}`);
-  if (divergence) lines.push(`${pad('Divergence')}${divergence}`);
-  if (macroStr) lines.push(`${pad('Macro')}${macroStr}`);
+  lines.push(`1️⃣ Trend (4 timeframes)`);
+  lines.push(`   ${tfRow(tf)}`);
+  lines.push(`   Alignment: ${aligned}/4`);
   lines.push('');
-  lines.push('→ Skipping. No clean edge. Wait for next tick.');
+  lines.push(`2️⃣ Structure`);
+  lines.push(
+    `   Range  ${formatUsd(signal.structure.recentSwingLow)} — ${formatUsd(signal.structure.recentSwingHigh)}`
+  );
+  lines.push(`   ${structureLabel(signal.structure)}`);
+  if (momentum) {
+    lines.push('');
+    lines.push(`3️⃣ Momentum`);
+    lines.push(`   ${momentum}`);
+  }
+  if (macroParts) {
+    lines.push('');
+    lines.push(`${momentum ? '4️⃣' : '3️⃣'} Macro`);
+    lines.push(`   ${macroParts}`);
+  }
+  lines.push('');
+  lines.push(SEPARATOR);
+  lines.push('');
+  lines.push(`🚫 Skip — mixed signals, no clean edge.`);
+  lines.push(`⏰ Next check in ~${nextMin} min.`);
 
   return lines.join('\n');
 }
 
-function formatEntryPlan(signal: Signal, ts: string, macro: FullMacroSnapshot | null): string {
+function formatEntryPlan(
+  signal: Signal,
+  ts: string,
+  macro: FullMacroSnapshot | null
+): string {
   const directionLabel = signal.direction === 'long' ? '🟢 LONG' : '🔴 SHORT';
   const slDist = Math.abs(signal.entry - signal.stopLoss);
   const tp1Dist = Math.abs(signal.tp1 - signal.entry);
@@ -153,7 +192,6 @@ function formatEntryPlan(signal: Signal, ts: string, macro: FullMacroSnapshot | 
   const rr1 = slDist > 0 ? tp1Dist / slDist : 0;
   const rr2 = slDist > 0 ? tp2Dist / slDist : 0;
 
-  // Why: alts on high-vol setups → take more off at TP1 to derisk.
   const isAlt = signal.symbol !== 'BTCUSDT';
   const isHighVol = slPct > 2.0;
   const tp1Weight = isAlt && isHighVol ? 70 : 50;
@@ -163,51 +201,69 @@ function formatEntryPlan(signal: Signal, ts: string, macro: FullMacroSnapshot | 
   const tp1Pct = signal.entry > 0 ? (tp1Dist / signal.entry) * 100 * sign : 0;
   const tp2Pct = signal.entry > 0 ? (tp2Dist / signal.entry) * 100 * sign : 0;
 
-  // Trigger: filled if 15m close beyond a small confirmation buffer.
   const triggerPrice =
     signal.direction === 'long' ? signal.entry * 1.001 : signal.entry * 0.999;
   const triggerStr =
     signal.direction === 'long'
-      ? `Filled if 15m closes above ${formatUsd(triggerPrice)}`
-      : `Filled if 15m closes below ${formatUsd(triggerPrice)}`;
+      ? `15m close above ${formatUsd(triggerPrice)}`
+      : `15m close below ${formatUsd(triggerPrice)}`;
   const invalidStr =
     signal.direction === 'long'
       ? `${formatUsd(signal.stopLoss)} break (15m close)`
       : `${formatUsd(signal.stopLoss)} reclaim (15m close)`;
 
-  const align = extractAlignment(signal.rationale);
-  const structure = extractStructure(signal.rationale);
-  const macroStr = macroLine(macro);
+  const tf = signal.multiTimeframeAlignment;
+  const aligned = alignedCount(tf, signal.direction);
+  const m = macroLines(macro);
+  const macroParts = [m.fgi, m.btcD, m.dxy].filter(Boolean).join(' · ');
 
   const lines: string[] = [];
-  lines.push(`${directionLabel} ${signal.symbol} — ${ts}`);
+  lines.push(`${directionLabel} ${signal.symbol}`);
+  lines.push(`🕐 ${ts}`);
+  lines.push('');
   lines.push(SEPARATOR);
   lines.push('');
-  lines.push(`${pad('Entry')}${formatUsd(signal.entry)}`);
-  lines.push(`${pad('Stop Loss')}${formatUsd(signal.stopLoss)}  (${formatPctSigned(-slPct)})`);
+  lines.push(`💰 Entry      ${formatUsd(signal.entry)}`);
+  lines.push(`🛑 Stop loss  ${formatUsd(signal.stopLoss)}  (${formatPctSigned(-slPct)})`);
   lines.push(
-    `${pad('Target 1')}${formatUsd(signal.tp1)}  (${formatPctSigned(tp1Pct)} · ${rr1.toFixed(2)}R · close ${tp1Weight}%)`
+    `🎯 Target 1   ${formatUsd(signal.tp1)}  (${formatPctSigned(tp1Pct)} · ${rr1.toFixed(2)}R · ${tp1Weight}%)`
   );
   lines.push(
-    `${pad('Target 2')}${formatUsd(signal.tp2)}  (${formatPctSigned(tp2Pct)} · ${rr2.toFixed(2)}R · close ${tp2Weight}%)`
+    `🎯 Target 2   ${formatUsd(signal.tp2)}  (${formatPctSigned(tp2Pct)} · ${rr2.toFixed(2)}R · ${tp2Weight}%)`
   );
-  lines.push(`${pad('Leverage')}${signal.leverage}× (${signal.confidence} confidence)`);
+  lines.push(`🎚️ Leverage   ${signal.leverage}× · ${signal.confidence} confidence`);
   lines.push('');
-  if (align) lines.push(`${pad('Multi-TF')}${align}`);
-  if (structure) lines.push(`${pad('Structure')}${structure}`);
-  if (macroStr) lines.push(`${pad('Macro')}${macroStr}`);
+  lines.push(SEPARATOR);
   lines.push('');
-  lines.push('Trigger:');
-  lines.push(`  ${triggerStr}`);
-  lines.push('Invalidate:');
-  lines.push(`  ${invalidStr}`);
-  lines.push('  Void if not filled within 30 min');
+  lines.push(`1️⃣ Trend (4 timeframes)`);
+  lines.push(`   ${tfRow(tf)}`);
+  lines.push(`   Alignment: ${aligned}/4 with ${signal.direction.toUpperCase()}`);
   lines.push('');
-  lines.push('Scenario plan:');
-  lines.push(`  • TP1 hit  → SL to break-even, ride remainder to TP2`);
-  lines.push(`  • SL hit   → close 100%`);
-  lines.push(`  • 24h flat → consider trim`);
-  lines.push(`  • 48h none → close (timeout)`);
+  lines.push(`2️⃣ Structure`);
+  lines.push(
+    `   Range  ${formatUsd(signal.structure.recentSwingLow)} — ${formatUsd(signal.structure.recentSwingHigh)}`
+  );
+  lines.push(`   ${structureLabel(signal.structure)}`);
+  if (macroParts) {
+    lines.push('');
+    lines.push(`3️⃣ Macro`);
+    lines.push(`   ${macroParts}`);
+  }
+  lines.push('');
+  lines.push(SEPARATOR);
+  lines.push('');
+  lines.push(`📌 Trigger`);
+  lines.push(`   Enter on ${triggerStr}`);
+  lines.push('');
+  lines.push(`🚫 Invalidate`);
+  lines.push(`   ${invalidStr}`);
+  lines.push(`   Or no fill within 30 min`);
+  lines.push('');
+  lines.push(`📋 Playbook`);
+  lines.push(`   • TP1 hit  → move stop to entry, ride remainder to TP2`);
+  lines.push(`   • Stop hit → close 100%`);
+  lines.push(`   • 24h flat → consider trim`);
+  lines.push(`   • 48h no fill → cancel`);
 
   return lines.join('\n');
 }
