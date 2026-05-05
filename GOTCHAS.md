@@ -312,3 +312,17 @@
 - **MUST NOT** restore `seeded_at` or 시드 재발급 in Recharge flow — 1계정 1회 시드 정책 보존. Recharge 는 `wallets.balance += $1000` + `is_liquidated=false` 만.
 - **MUST NOT** redirect 결제를 외부 페이지(im.page 등) 로. 모든 결제는 `tg.openInvoice(invoiceLink)` 인앱 흐름. 외부 redirect 는 텔레그램 인앱 브라우저로 열려도 우리 미니앱 상태 sync 가 끊긴다.
 - **MUST NOT** use `now()`, `current_timestamp`, or any volatile function inside a Postgres partial index `WHERE` predicate — fails with `42P17 functions in index predicate must be marked IMMUTABLE`. 만료 체크용 인덱스는 partial 빼고 full index 로. 적용 시점이 IMMUTABLE 이 아니므로 인덱스 정의 자체에 박을 수 없다.
+
+## Stage 17 Phase F — Orders & Position Management
+
+### MUST
+- **MUST** 모든 position/order 수정 라우트에서 `positionId` 외에 `userId` 도 받아 `update().eq('id', X).eq('user_id', userId)` 이중 가드. service_role 키가 RLS 를 우회하므로 애플리케이션 레벨 ownership 체크가 마지막 방어선.
+- **MUST** `placeStopOrder`, `cancelOrder`, `closePartial` 같은 user-scoped mutate 함수의 시그니처에 **필수 인자로 userId 포함** — 함수 자체가 ownership 검증을 강제하도록 설계해야 IDOR 재발 방지.
+- **MUST** SL/TP 가격은 side+entry_price 대비 올바른 방향 검증 — Long: SL ≤ entry / TP ≥ entry, Short: 반대. 잘못된 방향 입력은 즉시 청산 트리거 → 사용자 자산 사고.
+- **MUST** orderMatcher catch 에서 `INSUFFICIENT_BALANCE`/`LIQUIDATED` 는 `status='expired'`, 그 외 시스템 에러는 `status='cancelled'` 또는 재시도 로직. SL/TP 매칭 실패는 **필수** status 업데이트하거나 재시도 타이머 구현. 사용자가 "SL이 실행 안 됨" 을 추측만 하는 상황 차단.
+- **MUST** orderMatcher for-loop 내부 catch 에서 rethrow 절대 금지 — 한 주문 실패가 같은 tick 의 다른 주문 매칭을 막으면 안 됨.
+- **MUST** 라우트 입력 검증에서 음수 거부: `if (!Number.isFinite(value) || value <= 0)` — `!value` 는 0 만 거부하지만 음수(-100)는 통과 위험.
+
+### MUST NOT
+- **MUST NOT** user-scoped mutate 함수에 user_id 인자 없이 *positionId* 만 받지 말 것 — IDOR 자동 발생.
+- **MUST NOT** orderMatcher SL/TP catch 에서 status 미업데이트하고 console.error 만 남기기 — 다음 tick 에서 같은 주문이 또 매칭 시도되고 "왜 SL이 작동 안 함?" 불명확한 상태 야기.

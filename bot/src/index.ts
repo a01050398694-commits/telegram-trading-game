@@ -5,6 +5,7 @@ import { createBot } from './bot.js';
 import { createServer } from './server.js';
 import { createSupabase } from './db/supabase.js';
 import { TradingEngine } from './engine/trading.js';
+import { OrderMatcher } from './engine/orderMatcher.js';
 import { RankingEngine } from './engine/ranking.js';
 import { ChatSwitcher } from './engine/chatSwitcher.js';
 import { RetentionCron } from './cron/retention.js';
@@ -39,6 +40,7 @@ async function main(): Promise<void> {
   const db = createSupabase();
   const engine = new TradingEngine(db);
   const priceCache = new PriceCache();
+  const orderMatcher = new OrderMatcher(db, engine);
   const rankingEngine = new RankingEngine(db, priceCache);
   const bot = createBot(engine);
   const server = createServer({ engine, priceCache, bot, rankingEngine });
@@ -61,6 +63,8 @@ async function main(): Promise<void> {
   const feed = new BinancePriceFeed(env.MARKET_SYMBOLS);
   feed.on('price', (update: PriceUpdate) => {
     priceCache.set(update.symbol, update.price);
+
+    // Stage 17 — 청산 감시 후 주문 매칭. 에러 격리: 한쪽 실패가 다른쪽을 막지 않게.
     void engine
       .scanAndLiquidate({ symbol: update.symbol, markPrice: update.price })
       .catch((err) => {
@@ -69,6 +73,15 @@ async function main(): Promise<void> {
         console.error('[engine] scan error:', err);
         Sentry.captureException(err, {
           tags: { context: 'liquidation_scan' },
+          extra: { symbol: update.symbol, markPrice: update.price },
+        });
+      });
+
+    void orderMatcher.matchOrders(update.symbol, update.price)
+      .catch((err) => {
+        console.error('[orderMatcher] match error:', err);
+        Sentry.captureException(err, {
+          tags: { context: 'order_matching' },
           extra: { symbol: update.symbol, markPrice: update.price },
         });
       });

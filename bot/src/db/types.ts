@@ -41,6 +41,11 @@ export interface PositionRow {
   pnl: number;
   opened_at: string;
   closed_at: string | null;
+  // Stage 17 — SL/TP + margin mode
+  sl_price: string | null;
+  tp_price: string | null;
+  margin_mode: 'isolated' | 'cross';
+  realized_pnl_total: number;
 }
 
 // -- Insert payload types (기본값이 있는 컬럼은 제외) --
@@ -111,4 +116,37 @@ export interface PaymentEventInsert {
   chat_id?: string | null;
   telegram_user_id?: number | null;
   payload?: Record<string, unknown> | null;
+}
+
+// Stage 17 — Order types for Limit/Stop orders
+export type OrderType = 'limit' | 'stop_loss' | 'take_profit';
+export type OrderStatus = 'pending' | 'filled' | 'cancelled' | 'triggered' | 'expired';
+
+export interface OrderRow {
+  id: string;
+  user_id: string;
+  symbol: string;
+  type: OrderType;
+  side: PositionSide;
+  price: string;  // numeric → string
+  size: number;
+  leverage: number;
+  position_id: string | null;
+  status: OrderStatus;
+  created_at: string;
+  filled_at: string | null;
+  cancelled_at: string | null;
+  triggered_at: string | null;
+}
+
+export interface OrderInsert {
+  user_id: string;
+  symbol: string;
+  type: OrderType;
+  side: PositionSide;
+  price: number;
+  size: number;
+  leverage: number;
+  position_id?: string | null;
+  status?: OrderStatus;
 }

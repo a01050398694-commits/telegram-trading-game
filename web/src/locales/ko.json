@@ -355,6 +355,38 @@
     "fullBody": "실제 금전이 아닌 가상 자금으로 트레이딩 기술을 배우는 교육 목적의 시뮬레이터입니다. 도박이 아니며, 실제 손익이 없습니다.",
     "dismiss": "이해했습니다"
   },
+  "orderType": {
+    "market": "시장가",
+    "limit": "지정가",
+    "stop_loss": "손절",
+    "take_profit": "익절"
+  },
+  "orders": {
+    "open": "미체결 주문",
+    "history": "주문 내역",
+    "cancel": "취소",
+    "cancelAll": "전부 취소",
+    "noOrders": "미체결 주문 없음",
+    "comingSoon": "곧 출시",
+    "status": {
+      "pending": "대기중",
+      "filled": "체결됨",
+      "cancelled": "취소됨",
+      "triggered": "발동됨",
+      "expired": "만료됨"
+    },
+    "filter": {
+      "all": "전체",
+      "filled": "체결",
+      "cancelled": "취소",
+      "triggered": "발동"
+    }
+  },
+  "slTp": {
+    "sl": "손절가",
+    "tp": "익절가",
+    "toggle": "익절/손절"
+  },
   "landing": {
     "hero": {
       "badge": "무료 · 가입 X · 텔레그램 안에서",

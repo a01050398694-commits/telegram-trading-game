@@ -7,11 +7,14 @@ import { ShareROIButton } from '../components/ShareROIButton';
 import { SharePortfolioButton } from '../components/SharePortfolioButton';
 import { PnLChart } from '../components/PnLChart';
 import { RechargeCard } from '../components/RechargeCard';
+import { OrderHistorySection } from '../components/OrderHistorySection';
 import { useBinanceFeed } from '../lib/useBinanceFeed';
 import {
   ApiError,
   fetchUserHistory,
+  fetchOrderHistory,
   type HistoryEntry,
+  type ServerOrder,
   type UserStatus,
 } from '../lib/api';
 
@@ -31,8 +34,11 @@ const STARTING_SEED = 10_000;
 export function PortfolioTab({ telegramUserId, status }: PortfolioTabProps) {
   const { t } = useTranslation();
   const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [orderHistory, setOrderHistory] = useState<ServerOrder[]>([]);
   const [loading, setLoading] = useState(false);
+  const [orderLoading, setOrderLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [orderError, setOrderError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (telegramUserId === null) return;
@@ -49,9 +55,25 @@ export function PortfolioTab({ telegramUserId, status }: PortfolioTabProps) {
     }
   }, [telegramUserId]);
 
+  const loadOrderHistory = useCallback(async () => {
+    if (telegramUserId === null) return;
+    setOrderLoading(true);
+    try {
+      const res = await fetchOrderHistory(telegramUserId);
+      setOrderHistory(res.orders);
+      setOrderError(null);
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : (err as Error).message;
+      setOrderError(msg);
+    } finally {
+      setOrderLoading(false);
+    }
+  }, [telegramUserId]);
+
   useEffect(() => {
     void load();
-  }, [load]);
+    void loadOrderHistory();
+  }, [load, loadOrderHistory]);
 
   const balance = status?.balance ?? STARTING_SEED;
   const position = status?.position ?? null;
@@ -220,6 +242,13 @@ export function PortfolioTab({ telegramUserId, status }: PortfolioTabProps) {
           variant="idle"
         />
       )}
+
+      {/* ── ORDER HISTORY ────────────────────────────── */}
+      <OrderHistorySection
+        orders={orderHistory}
+        loading={orderLoading}
+        error={orderError}
+      />
 
       {/* ── TRADE HISTORY ─────────────────────────────── */}
       <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur-xl">

@@ -9,6 +9,9 @@ import {
 } from '../lib/format';
 import type { Direction } from '../lib/useBinanceFeed';
 import { hapticImpact, hapticSelection } from '../utils/telegram';
+import { OrderTypeTabs } from './OrderTypeTabs';
+import { LimitPriceInput } from './LimitPriceInput';
+import { SlTpInputs } from './SlTpInputs';
 
 export type Side = 'long' | 'short';
 
@@ -28,7 +31,22 @@ type ActionPanelProps = {
   pending?: boolean;
   errorMessage?: string | null;
   disabled?: boolean;
-  onOpen: (args: { side: Side; size: number; leverage: number }) => void;
+  orderType?: 'market' | 'limit' | 'stop';
+  onOrderTypeChange?: (type: 'market' | 'limit' | 'stop') => void;
+  limitPrice?: number | null;
+  onLimitPriceChange?: (price: number | null) => void;
+  slPrice?: number | null;
+  tpPrice?: number | null;
+  onSlTpChange?: (args: { slPrice?: number | null; tpPrice?: number | null }) => void;
+  onOpen: (args: {
+    side: Side;
+    size: number;
+    leverage: number;
+    orderType?: 'market' | 'limit';
+    limitPrice?: number;
+    slPrice?: number | null;
+    tpPrice?: number | null;
+  }) => void;
   onClose: () => void;
 };
 
@@ -37,6 +55,7 @@ const SIZE_PRESETS = [25, 50, 75, 100] as const;
 
 // 프로급 주문 패널. 포지션 존재 시 CLOSE 전용, 없으면 풀 주문 인터페이스.
 // 레버리지/사이즈 선택 → 양방향 청산가 프리뷰 → LONG/SHORT 원클릭.
+// Stage 17: Limit Order + SL/TP 옵션 추가.
 export function ActionPanel({
   position,
   markPrice,
@@ -45,6 +64,13 @@ export function ActionPanel({
   pending = false,
   errorMessage = null,
   disabled = false,
+  orderType = 'market',
+  onOrderTypeChange,
+  limitPrice = null,
+  onLimitPriceChange,
+  slPrice = null,
+  tpPrice = null,
+  onSlTpChange,
   onOpen,
   onClose,
 }: ActionPanelProps) {
@@ -182,11 +208,18 @@ export function ActionPanel({
   const shortLiq =
     markPrice !== null ? liquidationPrice('short', markPrice, leverage) : null;
   const isLoadingPrice = markPrice === null;
-  const canOpen = markPrice !== null && size > 0 && balance > 0 && !pending && !disabled;
+  const canOpen = markPrice !== null && size > 0 && balance > 0 && !pending && !disabled && (orderType === 'market' || limitPrice !== null);
 
   return (
     <div className="w-full space-y-2">
       <div className="rounded-xl border border-[var(--border-hairline)] bg-[var(--color-surface-2)] p-3">
+        {/* Stage 17: Order Type Tabs */}
+        {onOrderTypeChange && (
+          <OrderTypeTabs
+            activeType={orderType}
+            onChange={onOrderTypeChange}
+          />
+        )}
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white/40">
             {t('trade.leverage')}
@@ -268,6 +301,24 @@ export function ActionPanel({
             {formatMoney(size * leverage)}
           </span>
         </div>
+
+        {/* Stage 17: Limit Price Input (conditional) */}
+        {orderType === 'limit' && onLimitPriceChange && (
+          <LimitPriceInput
+            value={limitPrice}
+            onChange={onLimitPriceChange}
+            markPrice={markPrice}
+          />
+        )}
+
+        {/* Stage 17: SL/TP Inputs (always available) */}
+        {onSlTpChange && (
+          <SlTpInputs
+            slPrice={slPrice}
+            tpPrice={tpPrice}
+            onSlTpChange={onSlTpChange}
+          />
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-2">
@@ -276,7 +327,15 @@ export function ActionPanel({
           disabled={!canOpen}
           onClick={() => {
             hapticImpact('heavy');
-            onOpen({ side: 'long', size, leverage });
+            onOpen({
+              side: 'long',
+              size,
+              leverage,
+              orderType: orderType === 'stop' ? undefined : orderType,
+              limitPrice: orderType === 'limit' ? limitPrice ?? undefined : undefined,
+              slPrice,
+              tpPrice,
+            });
           }}
           className="group relative flex flex-col items-stretch overflow-hidden rounded-xl bg-gradient-to-b from-emerald-400 to-emerald-600 px-3 py-3 text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.45),_inset_0_-1px_1px_rgba(0,0,0,0.25),_0_6px_18px_rgba(16,185,129,0.4)] transition-all duration-100 hover:brightness-110 active:scale-[0.96] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.35),_0_1px_2px_rgba(16,185,129,0.2)] disabled:cursor-not-allowed disabled:from-emerald-700/40 disabled:to-emerald-800/40 disabled:shadow-none"
         >
@@ -298,7 +357,15 @@ export function ActionPanel({
           disabled={!canOpen}
           onClick={() => {
             hapticImpact('heavy');
-            onOpen({ side: 'short', size, leverage });
+            onOpen({
+              side: 'short',
+              size,
+              leverage,
+              orderType: orderType === 'stop' ? undefined : orderType,
+              limitPrice: orderType === 'limit' ? limitPrice ?? undefined : undefined,
+              slPrice,
+              tpPrice,
+            });
           }}
           className="group relative flex flex-col items-stretch overflow-hidden rounded-xl bg-gradient-to-b from-rose-400 to-rose-600 px-3 py-3 text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.45),_inset_0_-1px_1px_rgba(0,0,0,0.25),_0_6px_18px_rgba(244,63,94,0.4)] transition-all duration-100 hover:brightness-110 active:scale-[0.96] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.35),_0_1px_2px_rgba(244,63,94,0.2)] disabled:cursor-not-allowed disabled:from-rose-700/40 disabled:to-rose-800/40 disabled:shadow-none"
         >

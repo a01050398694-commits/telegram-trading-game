@@ -4,6 +4,7 @@ import type {
   PositionInsert,
   PositionRow,
   PositionSide,
+  PositionStatus,
   PositionType,
   UserInsert,
   UserRow,
@@ -252,6 +253,7 @@ export class TradingEngine extends EventEmitter {
   // 포지션 오픈 (시장가)
   //   - 지갑 잔고 차감 → positions insert
   //   - 청산된 지갑은 진입 불가 (IsLiquidated 플래그)
+  //   - Stage 17: slPrice / tpPrice optional 추가 (Limit 진입 시)
   // -------------------------------------------------------------------------
   async openPosition(args: {
     userId: string;
@@ -261,8 +263,10 @@ export class TradingEngine extends EventEmitter {
     size: number;
     leverage: number;
     markPrice: number;
+    slPrice?: number | null;
+    tpPrice?: number | null;
   }): Promise<PositionRow> {
-    const { userId, symbol, positionType, side, size, leverage, markPrice } = args;
+    const { userId, symbol, positionType, side, size, leverage, markPrice, slPrice, tpPrice } = args;
 
     if (positionType === 'spot' && leverage !== 1) {
       throw new Error('spot position must use leverage=1');
@@ -278,8 +282,8 @@ export class TradingEngine extends EventEmitter {
       leverage,
     });
 
-    // Stage 15.7 — atomic RPC: wallet FOR UPDATE + 차감 + insert 한 트랜잭션 내.
-    // 기존 optimistic lock + 수동 롤백 제거. PG RAISE EXCEPTION → server.ts regex 호환.
+    // Stage 15.7 + Stage 17 — atomic RPC: wallet FOR UPDATE + 차감 + insert 한 트랜잭션 내.
+    // slPrice / tpPrice 는 선택사항 (Limit 주문 체결 또는 수동 설정용)
     const { data: positionId, error: rpcErr } = await this.db.rpc('open_position_atomic', {
       p_user_id: userId,
       p_symbol: symbol,
@@ -289,6 +293,8 @@ export class TradingEngine extends EventEmitter {
       p_leverage: leverage,
       p_entry_price: markPrice,
       p_liquidation_price: liquidationPrice,
+      p_sl_price: slPrice ?? null,
+      p_tp_price: tpPrice ?? null,
     });
     if (rpcErr) throw new Error(rpcErr.message);
 
@@ -305,17 +311,21 @@ export class TradingEngine extends EventEmitter {
   // 포지션 종료 (시장가 청산 아님, 자발적 종료)
   //   - PnL 계산 → 지갑에 size + pnl 반환 (음수 pnl은 손실)
   //   - status='closed'
+  //   - Stage 17: userId 추가 (orderMatcher 에서 호출)
   // -------------------------------------------------------------------------
   async closePosition(args: {
+    userId: string;
     positionId: string;
     markPrice: number;
   }): Promise<{ pnl: number; newBalance: number }> {
-    const { positionId, markPrice } = args;
+    const { userId, positionId, markPrice } = args;
 
+    // Ownership check: ensure position belongs to this user
     const { data: posData, error: posErr } = await this.db
       .from('positions')
       .select('*')
       .eq('id', positionId)
+      .eq('user_id', userId)
       .eq('status', 'open')
       .single();
     if (posErr || !posData) throw new Error(`closePosition: position not found or not open`);
@@ -342,6 +352,253 @@ export class TradingEngine extends EventEmitter {
     if (rpcErr) throw new Error(rpcErr.message);
 
     return { pnl, newBalance: Number(newBalance) };
+  }
+
+  // -------------------------------------------------------------------------
+  // Stage 17 — Limit Order: Create pending limit order
+  // BodyParser validates size > 0, leverage in [1, 125], limitPrice > 0.
+  // -------------------------------------------------------------------------
+  async placeLimitOrder(args: {
+    userId: string;
+    symbol: string;
+    side: PositionSide;
+    size: number;
+    leverage: number;
+    limitPrice: number;
+  }): Promise<{ id: string; status: 'pending' }> {
+    const { userId, symbol, side, size, leverage, limitPrice } = args;
+
+    if (size <= 0) throw new Error('size must be positive');
+    if (limitPrice <= 0) throw new Error('limitPrice must be positive');
+
+    // Verify wallet exists and user not liquidated
+    const wallet = await this.getWallet(userId);
+    if (!wallet) throw new Error('wallet not found');
+    if (wallet.is_liquidated) throw new Error('LIQUIDATED');
+    if (wallet.balance < size) throw new Error('INSUFFICIENT_BALANCE');
+
+    // Insert order into pending state
+    const { data, error } = await this.db
+      .from('orders')
+      .insert({
+        user_id: userId,
+        symbol,
+        type: 'limit',
+        side,
+        price: limitPrice,
+        size,
+        leverage,
+        position_id: null,
+        status: 'pending',
+      })
+      .select('id, status')
+      .single();
+    if (error) throw new Error(`placeLimitOrder: ${error.message}`);
+
+    return {
+      id: (data as { id: string; status: string }).id,
+      status: 'pending',
+    };
+  }
+
+  // -------------------------------------------------------------------------
+  // Stage 17 — Stop Order: Create SL/TP trigger on existing position
+  // CRITICAL: userId added for IDOR prevention
+  // -------------------------------------------------------------------------
+  async placeStopOrder(args: {
+    userId: string;
+    positionId: string;
+    type: 'stop_loss' | 'take_profit';
+    triggerPrice: number;
+  }): Promise<{ id: string }> {
+    const { userId, positionId, type, triggerPrice } = args;
+
+    if (triggerPrice <= 0) throw new Error('triggerPrice must be positive');
+
+    // Verify position exists, is open, and belongs to the user (double guard IDOR)
+    // Include entry_price for direction validation
+    const { data: pos, error: posErr } = await this.db
+      .from('positions')
+      .select('user_id, side, symbol, entry_price')
+      .eq('id', positionId)
+      .eq('user_id', userId)
+      .eq('status', 'open')
+      .single();
+    if (posErr || !pos) throw new Error('position not found or not open');
+
+    const posRow = pos as Pick<PositionRow, 'user_id' | 'side' | 'symbol' | 'entry_price'>;
+    const entryPrice = Number(posRow.entry_price);
+
+    // Validate SL/TP direction based on position side
+    if (type === 'stop_loss') {
+      if (posRow.side === 'long' && triggerPrice > entryPrice) {
+        throw new Error('INVALID_SL_PRICE_DIRECTION: Long position SL must be ≤ entry price');
+      }
+      if (posRow.side === 'short' && triggerPrice < entryPrice) {
+        throw new Error('INVALID_SL_PRICE_DIRECTION: Short position SL must be ≥ entry price');
+      }
+    }
+
+    if (type === 'take_profit') {
+      if (posRow.side === 'long' && triggerPrice < entryPrice) {
+        throw new Error('INVALID_TP_PRICE_DIRECTION: Long position TP must be ≥ entry price');
+      }
+      if (posRow.side === 'short' && triggerPrice > entryPrice) {
+        throw new Error('INVALID_TP_PRICE_DIRECTION: Short position TP must be ≤ entry price');
+      }
+    }
+
+    // Insert order referencing the position
+    const { data, error } = await this.db
+      .from('orders')
+      .insert({
+        user_id: posRow.user_id,
+        symbol: posRow.symbol,
+        type,
+        side: posRow.side,
+        price: triggerPrice,
+        size: 0,  // dummy, order matched based on position
+        leverage: 0,  // dummy
+        position_id: positionId,
+        status: 'pending',
+      })
+      .select('id')
+      .single();
+    if (error) throw new Error(`placeStopOrder: ${error.message}`);
+
+    return { id: (data as { id: string }).id };
+  }
+
+  // -------------------------------------------------------------------------
+  // Stage 17 — Cancel pending order by orderId + userId validation
+  // -------------------------------------------------------------------------
+  async cancelOrder(orderId: string, userId: string): Promise<void> {
+    const { error } = await this.db
+      .from('orders')
+      .update({
+        status: 'cancelled',
+        cancelled_at: new Date().toISOString(),
+      })
+      .eq('id', orderId)
+      .eq('user_id', userId)
+      .eq('status', 'pending');
+    if (error) throw new Error(`cancelOrder: ${error.message}`);
+  }
+
+  // -------------------------------------------------------------------------
+  // Stage 17 — Cancel all pending orders for a user
+  // -------------------------------------------------------------------------
+  async cancelAllOrders(userId: string): Promise<{ cancelled: number }> {
+    const { data, error } = await this.db
+      .from('orders')
+      .update({
+        status: 'cancelled',
+        cancelled_at: new Date().toISOString(),
+      })
+      .eq('user_id', userId)
+      .eq('status', 'pending')
+      .select('id');
+    if (error) throw new Error(`cancelAllOrders: ${error.message}`);
+
+    return { cancelled: (data?.length ?? 0) };
+  }
+
+  // -------------------------------------------------------------------------
+  // Stage 17 — Get all pending orders for user
+  // -------------------------------------------------------------------------
+  async getOpenOrders(userId: string): Promise<import('../db/types.js').OrderRow[]> {
+    const { data, error } = await this.db
+      .from('orders')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+    if (error) throw new Error(`getOpenOrders: ${error.message}`);
+
+    return (data as import('../db/types.js').OrderRow[]) ?? [];
+  }
+
+  // -------------------------------------------------------------------------
+  // Stage 17 — Get order history: filled, cancelled, triggered, expired
+  // -------------------------------------------------------------------------
+  async getOrderHistory(userId: string, limit: number = 50): Promise<import('../db/types.js').OrderRow[]> {
+    const { data, error } = await this.db
+      .from('orders')
+      .select('*')
+      .eq('user_id', userId)
+      .in('status', ['filled', 'cancelled', 'triggered', 'expired'])
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (error) throw new Error(`getOrderHistory: ${error.message}`);
+
+    return (data as import('../db/types.js').OrderRow[]) ?? [];
+  }
+
+  // -------------------------------------------------------------------------
+  // Stage 17 — Set SL/TP prices on existing position
+  // CRITICAL: userId validation (IDOR prevention) + SL/TP direction validation
+  // -------------------------------------------------------------------------
+  async setSlTpForPosition(args: {
+    userId: string;
+    positionId: string;
+    slPrice?: number | null;
+    tpPrice?: number | null;
+  }): Promise<void> {
+    const { userId, positionId, slPrice, tpPrice } = args;
+
+    // Fetch position to validate ownership + entry_price + side (for direction checks)
+    const { data: pos, error: fetchErr } = await this.db
+      .from('positions')
+      .select('user_id, entry_price, side, status')
+      .eq('id', positionId)
+      .single();
+    if (fetchErr || !pos) throw new Error('position not found');
+
+    const position = pos as {
+      user_id: string;
+      entry_price: string;
+      side: PositionSide;
+      status: PositionStatus;
+    };
+
+    // IDOR: Verify ownership
+    if (position.user_id !== userId) {
+      throw new Error('UNAUTHORIZED: position does not belong to this user');
+    }
+
+    const entryPrice = Number(position.entry_price);
+    const updates: Record<string, unknown> = {};
+
+    // Validate SL/TP directions
+    if (slPrice !== undefined && slPrice !== null) {
+      if (position.side === 'long' && slPrice > entryPrice) {
+        throw new Error('INVALID_SL_PRICE_DIRECTION: Long position SL must be ≤ entry price');
+      }
+      if (position.side === 'short' && slPrice < entryPrice) {
+        throw new Error('INVALID_SL_PRICE_DIRECTION: Short position SL must be ≥ entry price');
+      }
+      updates.sl_price = slPrice;
+    }
+
+    if (tpPrice !== undefined && tpPrice !== null) {
+      if (position.side === 'long' && tpPrice < entryPrice) {
+        throw new Error('INVALID_TP_PRICE_DIRECTION: Long position TP must be ≥ entry price');
+      }
+      if (position.side === 'short' && tpPrice > entryPrice) {
+        throw new Error('INVALID_TP_PRICE_DIRECTION: Short position TP must be ≤ entry price');
+      }
+      updates.tp_price = tpPrice;
+    }
+
+    if (Object.keys(updates).length === 0) return;
+
+    // Double guard: update with both positionId AND userId
+    const { error } = await this.db
+      .from('positions')
+      .update(updates)
+      .eq('id', positionId)
+      .eq('user_id', userId);
+    if (error) throw new Error(`setSlTpForPosition: ${error.message}`);
   }
 
   // -------------------------------------------------------------------------

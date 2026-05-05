@@ -354,5 +354,37 @@
     "fullTitle": "Paper Trading Education Platform",
     "fullBody": "Learn trading skills with virtual funds, not real money. This is an educational simulator, not gambling, with no real financial risk.",
     "dismiss": "Got It"
+  },
+  "orderType": {
+    "market": "Market",
+    "limit": "Limit",
+    "stop_loss": "Stop",
+    "take_profit": "Take Profit"
+  },
+  "orders": {
+    "open": "Open Orders",
+    "history": "Order History",
+    "cancel": "Cancel",
+    "cancelAll": "Cancel All",
+    "noOrders": "No open orders",
+    "comingSoon": "Coming soon",
+    "status": {
+      "pending": "Pending",
+      "filled": "Filled",
+      "cancelled": "Cancelled",
+      "triggered": "Triggered",
+      "expired": "Expired"
+    },
+    "filter": {
+      "all": "All",
+      "filled": "Filled",
+      "cancelled": "Cancelled",
+      "triggered": "Triggered"
+    }
+  },
+  "slTp": {
+    "sl": "Stop Loss Price",
+    "tp": "Take Profit Price",
+    "toggle": "TP/SL"
   }
 }

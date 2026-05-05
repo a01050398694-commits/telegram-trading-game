@@ -9,6 +9,7 @@ import { CoinSelector } from '../components/CoinSelector';
 import { OrderBook } from '../components/OrderBook';
 import { RecentTrades } from '../components/RecentTrades';
 import { FundingTicker } from '../components/FundingTicker';
+import { OpenOrdersCard } from '../components/OpenOrdersCard';
 import { useBinanceFeed } from '../lib/useBinanceFeed';
 import { calcPnl } from '../lib/format';
 import { MARKETS, type MarketSymbol } from '../lib/markets';
@@ -17,6 +18,8 @@ import {
   ApiError,
   closeTrade,
   openTrade,
+  cancelOrder,
+  cancelAllOrders,
   type UserStatus,
 } from '../lib/api';
 import { track } from '../lib/analytics';
@@ -70,6 +73,10 @@ export function TradeTab({
   const [tradeError, setTradeError] = useState<string | null>(null);
   const [rechargePending, setRechargePending] = useState(false);
   const [rechargeError, setRechargeError] = useState<string | null>(null);
+  const [orderType, setOrderType] = useState<'market' | 'limit' | 'stop'>('market');
+  const [limitPrice, setLimitPrice] = useState<number | null>(null);
+  const [slPrice, setSlPrice] = useState<number | null>(null);
+  const [tpPrice, setTpPrice] = useState<number | null>(null);
 
   const serverPosition = status?.position ?? null;
   const positionForPanel: Position | null =
@@ -109,10 +116,18 @@ export function TradeTab({
     side,
     size,
     leverage,
+    orderType: ot = 'market',
+    limitPrice: lp,
+    slPrice: sl,
+    tpPrice: tp,
   }: {
     side: 'long' | 'short';
     size: number;
     leverage: number;
+    orderType?: 'market' | 'limit';
+    limitPrice?: number;
+    slPrice?: number | null;
+    tpPrice?: number | null;
   }) => {
     if (telegramUserId === null) {
       setTradeError(t('trade.errorNoTelegram'));
@@ -121,10 +136,26 @@ export function TradeTab({
     setTradeError(null);
     setTradePending(true);
     try {
-      await openTrade({ telegramUserId, symbol, side, size, leverage, fallbackPrice: feed.price ?? 0 });
+      await openTrade({
+        telegramUserId,
+        symbol,
+        side,
+        size,
+        leverage,
+        fallbackPrice: feed.price ?? 0,
+        orderType: ot,
+        limitPrice: lp,
+        slPrice: sl,
+        tpPrice: tp,
+      });
       await refresh();
       hapticNotification('success');
       track('trade_opened', { symbol, side, size, leverage });
+      // Reset form
+      setOrderType('market');
+      setLimitPrice(null);
+      setSlPrice(null);
+      setTpPrice(null);
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : (err as Error).message;
       setTradeError(msg);
@@ -178,8 +209,36 @@ export function TradeTab({
   const panelDisabled = telegramUserId === null || isLiquidated;
   const panelError = tradeError ?? statusError;
 
+  const handleCancelOrder = async (orderId: string) => {
+    if (telegramUserId === null) return;
+    try {
+      await cancelOrder(orderId, telegramUserId);
+      await refresh();
+      hapticNotification('success');
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : (err as Error).message;
+      setTradeError(msg);
+      hapticNotification('error');
+    }
+  };
+
+  const handleCancelAllOrders = async () => {
+    if (telegramUserId === null) return;
+    try {
+      await cancelAllOrders(telegramUserId);
+      await refresh();
+      hapticNotification('success');
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : (err as Error).message;
+      setTradeError(msg);
+      hapticNotification('error');
+    }
+  };
+
+  const openOrders = status?.openOrders?.filter((o) => o.symbol === symbol) ?? [];
+
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain px-3" style={{ paddingBottom: 200 }}>
+    <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain px-3" style={{ paddingBottom: 260 }}>
       <Header
         symbol={feed.symbol}
         price={feed.price}
@@ -214,6 +273,16 @@ export function TradeTab({
           pending={tradePending}
           errorMessage={panelError}
           disabled={panelDisabled}
+          orderType={orderType}
+          onOrderTypeChange={setOrderType}
+          limitPrice={limitPrice}
+          onLimitPriceChange={setLimitPrice}
+          slPrice={slPrice}
+          tpPrice={tpPrice}
+          onSlTpChange={(args) => {
+            if (args.slPrice !== undefined) setSlPrice(args.slPrice);
+            if (args.tpPrice !== undefined) setTpPrice(args.tpPrice);
+          }}
           onOpen={handleOpen}
           onClose={handleClose}
         />
@@ -226,15 +295,22 @@ export function TradeTab({
         )}
       </div>
 
+      {/* Stage 17 — Open Orders Card */}
+      <OpenOrdersCard
+        orders={openOrders}
+        onCancelOrder={handleCancelOrder}
+        onCancelAll={handleCancelAllOrders}
+        pending={tradePending}
+      />
+
       <BalanceBar
         balance={balance + livePnl}
         pnl={livePnl}
         hasPosition={positionForPanel !== null}
       />
 
-      {/* Stage 8.9 — 물리 스페이서. pb-[150px] 가 모바일에서 collapse 되는 버그 원천 차단.
-          shrink-0 로 flex 에서도 압축 불가 + pointer-events-none 으로 UX 무영향. */}
-      <div className="h-[150px] shrink-0 pointer-events-none" aria-hidden="true" />
+      {/* Stage 8.9 — 물리 스페이서. pb-[260px] 매직 숫자 명시 (Stage 17 높이 증가). */}
+      <div className="h-[260px] shrink-0 pointer-events-none" aria-hidden="true" />
     </div>
   );
 }

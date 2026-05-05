@@ -512,11 +512,225 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
         return;
       }
 
-      const result = await engine.closePosition({ positionId: targetId, markPrice });
+      const result = await engine.closePosition({ userId: resolved, positionId: targetId, markPrice });
       res.json({ ok: true, pnl: result.pnl, balance: result.newBalance, exitPrice: markPrice });
     } catch (err) {
       console.error('[server] /trade/close:', err);
       res.status(500).json({ error: (err as Error).message });
+    }
+  });
+
+  // ---- Stage 17: Limit/Stop 주문 생성 ----------------------------------------
+  // POST /api/orders: placeLimitOrder OR placeStopOrder (orderType 으로 분기)
+  app.post('/api/orders', async (req, res) => {
+    try {
+      const { symbol, orderType, side, size, leverage, triggerPrice, positionId } = req.body as {
+        symbol?: string;
+        orderType?: 'limit' | 'stop_loss' | 'take_profit';
+        side?: 'long' | 'short';
+        size?: number;
+        leverage?: number;
+        triggerPrice?: number;
+        positionId?: string;
+      };
+
+      if (!symbol || (side !== 'long' && side !== 'short')) {
+        res.status(400).json({ error: 'invalid symbol/side' });
+        return;
+      }
+
+      const resolved = await resolveUser(engine, req);
+      if (typeof resolved !== 'string') {
+        res.status(resolved.status).json({ error: resolved.error });
+        return;
+      }
+
+      // Validate triggerPrice early (used by both limit and stop orders)
+      if (orderType === 'limit' || orderType === 'stop_loss' || orderType === 'take_profit') {
+        if (triggerPrice === undefined || !Number.isFinite(triggerPrice) || triggerPrice <= 0) {
+          res.status(400).json({ error: orderType === 'limit' ? 'limitPrice must be positive' : 'triggerPrice must be positive' });
+          return;
+        }
+      }
+
+      if (orderType === 'limit') {
+        if (!Number.isFinite(size) || !size || size <= 0) {
+          res.status(400).json({ error: 'size must be positive' });
+          return;
+        }
+        if (!Number.isInteger(leverage) || !leverage || leverage < 1 || leverage > 125) {
+          res.status(400).json({ error: 'leverage must be 1..125' });
+          return;
+        }
+
+        const order = await engine.placeLimitOrder({
+          userId: resolved,
+          symbol,
+          side,
+          size,
+          leverage,
+          limitPrice: triggerPrice as number,
+        });
+        res.json({ ok: true, orderId: order.id, status: order.status });
+      } else if (orderType === 'stop_loss' || orderType === 'take_profit') {
+        if (!positionId) {
+          res.status(400).json({ error: 'positionId required for SL/TP' });
+          return;
+        }
+
+        const order = await engine.placeStopOrder({
+          userId: resolved,
+          positionId,
+          type: orderType,
+          triggerPrice: triggerPrice as number,
+        });
+        res.json({ ok: true, orderId: order.id });
+      } else {
+        res.status(400).json({ error: 'invalid orderType' });
+      }
+    } catch (err) {
+      console.error('[server] POST /api/orders:', err);
+      res.status(500).json({ error: (err as Error).message });
+    }
+  });
+
+  // ---- Stage 17: 미체결 주문 조회 -----------------------------------------------
+  // GET /api/orders?telegramUserId=
+  app.get('/api/orders', async (req, res) => {
+    try {
+      const resolved = await resolveUser(engine, req);
+      if (typeof resolved !== 'string') {
+        res.status(resolved.status).json({ error: resolved.error });
+        return;
+      }
+
+      const orders = await engine.getOpenOrders(resolved);
+      res.json({
+        orders: orders.map((o) => ({
+          id: o.id,
+          symbol: o.symbol,
+          type: o.type,
+          side: o.side,
+          price: Number(o.price),
+          size: o.size,
+          leverage: o.leverage,
+          status: o.status,
+          createdAt: o.created_at,
+        })),
+      });
+    } catch (err) {
+      console.error('[server] GET /api/orders:', err);
+      res.status(500).json({ error: (err as Error).message });
+    }
+  });
+
+  // ---- Stage 17: 주문 취소 ---------------------------------------------------
+  // DELETE /api/orders/:id
+  app.delete('/api/orders/:id', async (req, res) => {
+    try {
+      const orderId = req.params.id;
+      const { telegramUserId } = req.body as { telegramUserId?: number };
+
+      const resolved = await resolveUser(engine, req);
+      if (typeof resolved !== 'string') {
+        res.status(resolved.status).json({ error: resolved.error });
+        return;
+      }
+
+      await engine.cancelOrder(orderId, resolved);
+      res.json({ ok: true, orderId });
+    } catch (err) {
+      console.error('[server] DELETE /api/orders/:id:', err);
+      res.status(500).json({ error: (err as Error).message });
+    }
+  });
+
+  // ---- Stage 17: 전체 주문 취소 -----------------------------------------------
+  // DELETE /api/orders/all?telegramUserId=
+  app.delete('/api/orders/all', async (req, res) => {
+    try {
+      const resolved = await resolveUser(engine, req);
+      if (typeof resolved !== 'string') {
+        res.status(resolved.status).json({ error: resolved.error });
+        return;
+      }
+
+      const result = await engine.cancelAllOrders(resolved);
+      res.json({ ok: true, cancelled: result.cancelled });
+    } catch (err) {
+      console.error('[server] DELETE /api/orders/all:', err);
+      res.status(500).json({ error: (err as Error).message });
+    }
+  });
+
+  // ---- Stage 17: 주문 내역 ---------------------------------------------------
+  // GET /api/orders/history?telegramUserId=
+  app.get('/api/orders/history', async (req, res) => {
+    try {
+      const resolved = await resolveUser(engine, req);
+      if (typeof resolved !== 'string') {
+        res.status(resolved.status).json({ error: resolved.error });
+        return;
+      }
+
+      const orders = await engine.getOrderHistory(resolved, 50);
+      res.json({
+        orders: orders.map((o) => ({
+          id: o.id,
+          symbol: o.symbol,
+          type: o.type,
+          side: o.side,
+          price: Number(o.price),
+          size: o.size,
+          status: o.status,
+          createdAt: o.created_at,
+          filledAt: o.filled_at,
+          cancelledAt: o.cancelled_at,
+          triggeredAt: o.triggered_at,
+        })),
+      });
+    } catch (err) {
+      console.error('[server] GET /api/orders/history:', err);
+      res.status(500).json({ error: (err as Error).message });
+    }
+  });
+
+  // ---- Stage 17: 포지션 SL/TP 설정 -------------------------------------------
+  // POST /api/positions/sl-tp
+  app.post('/api/positions/sl-tp', async (req, res) => {
+    try {
+      const { positionId, slPrice, tpPrice } = req.body as {
+        positionId?: string;
+        slPrice?: number | null;
+        tpPrice?: number | null;
+      };
+
+      const resolved = await resolveUser(engine, req);
+      if (typeof resolved !== 'string') {
+        res.status(resolved.status).json({ error: resolved.error });
+        return;
+      }
+
+      if (!positionId) {
+        res.status(400).json({ error: 'positionId required' });
+        return;
+      }
+
+      await engine.setSlTpForPosition({
+        userId: resolved,
+        positionId,
+        slPrice: slPrice !== undefined ? (slPrice === null ? null : slPrice) : undefined,
+        tpPrice: tpPrice !== undefined ? (tpPrice === null ? null : tpPrice) : undefined,
+      });
+      res.json({ ok: true });
+    } catch (err) {
+      const msg = (err as Error).message;
+      // Route SL/TP validation errors
+      const status = /^UNAUTHORIZED/.test(msg) ? 403
+        : /^INVALID_SL_PRICE_DIRECTION|^INVALID_TP_PRICE_DIRECTION/.test(msg) ? 400
+        : 500;
+      console.error('[server] POST /api/positions/sl-tp:', msg);
+      res.status(status).json({ error: msg });
     }
   });
 

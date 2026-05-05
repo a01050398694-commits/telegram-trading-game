@@ -24,6 +24,24 @@ export type ServerVerification = {
   createdAt: string;
 };
 
+export type OrderType = 'limit' | 'stop_loss' | 'take_profit';
+export type OrderStatus = 'pending' | 'filled' | 'cancelled' | 'triggered' | 'expired';
+
+export type ServerOrder = {
+  id: string;
+  symbol: string;
+  type: OrderType;
+  side: 'long' | 'short';
+  price: number;
+  size: number;
+  leverage: number;
+  status: OrderStatus;
+  createdAt: string;
+  filledAt?: string | null;
+  cancelledAt?: string | null;
+  positionId?: string | null;
+};
+
 export type UserStatus = {
   userId: string;
   balance: number;
@@ -38,6 +56,7 @@ export type UserStatus = {
   yesterdayPnl: number | null;
   telegramUserId: number;
   history: { date: string; pnl: number }[];
+  openOrders: ServerOrder[];
 };
 
 export type OpenTradeInput = {
@@ -47,6 +66,10 @@ export type OpenTradeInput = {
   size: number;
   leverage: number;
   fallbackPrice: number;
+  orderType?: 'market' | 'limit';
+  limitPrice?: number;
+  slPrice?: number | null;
+  tpPrice?: number | null;
 };
 
 export type OpenTradeResult = { ok: true; positionId: string; entryPrice: number };
@@ -238,6 +261,75 @@ export function toggleLockMode(
   return request<{ ok: true; lockModeEnabled: boolean }>('/api/premium/lock-mode', {
     method: 'POST',
     body: JSON.stringify({ telegramUserId, enabled }),
+  });
+}
+
+// Stage 17 — Orders & Position Management
+export type PlaceOrderInput = {
+  telegramUserId: number;
+  symbol: string;
+  orderType: 'limit' | 'stop_loss' | 'take_profit';
+  side: 'long' | 'short';
+  size: number;
+  leverage: number;
+  triggerPrice: number;
+  positionId?: string;
+};
+
+export type PlaceOrderResult = { ok: true; orderId: string };
+
+export function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResult> {
+  return request<PlaceOrderResult>('/api/orders', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export type FetchOrdersResult = { orders: ServerOrder[] };
+
+export function fetchOrders(telegramUserId: number): Promise<FetchOrdersResult> {
+  return request<FetchOrdersResult>('/api/orders', {
+    query: { telegramUserId },
+  });
+}
+
+export type CancelOrderResult = { ok: true; orderId: string };
+
+export function cancelOrder(orderId: string, telegramUserId: number): Promise<CancelOrderResult> {
+  return request<CancelOrderResult>(`/api/orders/${orderId}`, {
+    method: 'DELETE',
+    body: JSON.stringify({ telegramUserId }),
+  });
+}
+
+export function cancelAllOrders(telegramUserId: number): Promise<{ ok: true; count: number }> {
+  return request<{ ok: true; count: number }>('/api/orders/all', {
+    method: 'DELETE',
+    query: { telegramUserId },
+  });
+}
+
+export type FetchOrderHistoryResult = { orders: ServerOrder[] };
+
+export function fetchOrderHistory(telegramUserId: number): Promise<FetchOrderHistoryResult> {
+  return request<FetchOrderHistoryResult>('/api/orders/history', {
+    query: { telegramUserId },
+  });
+}
+
+export type SetSlTpInput = {
+  telegramUserId: number;
+  positionId: string;
+  slPrice?: number | null;
+  tpPrice?: number | null;
+};
+
+export type SetSlTpResult = { ok: true; positionId: string };
+
+export function setSlTp(input: SetSlTpInput): Promise<SetSlTpResult> {
+  return request<SetSlTpResult>('/api/positions/sl-tp', {
+    method: 'POST',
+    body: JSON.stringify(input),
   });
 }
 
