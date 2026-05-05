@@ -23,7 +23,7 @@ export function OrderTypeTabs({ activeType, onChange }: OrderTypeTabsProps) {
             disabled={isDisabled}
             className={`flex-1 py-2 px-3 text-sm font-bold rounded-t-lg transition-colors duration-150 ${
               isActive
-                ? 'bg-amber-500/15 text-white border-b-2 border-amber-400'
+                ? 'bg-[var(--color-accent-gold)]/15 text-white border-b-2 border-[var(--color-accent-gold)]'
                 : isDisabled
                   ? 'bg-slate-900/50 text-slate-500 cursor-not-allowed'
                   : 'bg-slate-800/50 text-slate-400 hover:text-slate-300'
@@ -33,7 +33,7 @@ export function OrderTypeTabs({ activeType, onChange }: OrderTypeTabsProps) {
             {type === 'stop' && (
               <span className="flex items-center gap-1">
                 <span>{t(`orderType.stop_loss`)}</span>
-                <span className="text-[10px]">[soon]</span>
+                <span className="text-[11px] font-bold text-amber-400">[Coming Soon]</span>
               </span>
             )}
             {type !== 'stop' && t(`orderType.${type}`)}

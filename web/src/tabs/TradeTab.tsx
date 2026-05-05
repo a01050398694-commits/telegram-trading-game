@@ -422,7 +422,8 @@ export function TradeTab({
         hasPosition={positionForPanel !== null}
       />
 
-      {/* Stage 8.9 — 물리 스페이서. pb-[280px] 매직 숫자 명시 (Stage 17 TimeframeRow/IndicatorToggles 추가). */}
+      {/* Stage 8.9/Stage 17 — 물리 스페이서. pb-[280px] 매직 숫자는 ActionPanel LONG/SHORT 버튼이 BottomNav 뒤에 가려지지 않게 보장.
+          Stage 17에서 TimeframeRow + IndicatorToggles 추가로 콘텐츠 높이 증가. 버튼 잘림 발생 시 pb-[300px] 또는 pb-[320px] 로 조정. */}
       <div className="h-[280px] shrink-0 pointer-events-none" aria-hidden="true" />
     </div>
   );

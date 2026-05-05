@@ -88,7 +88,7 @@ export function ActionPanel({
       : leverage >= 50
         ? 'text-orange-400'
         : leverage >= 20
-          ? 'text-amber-400'
+          ? 'text-[var(--color-accent-warning)]'
           : 'text-emerald-400';
 
   if (position && markPrice !== null) {

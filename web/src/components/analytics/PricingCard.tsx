@@ -349,7 +349,11 @@ export function PricingCard({ telegramUserId, onPaid }: PricingCardProps) {
         style={{
           position: 'relative',
           width: '100%',
+          minHeight: '44px',
           padding: '14px 0',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
           background: pending
             ? 'rgba(115,115,115,0.4)'
             : 'linear-gradient(135deg, #FFD700 0%, #DAA520 35%, #B8860B 70%, #8B6914 100%)',
@@ -382,9 +386,9 @@ export function PricingCard({ telegramUserId, onPaid }: PricingCardProps) {
             pointerEvents: 'none',
           }}
         />
-        <span style={{ position: 'relative' }}>
+        <div style={{ position: 'relative' }}>
           {pending ? t('payment.processing') : t('premium.plan.cta')}
-        </span>
+        </div>
       </button>
 
       {/* ── 약관 ── */}

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useOrderBook, type DepthLevel } from '../lib/useOrderBook';
 import { formatUSD } from '../lib/format';
+import { SHADOW } from '../styles/tokens';
 
 // Stage 7.5 Bugfix — 모바일 2컬럼에 맞춘 초 컴팩트 호가창.
 // · 상위 5 bid / 5 ask 만 노출 (원래 10 → 5, ActionPanel 가시성 확보)
@@ -94,10 +95,10 @@ function DepthRow({
   const priceColor = side === 'ask' ? 'text-[var(--color-accent-short)]' : 'text-[var(--color-accent-long)]';
   const barColor = side === 'ask' ? 'bg-rose-500/10' : 'bg-emerald-500/10';
   // Neon glow — 빠르게 갱신되는 숫자가 물 위에 떠있는 듯한 느낌.
-  const glow =
+  const glowShadow =
     side === 'ask'
-      ? 'drop-shadow-[0_0_4px_rgba(251,113,133,0.45)]'
-      : 'drop-shadow-[0_0_4px_rgba(52,211,153,0.45)]';
+      ? SHADOW['glow-rose']
+      : SHADOW['glow-emerald'];
 
   return (
     <div
@@ -115,7 +116,7 @@ function DepthRow({
 
       {/* Price and Qty (center) */}
       <div className="flex flex-1 items-center justify-between min-w-0">
-        <span className={`font-bold tabular-nums ${priceColor} ${glow}`}>
+        <span className={`font-bold tabular-nums ${priceColor}`} style={{ textShadow: glowShadow }}>
           {formatUSD(level.price)}
         </span>
         <span className="text-right font-semibold text-white/70 tabular-nums text-[9px]">

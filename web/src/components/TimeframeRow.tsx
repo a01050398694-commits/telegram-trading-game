@@ -21,7 +21,7 @@ export function TimeframeRow({ activeFrame, onChange }: TimeframeRowProps) {
             transition-all duration-150 ease-out shrink-0
             ${
               activeFrame === frame
-                ? 'bg-amber-500/20 text-amber-300 border-b-2 border-amber-400 border-t border-l border-r border-[var(--border-hairline)]'
+                ? 'bg-[var(--color-accent-gold)]/20 text-white border-b-2 border-[var(--color-accent-gold)]'
                 : 'bg-slate-800/50 text-slate-400 border border-[var(--border-hairline)] hover:bg-slate-700 hover:text-slate-300'
             }
           `}

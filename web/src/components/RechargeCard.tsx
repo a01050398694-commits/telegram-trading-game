@@ -235,8 +235,8 @@ export function RechargeCard({ telegramUserId, onPaid, variant = 'idle' }: Recha
         disabled={pending || !consent}
         className={
           liquidated
-            ? 'relative w-full overflow-hidden rounded-xl border border-amber-200/60 bg-gradient-to-br from-amber-300 via-amber-500 to-amber-600 px-4 py-4 text-stone-950 shadow-[0_8px_24px_rgba(217,119,6,0.5),inset_0_1px_0_rgba(255,255,255,0.4)] transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60'
-            : 'relative w-full overflow-hidden rounded-xl border border-emerald-300/40 bg-gradient-to-br from-emerald-500 via-emerald-600 to-emerald-700 px-4 py-4 text-white shadow-[0_8px_24px_rgba(16,185,129,0.4),inset_0_1px_0_rgba(255,255,255,0.25)] transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60'
+            ? 'relative w-full min-h-[44px] overflow-hidden rounded-xl border border-amber-200/60 bg-gradient-to-br from-amber-300 via-amber-500 to-amber-600 px-4 py-4 text-stone-950 shadow-[0_8px_24px_rgba(217,119,6,0.5),inset_0_1px_0_rgba(255,255,255,0.4)] transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 flex items-center justify-center'
+            : 'relative w-full min-h-[44px] overflow-hidden rounded-xl border border-emerald-300/40 bg-gradient-to-br from-emerald-500 via-emerald-600 to-emerald-700 px-4 py-4 text-white shadow-[0_8px_24px_rgba(16,185,129,0.4),inset_0_1px_0_rgba(255,255,255,0.25)] transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 flex items-center justify-center'
         }
       >
         {/* shine */}
