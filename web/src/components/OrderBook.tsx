@@ -102,18 +102,35 @@ function DepthRow({
   return (
     <div
       ref={ref}
-      className="relative grid grid-cols-2 items-center px-1 py-1 font-mono leading-tight"
+      className="relative flex items-center px-1 py-1 font-mono leading-tight gap-2"
     >
-      <div
-        className={`pointer-events-none absolute inset-y-0 right-0 ${barColor}`}
-        style={{ width: `${depthPct}%` }}
-      />
-      <span className={`relative z-10 font-bold tabular-nums ${priceColor} ${glow}`}>
-        {formatUSD(level.price)}
-      </span>
-      <span className="relative z-10 text-right font-semibold text-white/70 tabular-nums">
-        {level.qty.toFixed(3)}
-      </span>
+      {/* Bid depth bar (left-aligned) */}
+      {side === 'bid' && (
+        <div
+          className={`pointer-events-none ${barColor} rounded-sm flex-shrink-0`}
+          style={{ width: `${depthPct}%`, minWidth: '1px', maxWidth: '40%', height: '16px' }}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Price and Qty (center) */}
+      <div className="flex flex-1 items-center justify-between min-w-0">
+        <span className={`font-bold tabular-nums ${priceColor} ${glow}`}>
+          {formatUSD(level.price)}
+        </span>
+        <span className="text-right font-semibold text-white/70 tabular-nums text-[9px]">
+          {level.qty.toFixed(3)}
+        </span>
+      </div>
+
+      {/* Ask depth bar (right-aligned) */}
+      {side === 'ask' && (
+        <div
+          className={`pointer-events-none ${barColor} rounded-sm flex-shrink-0 ml-auto`}
+          style={{ width: `${depthPct}%`, minWidth: '1px', maxWidth: '40%', height: '16px' }}
+          aria-hidden="true"
+        />
+      )}
     </div>
   );
 }

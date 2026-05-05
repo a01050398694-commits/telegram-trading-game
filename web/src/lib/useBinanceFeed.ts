@@ -11,6 +11,7 @@ export type Candle = {
   high: number;
   low: number;
   close: number;
+  volume: number; // base asset volume (from Binance klines[i][7])
 };
 
 export type Direction = 'up' | 'down' | 'idle';
@@ -65,6 +66,7 @@ type BinanceKlinePayload = {
     h: string;
     l: string;
     c: string;
+    v: string; // base asset volume
     x: boolean; // kline closed
   };
 };
@@ -76,6 +78,7 @@ function parseRestRow(row: BinanceRestRow): Candle {
     high: parseFloat(row[2]),
     low: parseFloat(row[3]),
     close: parseFloat(row[4]),
+    volume: parseFloat(row[5]),
   };
 }
 
@@ -179,6 +182,7 @@ export function useBinanceFeed(symbol: string = 'btcusdt', interval: string = '1
             high: parseFloat(k.h),
             low: parseFloat(k.l),
             close: parseFloat(k.c),
+            volume: parseFloat(k.v),
           };
           setTicking(candle);
         } catch (err) {

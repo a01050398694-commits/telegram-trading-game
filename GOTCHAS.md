@@ -326,3 +326,14 @@
 ### MUST NOT
 - **MUST NOT** user-scoped mutate 함수에 user_id 인자 없이 *positionId* 만 받지 말 것 — IDOR 자동 발생.
 - **MUST NOT** orderMatcher SL/TP catch 에서 status 미업데이트하고 console.error 만 남기기 — 다음 tick 에서 같은 주문이 또 매칭 시도되고 "왜 SL이 작동 안 함?" 불명확한 상태 야기.
+
+## Stage 17 Phase H — Timeframe / Indicators / Volume
+
+### MUST
+- **MUST** React inline `style` 의 padding/margin/sizing 값은 단위 명시 — `style={{ paddingBottom: '280px' }}` 또는 `className="pb-[280px]"`. unitless number 는 0px 으로 해석되어 BottomNav 가림 사고.
+- **MUST** lightweight-charts Histogram series 는 candlestick.update() 와 별도 update — Candlestick series 가 volume 필드를 무시하므로 `volumeSeriesRef.current.update({time, value, color})` 명시. 초기 setData 만으로는 1분 지연.
+- **MUST** Binance kline WS payload 의 volume 은 `k.v` (base asset volume), `k.q` (quote volume) 와 혼동 금지. histogram 의미가 달라짐.
+- **MUST** timeframe / indicator 같은 차트 UI 상태는 localStorage 저장 — 매 새로고침 시 기본값 리셋되면 프로 트레이더 UX 악화. 화이트리스트 검증 + JSON.parse try/catch 필수.
+
+### MUST NOT
+- **MUST NOT** Volume histogram 데이터에 mock random 값 — 사용자 거래 신호 fake. 반드시 실 Binance kline tuple [5] (volume) 매핑.

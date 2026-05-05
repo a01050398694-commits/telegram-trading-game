@@ -11,6 +11,8 @@ import { OrderBook } from '../components/OrderBook';
 import { RecentTrades } from '../components/RecentTrades';
 import { FundingTicker } from '../components/FundingTicker';
 import { OpenOrdersCard } from '../components/OpenOrdersCard';
+import { TimeframeRow } from '../components/TimeframeRow';
+import { IndicatorToggles } from '../components/IndicatorToggles';
 import { useBinanceFeed } from '../lib/useBinanceFeed';
 import { calcPnl } from '../lib/format';
 import { MARKETS, type MarketSymbol } from '../lib/markets';
@@ -69,7 +71,59 @@ export function TradeTab({
 }: TradeTabProps) {
   const { t } = useTranslation();
   const [symbol, setSymbol] = useState<MarketSymbol>(MARKETS[0]!.symbol);
-  const feed = useBinanceFeed(symbol, '1m');
+  const [timeframe, setTimeframe] = useState<'1m' | '5m' | '15m' | '1h' | '4h' | '1d'>('1m');
+  const [indicators, setIndicators] = useState({ ma20: false, volume: true });
+
+  // Restore timeframe from localStorage on mount
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const savedTimeframe = localStorage.getItem('tg.chart.timeframe');
+      if (savedTimeframe && ['1m', '5m', '15m', '1h', '4h', '1d'].includes(savedTimeframe)) {
+        setTimeframe(savedTimeframe as '1m' | '5m' | '15m' | '1h' | '4h' | '1d');
+      }
+    } catch {
+      // localStorage access failed, use default
+    }
+  }, []);
+
+  // Restore indicators from localStorage on mount
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const savedIndicators = localStorage.getItem('tg.chart.indicators');
+      if (savedIndicators) {
+        const parsed = JSON.parse(savedIndicators);
+        if (typeof parsed === 'object' && parsed !== null) {
+          setIndicators((prev) => ({ ...prev, ...parsed }));
+        }
+      }
+    } catch {
+      // JSON parse failed, use default
+    }
+  }, []);
+
+  // Persist timeframe to localStorage
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem('tg.chart.timeframe', timeframe);
+    } catch {
+      // localStorage access failed, continue
+    }
+  }, [timeframe]);
+
+  // Persist indicators to localStorage
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem('tg.chart.indicators', JSON.stringify(indicators));
+    } catch {
+      // localStorage access failed, continue
+    }
+  }, [indicators]);
+
+  const feed = useBinanceFeed(symbol, timeframe);
 
   const [tradePending, setTradePending] = useState(false);
   const [tradeError, setTradeError] = useState<string | null>(null);
@@ -274,7 +328,7 @@ export function TradeTab({
   const openOrders = status?.openOrders?.filter((o) => o.symbol === symbol) ?? [];
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain px-3" style={{ paddingBottom: 260 }}>
+    <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain px-3 pb-[280px]">
       <Header
         symbol={feed.symbol}
         price={feed.price}
@@ -294,16 +348,31 @@ export function TradeTab({
         </div>
       </div>
 
+      {/* Stage 17 TimeframeRow: 6개 timeframe 칩 */}
+      <TimeframeRow activeFrame={timeframe} onChange={setTimeframe} />
+
       {/* Stage 8.10 — 상단 pt-2 로 candle wick 잘림 해결. overflow-hidden 은 둥근 모서리 때문에 유지. */}
       <section className="h-[350px] shrink-0 overflow-hidden rounded-xl border border-[var(--border-hairline)] bg-slate-900/40 pt-2">
-        <TradingChart key={symbol} history={feed.history} ticking={feed.ticking} />
+        <TradingChart
+          key={symbol}
+          history={feed.history}
+          ticking={feed.ticking}
+          interval={timeframe}
+          indicators={indicators}
+        />
       </section>
+
+      {/* Stage 17 IndicatorToggles: MA20 + Volume */}
+      <IndicatorToggles
+        indicators={indicators}
+        onChange={(key, value) => setIndicators({ ...indicators, [key]: value })}
+      />
 
       {/* Stage 8.9 — 차트 바로 아래에 OrderBook + RecentTrades. 주문 내리기 전 호가창 보는 게 정상.
           "호가창 → 매수/매도 버튼" 순서가 Binance/Bybit 등 모든 프로 거래소 표준. */}
       <div className="grid grid-cols-2 gap-1.5">
-        <OrderBook symbol={symbol} midPrice={feed.price} rows={5} />
-        <RecentTrades symbol={symbol} rows={5} />
+        <OrderBook symbol={symbol} midPrice={feed.price} rows={10} />
+        <RecentTrades symbol={symbol} rows={10} />
       </div>
 
       {/* ActionPanel — 호가창 아래. LiquidationOverlay 가 덮을 수 있게 relative wrapper. */}
@@ -353,8 +422,8 @@ export function TradeTab({
         hasPosition={positionForPanel !== null}
       />
 
-      {/* Stage 8.9 — 물리 스페이서. pb-[260px] 매직 숫자 명시 (Stage 17 높이 증가). */}
-      <div className="h-[260px] shrink-0 pointer-events-none" aria-hidden="true" />
+      {/* Stage 8.9 — 물리 스페이서. pb-[280px] 매직 숫자 명시 (Stage 17 TimeframeRow/IndicatorToggles 추가). */}
+      <div className="h-[280px] shrink-0 pointer-events-none" aria-hidden="true" />
     </div>
   );
 }

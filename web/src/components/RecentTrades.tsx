@@ -45,18 +45,26 @@ export function RecentTrades({ symbol, rows = 5 }: RecentTradesProps) {
           const d = new Date(t.time);
           const mm = String(d.getMinutes()).padStart(2, '0');
           const ss = String(d.getSeconds()).padStart(2, '0');
+
+          // Large trade highlight (>$10K USD)
+          const isLargeTrade = t.qty * t.price >= 10000;
+
           return (
             <div
               key={t.id}
-              className="grid grid-cols-3 items-center px-1 py-1 font-mono leading-tight"
+              className={`
+                grid grid-cols-3 items-center px-1 py-1 font-mono leading-tight
+                transition-colors duration-500 ease-out
+                ${isLargeTrade ? 'bg-amber-400/20 rounded' : ''}
+              `}
             >
               <span className={`font-bold tabular-nums ${color} ${glow}`}>
                 {formatUSD(t.price)}
               </span>
-              <span className="text-right font-semibold tabular-nums text-white/70">
+              <span className="text-right font-semibold tabular-nums text-white/70 text-[9px]">
                 {t.qty.toFixed(3)}
               </span>
-              <span className="text-right tabular-nums text-white/30">
+              <span className="text-right tabular-nums text-white/30 text-[9px]">
                 {mm}:{ss}
               </span>
             </div>
