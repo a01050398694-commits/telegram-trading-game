@@ -520,6 +520,86 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
     }
   });
 
+  // ---- Stage 17 Phase G: Partial position close ---------------------------------
+  // POST /api/trade/close-partial
+  app.post('/api/trade/close-partial', async (req, res) => {
+    try {
+      const { telegramUserId, positionId, closePct, fallbackPrice } = req.body as {
+        telegramUserId?: number;
+        positionId?: string;
+        closePct?: number;
+        fallbackPrice?: number;
+      };
+
+      const resolved = await resolveUser(engine, req);
+      if (typeof resolved !== 'string') {
+        res.status(resolved.status).json({ error: resolved.error });
+        return;
+      }
+
+      if (!positionId) {
+        res.status(400).json({ error: 'positionId required' });
+        return;
+      }
+
+      // Validate closePct
+      if (!closePct || ![25, 50, 75, 100].includes(closePct)) {
+        res.status(400).json({ error: 'INVALID_CLOSE_PCT: must be 25, 50, 75, or 100' });
+        return;
+      }
+
+      // Fetch position to get symbol
+      const { data: pos, error: posErr } = await engine.db
+        .from('positions')
+        .select('symbol')
+        .eq('id', positionId)
+        .eq('user_id', resolved)
+        .eq('status', 'open')
+        .single();
+      if (posErr || !pos) {
+        res.status(404).json({ error: 'position not found or not open' });
+        return;
+      }
+
+      const symbol = pos.symbol as string;
+      const cachedPrice = priceCache.get(symbol);
+      const markPrice = cachedPrice ?? fallbackPrice;
+      if (!markPrice || markPrice <= 0) {
+        res.status(503).json({ error: `price feed unavailable for ${symbol}` });
+        return;
+      }
+
+      const result = await engine.closePartial({
+        userId: resolved,
+        positionId,
+        closePct: closePct as 25 | 50 | 75 | 100,
+        markPrice,
+      });
+
+      res.json({
+        ok: true,
+        pnl: result.pnl,
+        newSize: result.newSize,
+        newBalance: result.newBalance,
+        newStatus: result.newStatus,
+      });
+    } catch (err) {
+      const msg = (err as Error).message;
+      if (msg.includes('INVALID_CLOSE_PCT')) {
+        res.status(400).json({ error: msg });
+      } else if (msg.includes('INVALID_MARK_PRICE')) {
+        res.status(400).json({ error: msg });
+      } else if (msg.includes('UNAUTHORIZED')) {
+        res.status(403).json({ error: msg });
+      } else if (msg.includes('POSITION_NOT_FOUND_OR_NOT_OPEN')) {
+        res.status(404).json({ error: msg });
+      } else {
+        console.error('[server] /trade/close-partial:', err);
+        res.status(500).json({ error: msg });
+      }
+    }
+  });
+
   // ---- Stage 17: Limit/Stop 주문 생성 ----------------------------------------
   // POST /api/orders: placeLimitOrder OR placeStopOrder (orderType 으로 분기)
   app.post('/api/orders', async (req, res) => {
@@ -731,6 +811,53 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
         : 500;
       console.error('[server] POST /api/positions/sl-tp:', msg);
       res.status(status).json({ error: msg });
+    }
+  });
+
+  // ---- Stage 17 Phase G: 마진 모드 설정 (UI 전용 단계 1) -------------------------
+  // POST /api/positions/margin-mode
+  app.post('/api/positions/margin-mode', async (req, res) => {
+    try {
+      const { positionId, marginMode } = req.body as {
+        positionId?: string;
+        marginMode?: string;
+      };
+
+      const resolved = await resolveUser(engine, req);
+      if (typeof resolved !== 'string') {
+        res.status(resolved.status).json({ error: resolved.error });
+        return;
+      }
+
+      if (!positionId) {
+        res.status(400).json({ error: 'positionId required' });
+        return;
+      }
+
+      if (!['isolated', 'cross'].includes(marginMode ?? '')) {
+        res.status(400).json({ error: 'INVALID_MARGIN_MODE' });
+        return;
+      }
+
+      const result = await engine.setMarginMode({
+        userId: resolved,
+        positionId,
+        marginMode: marginMode as 'isolated' | 'cross',
+      });
+
+      res.json({ ok: true, marginMode: result.marginMode });
+    } catch (err) {
+      const msg = (err as Error).message;
+      if (msg === 'CROSS_MARGIN_NOT_AVAILABLE') {
+        res.status(400).json({ error: msg, code: 'CROSS_MARGIN_NOT_AVAILABLE' });
+      } else if (msg.includes('UNAUTHORIZED')) {
+        res.status(403).json({ error: msg });
+      } else if (msg.includes('position not found')) {
+        res.status(404).json({ error: msg });
+      } else {
+        console.error('[server] POST /api/positions/margin-mode:', err);
+        res.status(500).json({ error: msg });
+      }
     }
   });
 

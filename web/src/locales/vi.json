@@ -386,5 +386,18 @@
     "sl": "Stop Loss Price",
     "tp": "Take Profit Price",
     "toggle": "TP/SL"
+  },
+  "partialClose": {
+    "title": "Đóng Vị Trí",
+    "pct25": "25%",
+    "pct50": "50%",
+    "pct75": "75%",
+    "pct100": "100%",
+    "confirm": "Đóng X% vị trí?"
+  },
+  "marginMode": {
+    "isolated": "Isolated",
+    "cross": "Cross",
+    "comingSoon": "Cross margin coming soon"
   }
 }

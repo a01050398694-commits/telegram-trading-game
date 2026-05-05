@@ -917,6 +917,92 @@ export class TradingEngine extends EventEmitter {
   }
 
   // -------------------------------------------------------------------------
+  // Stage 17 Phase G — Partial position close (25/50/75/100% supported)
+  // CRITICAL: userId required for IDOR check inside RPC function
+  // -------------------------------------------------------------------------
+  async closePartial(args: {
+    userId: string;
+    positionId: string;
+    closePct: 25 | 50 | 75 | 100;
+    markPrice: number;
+  }): Promise<{ pnl: number; newSize: number; newBalance: number; newStatus: 'open' | 'closed' }> {
+    const { userId, positionId, closePct, markPrice } = args;
+
+    // Validate input
+    if (!Number.isFinite(markPrice) || markPrice <= 0) {
+      throw new Error('INVALID_MARK_PRICE');
+    }
+    if (![25, 50, 75, 100].includes(closePct)) {
+      throw new Error('INVALID_CLOSE_PCT');
+    }
+
+    // Call RPC with user_id for IDOR check
+    const { data, error } = await this.db.rpc('close_position_partial', {
+      p_user_id: userId,
+      p_position_id: positionId,
+      p_close_pct: closePct,
+      p_mark_price: markPrice,
+    });
+    if (error) throw new Error(`closePartial RPC: ${error.message}`);
+
+    const result = data as {
+      pnl: number;
+      new_size: number;
+      new_balance: number;
+      new_status: 'open' | 'closed';
+    };
+
+    return {
+      pnl: result.pnl,
+      newSize: result.new_size,
+      newBalance: result.new_balance,
+      newStatus: result.new_status,
+    };
+  }
+
+  // -------------------------------------------------------------------------
+  // Stage 17 Phase G — Set margin mode (UI-only stage 1, logic all isolated)
+  // CRITICAL: userId required for IDOR check, only isolated mode allowed for now
+  // -------------------------------------------------------------------------
+  async setMarginMode(args: {
+    userId: string;
+    positionId: string;
+    marginMode: 'isolated' | 'cross';
+  }): Promise<{ marginMode: 'isolated' | 'cross' }> {
+    const { userId, positionId, marginMode } = args;
+
+    // Validate input: only 'isolated' and 'cross' allowed
+    if (!['isolated', 'cross'].includes(marginMode)) {
+      throw new Error('INVALID_MARGIN_MODE');
+    }
+
+    // Cross margin not available in stage 1
+    if (marginMode === 'cross') {
+      throw new Error('CROSS_MARGIN_NOT_AVAILABLE');
+    }
+
+    // Verify position exists, is open, and belongs to user
+    const { data: pos, error: posErr } = await this.db
+      .from('positions')
+      .select('user_id, status')
+      .eq('id', positionId)
+      .eq('user_id', userId)
+      .eq('status', 'open')
+      .single();
+    if (posErr || !pos) throw new Error('position not found or not open');
+
+    // Update margin_mode (idempotent: isolated is default, so usually noop)
+    const { error: updErr } = await this.db
+      .from('positions')
+      .update({ margin_mode: marginMode })
+      .eq('id', positionId)
+      .eq('user_id', userId);
+    if (updErr) throw new Error(`setMarginMode: ${updErr.message}`);
+
+    return { marginMode };
+  }
+
+  // -------------------------------------------------------------------------
   // Stage 15.3 — Premium 만료 자동 강등 (cron 또는 API 응답 시점에 호출)
   //   · premium_until < now() 인 유저의 is_premium=false
   // -------------------------------------------------------------------------

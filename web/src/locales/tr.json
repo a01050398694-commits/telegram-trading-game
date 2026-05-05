@@ -386,5 +386,18 @@
     "sl": "Stop Loss Price",
     "tp": "Take Profit Price",
     "toggle": "TP/SL"
+  },
+  "partialClose": {
+    "title": "Pozisyonu Kapat",
+    "pct25": "25%",
+    "pct50": "50%",
+    "pct75": "75%",
+    "pct100": "100%",
+    "confirm": "Pozisyonun %X'i kapatılsın mı?"
+  },
+  "marginMode": {
+    "isolated": "Isolated",
+    "cross": "Cross",
+    "comingSoon": "Cross margin coming soon"
   }
 }

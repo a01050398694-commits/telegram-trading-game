@@ -386,5 +386,18 @@
     "sl": "Stop Loss Price",
     "tp": "Take Profit Price",
     "toggle": "TP/SL"
+  },
+  "partialClose": {
+    "title": "Tutup Posisi",
+    "pct25": "25%",
+    "pct50": "50%",
+    "pct75": "75%",
+    "pct100": "100%",
+    "confirm": "Tutup X% posisi?"
+  },
+  "marginMode": {
+    "isolated": "Isolated",
+    "cross": "Cross",
+    "comingSoon": "Cross margin coming soon"
   }
 }

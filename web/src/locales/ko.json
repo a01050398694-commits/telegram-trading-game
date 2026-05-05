@@ -387,6 +387,19 @@
     "tp": "익절가",
     "toggle": "익절/손절"
   },
+  "partialClose": {
+    "title": "청산",
+    "pct25": "25%",
+    "pct50": "50%",
+    "pct75": "75%",
+    "pct100": "100%",
+    "confirm": "X% 청산하시겠습니까?"
+  },
+  "marginMode": {
+    "isolated": "격리",
+    "cross": "통합",
+    "comingSoon": "통합 마진 곧 출시"
+  },
   "landing": {
     "hero": {
       "badge": "무료 · 가입 X · 텔레그램 안에서",

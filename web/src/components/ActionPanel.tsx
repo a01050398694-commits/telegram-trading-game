@@ -12,6 +12,7 @@ import { hapticImpact, hapticSelection } from '../utils/telegram';
 import { OrderTypeTabs } from './OrderTypeTabs';
 import { LimitPriceInput } from './LimitPriceInput';
 import { SlTpInputs } from './SlTpInputs';
+import { PartialCloseControls } from './PartialCloseControls';
 
 export type Side = 'long' | 'short';
 
@@ -48,6 +49,7 @@ type ActionPanelProps = {
     tpPrice?: number | null;
   }) => void;
   onClose: () => void;
+  onClosePartial?: (pct: 25 | 50 | 75 | 100) => void;
 };
 
 const LEVERAGE_PRESETS = [1, 5, 10, 25, 50, 100, 125] as const;
@@ -73,6 +75,7 @@ export function ActionPanel({
   onSlTpChange,
   onOpen,
   onClose,
+  onClosePartial,
 }: ActionPanelProps) {
   const { t } = useTranslation();
   const [leverage, setLeverage] = useState(10);
@@ -179,6 +182,17 @@ export function ActionPanel({
             <span className="font-mono text-white/60 tabular-nums normal-case">{formatMoney(position.size * position.leverage)}</span>
           </div>
         </div>
+
+        {/* Stage 17 — Partial Close Controls */}
+        {onClosePartial && (
+          <PartialCloseControls
+            positionSize={position.size}
+            balance={balance}
+            onClose={onClosePartial}
+            pending={pending}
+            error={null}
+          />
+        )}
 
         <button
           type="button"

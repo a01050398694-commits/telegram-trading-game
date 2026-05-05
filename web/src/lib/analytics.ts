@@ -67,6 +67,7 @@ export type EventName =
   | 'tab_viewed'
   | 'trade_opened'
   | 'trade_closed'
+  | 'trade_partial_closed'
   | 'liquidated'
   | 'verification_submitted'
   | 'premium_cta_clicked'

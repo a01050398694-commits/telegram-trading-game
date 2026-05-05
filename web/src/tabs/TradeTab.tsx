@@ -6,6 +6,7 @@ import { ActionPanel, type Position } from '../components/ActionPanel';
 import { BalanceBar } from '../components/BalanceBar';
 import { LiquidationOverlay } from '../components/LiquidationOverlay';
 import { CoinSelector } from '../components/CoinSelector';
+import { MarginModeChip } from '../components/MarginModeChip';
 import { OrderBook } from '../components/OrderBook';
 import { RecentTrades } from '../components/RecentTrades';
 import { FundingTicker } from '../components/FundingTicker';
@@ -17,6 +18,7 @@ import { hapticNotification, hapticImpact, openTelegramLinkSafe } from '../utils
 import {
   ApiError,
   closeTrade,
+  closePartial,
   openTrade,
   cancelOrder,
   cancelAllOrders,
@@ -77,6 +79,7 @@ export function TradeTab({
   const [limitPrice, setLimitPrice] = useState<number | null>(null);
   const [slPrice, setSlPrice] = useState<number | null>(null);
   const [tpPrice, setTpPrice] = useState<number | null>(null);
+  const [marginMode, setMarginMode] = useState<'isolated' | 'cross'>('isolated');
 
   const serverPosition = status?.position ?? null;
   const positionForPanel: Position | null =
@@ -183,6 +186,39 @@ export function TradeTab({
     }
   };
 
+  const handleClosePartial = async (pct: 25 | 50 | 75 | 100) => {
+    if (telegramUserId === null || !serverPosition) return;
+    setTradeError(null);
+    setTradePending(true);
+    try {
+      const result = await closePartial({
+        telegramUserId,
+        positionId: serverPosition.id,
+        closePct: pct,
+        fallbackPrice: feed.price ?? 0,
+      });
+      await refresh();
+      hapticNotification('success');
+      // Show partial close success via Telegram showPopup or fallback to state message.
+      const tg = typeof window !== 'undefined' ? window.Telegram?.WebApp : null;
+      const message = `${pct}% position closed. PnL: $${result.pnl.toFixed(2)}`;
+      if (tg?.showPopup) {
+        tg.showPopup({
+          title: 'Position Closed',
+          message,
+          buttons: [{ type: 'ok' }],
+        });
+      }
+      track('trade_partial_closed', { symbol, pct, pnl: Math.round(result.pnl) });
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : (err as Error).message;
+      setTradeError(msg);
+      hapticNotification('error');
+    } finally {
+      setTradePending(false);
+    }
+  };
+
   // Stage 15.5 — Recharge = InviteMember 외부 결제 (PayPal + Stars 둘 다)
   // 청산 직후 빠르게 1K 회복 진입점. 더 큰 패키지는 PortfolioTab/PremiumTab 의 RechargeCard.
   const handleRecharge = (): void => {
@@ -249,7 +285,14 @@ export function TradeTab({
         isInsideTelegram={isInsideTelegram}
       />
       <FundingTicker symbol={symbol} />
-      <CoinSelector symbol={symbol} onChange={setSymbol} />
+      <div className="flex items-center gap-2">
+        <div className="flex-1">
+          <CoinSelector symbol={symbol} onChange={setSymbol} />
+        </div>
+        <div className="flex-shrink-0">
+          <MarginModeChip mode={marginMode} onChange={setMarginMode} disabled={panelDisabled} />
+        </div>
+      </div>
 
       {/* Stage 8.10 — 상단 pt-2 로 candle wick 잘림 해결. overflow-hidden 은 둥근 모서리 때문에 유지. */}
       <section className="h-[350px] shrink-0 overflow-hidden rounded-xl border border-[var(--border-hairline)] bg-slate-900/40 pt-2">
@@ -285,6 +328,7 @@ export function TradeTab({
           }}
           onOpen={handleOpen}
           onClose={handleClose}
+          onClosePartial={handleClosePartial}
         />
         {isLiquidated && (
           <LiquidationOverlay

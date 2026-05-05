@@ -333,3 +333,45 @@ export function setSlTp(input: SetSlTpInput): Promise<SetSlTpResult> {
   });
 }
 
+// Stage 17 — Partial Close Position
+export type ClosePartialInput = {
+  telegramUserId: number;
+  positionId: string;
+  closePct: 25 | 50 | 75 | 100;
+  fallbackPrice: number;
+};
+
+export type ClosePartialResult = {
+  ok: true;
+  pnl: number;
+  newSize: number;
+  newBalance: number;
+  newStatus: 'open' | 'closed';
+};
+
+export function closePartial(input: ClosePartialInput): Promise<ClosePartialResult> {
+  return request<ClosePartialResult>('/api/trade/close-partial', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+// Stage 17 — Set Margin Mode (Isolated / Cross)
+export type SetMarginModeInput = {
+  telegramUserId: number;
+  positionId: string;
+  marginMode: 'isolated' | 'cross';
+};
+
+export type SetMarginModeResult = {
+  ok: true;
+  marginMode: 'isolated' | 'cross';
+};
+
+export function setMarginMode(input: SetMarginModeInput): Promise<SetMarginModeResult> {
+  return request<SetMarginModeResult>('/api/positions/margin-mode', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
