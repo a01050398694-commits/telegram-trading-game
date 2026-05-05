@@ -69,66 +69,6 @@
     "openNow": "Chat is live — join now",
     "leaderboard": "Today's Top 10"
   },
-  "academy": {
-    "heroTitle": "Academy Membership",
-    "heroSubtitle": "Structured trading education for serious learners. No gambling — only practice.",
-    "planFree": "Free",
-    "planPremium": "Academy",
-    "planLifetime": "Premium Monthly",
-    "priceFree": "$0",
-    "pricePremium": "$39.99",
-    "priceLifetime": "$39.99",
-    "subtitleFree": "Demo",
-    "subtitlePremium": "/mo",
-    "subtitleLifetime": "/month",
-    "bestValue": "PREMIUM SUBSCRIPTION",
-    "features": {
-      "multiChart": "Multi-Coin Charts",
-      "dailySeed": "$10K Practice Seed + Auto $10K Refill Every 2 Weeks",
-      "eliteChat": "askbit Community Access",
-      "tournament": "Portfolio Analysis & Coaching",
-      "resetDiscount": "$2.99 Recharge ($1K)",
-      "lifetimeDiscount": "Priority Support"
-    },
-    "verify": {
-      "title": "Verify Exchange UID",
-      "hint": "Sign up with an official partner exchange and verify your UID to unlock Premium benefits for free.",
-      "uid": "Exchange UID",
-      "exchange": "Exchange",
-      "submit": "Submit for Review",
-      "pending": "Your submission is under review.",
-      "approvedTitle": "Verified",
-      "approvedHint": "Premium benefits are now active on your account.",
-      "errSelectExchange": "Select an exchange.",
-      "errUidShort": "UID must be at least 3 characters.",
-      "errNoTelegram": "Open this app inside Telegram to submit verification."
-    },
-    "hub": {
-      "upgradeCta": "Subscribe to Premium",
-      "upgradeSub": "$39.99/mo · Auto $10K refill · Portfolio Analysis · askbit Community",
-      "library": "Education Library",
-      "comingSoon": "Available Soon",
-      "lessons": {
-        "beginner": {
-          "title": "Beginner's Guide",
-          "desc": "Perpetual futures fundamentals: Long/Short, margin, liquidation mechanics."
-        },
-        "leverage": {
-          "title": "Leverage & Margin 101",
-          "desc": "How to size leverage properly and why margin gets locked."
-        },
-        "risk": {
-          "title": "Risk Management",
-          "desc": "Position sizing, stop-loss discipline, max drawdown rules."
-        },
-        "psych": {
-          "title": "Trading Psychology",
-          "desc": "Avoid FOMO and revenge trades — decide by process, not emotion."
-        }
-      }
-    },
-    "unlock": "Processing payment…"
-  },
   "settings": {
     "title": "Settings",
     "language": "Language",
