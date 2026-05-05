@@ -1,54 +1,122 @@
 # PROGRESS
 
-## Latest Session — 2026-05-01 LATE (Stage 15.5 인프라 완성 · 출시 가능 상태)
+_Last updated: 2026-05-05_
+
+## Latest Session — 2026-05-05 (Stage 17 LIVE — Binance Futures 7기능 + Polish + Cleanup)
 
 ### 결론
-**4 Phase (A→D) 풀 자동 처리 + 사용자 실기기 테스트 통과 → 결제 받을 수 있는 상태로 LIVE.**
+**Stage 17 마스터 플랜 (Phase F → G → H) 완전 자동 실행 → 5 commits LIVE → CEO 손 0번. 7 기능 (Limit / SL·TP / OpenOrders / OrderHistory / 부분청산 / Cross·Isolated 토글 / 6 timeframe + MA20·Volume + 10단 호가 + 큰체결 강조) 모두 작동. 회귀 0.**
 
-### 인프라 (LIVE)
-- **Bot**: Render `https://telegram-trading-bot-o9r7.onrender.com` (auto-deploy on `main` push, `numInstances:1`, polling)
-- **미니앱**: Vercel `https://telegram-trading-game.vercel.app` (auto-deploy on `main` push, `VITE_API_URL` → Render)
-- **DB**: Supabase `jvigsfcrlrmsdbdpnayr` (Stage 15.3 + 15.6 + 15.7 마이그레이션 적용 완료)
-- **결제**: InviteMember 8 plans (PayPal USD 4 + Stars 4, BEST VALUE r5K POPULAR)
-- **채널**: Premium / Recharge 1K / 5K / 10K 4채널 분리 + 봇 admin
-- **봇**: `@Tradergames_bot` Allow Groups ON, Mini App enabled
+### 인프라 (LIVE — 변동 없음)
+- **Bot**: Render `https://telegram-trading-bot-o9r7.onrender.com` (auto-deploy on `main` push, polling)
+- **미니앱**: Vercel `https://telegram-trading-game.vercel.app` (auto-deploy on `main` push)
+- **DB**: Supabase `jvigsfcrlrmsdbdpnayr` (마이그레이션 14개 적용: 01~14 — Stage 17 의 12·13·14 추가됨)
+- **결제**: InviteMember 8 plans (PayPal USD 4 + Stars 4)
+- **봇**: `@Tradergames_bot` Mini App enabled
+- **CEO admin Telegram ID**: `7626898903`
 
-### Phase A — 백엔드 안전망 ✅ (commit `f5fe80d`)
-- `render.yaml`: numInstances:1, DAILY_ALLOWANCE 10000 (Stage 15.1 정정), INITIAL_SEED_USD/LOCK_MODE_DURATION_MINUTES 기본값, InviteMember 채널 4개 sync:false
-- migration 09 `payment_events` (event_id UNIQUE) — chat_member retry 1차 가드
-- migration 10 atomic RPC `open_position_atomic` / `close_position_atomic` (FOR UPDATE 잠금 + 트랜잭션)
-- `recordPaymentEvent()` helper (`upsert + ignoreDuplicates` — 진짜 ON CONFLICT DO NOTHING RETURNING)
-- deterministic chargeId = `invitemember:${chatId}:${tgUserId}:${update.date}` (Date.now() 비결정성 제거)
-- openPosition/closePosition → RPC 호출, optimistic lock + 수동 롤백 제거
+### 이번 세션 5 commits (chronological)
+| commit | 내용 |
+|---|---|
+| `19df8ed` | Stage 17 F: limit orders, SL/TP, order history + IDOR fixes (26 파일) |
+| `fce5320` | Stage 17 G: partial close RPC + margin mode chip + IDOR guards (16 파일) |
+| `392c57f` | Stage 17 H: timeframe + MA20/Volume + 10-deep book + big trade highlight (15 파일) |
+| `870813e` | Polish: Cross/Stop "Coming Soon" 강화, 토큰 일관성, 44px 터치 타겟 (8 파일) |
+| `782f894` | Cleanup: academy i18n 45 키 + node-cron + 2 orphan docs 삭제 (-674 줄) |
 
-### Phase B — 프론트 안전망 ✅ (commit `fefc62a`)
-- `@sentry/react` 설치, `web/src/lib/sentry.ts` (VITE_SENTRY_DSN 가드, PII scrub)
-- `ErrorBoundary` class component → main.tsx 에서 `<App />` 감싸기
-- i18n trade.* 키 6 locale (markPrice / pnl / liquidationPrice / margin / notional / live)
-- 결제 에러 메시지 다국어 (errors.* 키, 다음 액션 명시)
+### Stage 17 검증 결과
+- typecheck/build (bot+web): 모든 phase 0 errors
+- code-auditor: 결함 11건 자동 fix 루프로 처리 (IDOR 4 + 방향 검증 2 + silent fail 3 + 검증 누락 2)
+- browser-verifier on LIVE: 4탭 카드 잘림 가드 PASS (Trade 125–316 / Portfolio 82–752 / VIP 84–752 / Premium 82–752)
+- 9개 신규 컴포넌트 모두 마운트 (OrderTypeTabs / LimitPriceInput / SlTpInputs / OpenOrdersCard / OrderHistorySection / PartialCloseControls / MarginModeChip / TimeframeRow / IndicatorToggles)
+- LIVE 콘솔 errors 0 (앱 영역, vite.svg/favicon 404 무관)
+- timeframe 클릭 시 Binance kline_5m/1h fetch 200 OK
 
-### Phase C — 법적 + 결제 UX ✅ (commit `c8ee015`)
-- `?legal=terms|privacy|refund` URL param 모달 라우팅 (`web/src/lib/legalRoute.ts`)
-- 3 페이지: TermsPage / PrivacyPage / RefundPage (각 4-6 섹션, 한국법 customize)
-- `BusinessInfo` (회사명 "Trading Academy" + [추후 등록 예정] placeholder)
-- `RechargeCard` / `PricingCard` 동의 체크박스 + 결제 disabled 가드
-- `DemoBadge` (Header compact pill + Onboarding 1회 full overlay)
-- `AppFooter` SettingsModal 하단 마운트
-- `usePaymentPolling` hook (5s polling + 10분 timeout, balance/isPremium 변화 감지 → toast)
+### DB 현황 (Supabase live count)
+- users: 3 (Trader=CEO 본인 / askbit / Arkadij_Video=외부 실 유저)
+- wallets: 3 (balance: $11,496 / $160,484 / $9,999)
+- positions: 31 (open 1, closed 30)
+- orders: 0 (Stage 17 신규 테이블, 사용 시작 전)
+- ranking_snapshots: 24 (90일 자동 retention)
 
-### Phase D — 디자인 업그레이드 ✅ (commit `df5c5a6`)
-- `web/src/styles/tokens.{ts,css}` (3-단계 surface, accent emerald/rose/gold/violet/warning, 2-layer luxury shadow, motion easing)
-- `docs/design/card-tone-guide.md` 4탭 일관 가이드 + Anti-patterns
-- 4탭 토큰화: TradeTab/PortfolioTab/VIPTab + 자식 카드들 (PremiumTab 은 점진 마이그레이션)
-- BottomNav lucide-react SVG (TrendingUp/Briefcase/GraduationCap/BookOpen) — 안드로이드 emoji vanishing 차단
-- App.tsx max-w 중앙정렬 + framer-motion AnimatePresence 페이지 전환
+---
 
-### 검증 (browser-verifier 가드 4개 PASS)
-- 가드 1 (4탭 잘림): Trade 125-316px / Portfolio 82-752px / VIP 84-752px / Academy 82-452px (collapse 0)
-- 가드 2 (PricingCard inline gold gradient): 보존
-- 가드 3 (ActionPanel Mark Price ▲▼ + LIVE pulse dot): DOM 존재
-- 가드 4 (BottomNav lucide SVG 4개): 적용 확인
-- console errors 0 · framer-motion 작동 · 사용자 실기기 테스트 OK
+## ✅ Done (이번 세션)
+- `supabase/migrations/12_orders.sql` — orders 테이블 + RLS 3정책 (LIVE 적용)
+- `supabase/migrations/13_positions_sl_tp.sql` — sl_price/tp_price/margin_mode/realized_pnl_total + open_position_atomic 시그니처 확장 (LIVE)
+- `supabase/migrations/14_close_partial_rpc.sql` — close_position_partial RPC + 함수 내 IDOR 가드 (LIVE)
+- `bot/src/engine/orderMatcher.ts` (신규) — Limit 매칭 + SL/TP 트리거 + 매칭 실패 상태 구분 (expired vs cancelled)
+- `bot/src/engine/trading.ts` 메서드 추가: placeLimitOrder / placeStopOrder / cancelOrder / cancelAllOrders / getOpenOrders / getOrderHistory / setSlTpForPosition / closePartial / setMarginMode + openPosition slPrice/tpPrice optional + closePosition userId 가드 (Stage 16 이전 IDOR 함께 fix)
+- `bot/src/server.ts` 라우트 7개 추가 + `/api/user/status` openOrders 필드 + `/api/trade/open` orderType/limitPrice/slPrice/tpPrice optional
+- `bot/src/index.ts` orderMatcher tick wiring (scanAndLiquidate 다음)
+- `web/src/lib/api.ts` — Order 타입 + 9 클라 함수 + UserStatus.openOrders + OpenTradeInput 확장
+- 9 신규 컴포넌트 (위 목록)
+- ActionPanel / TradeTab / PortfolioTab 통합 (TimeframeRow + IndicatorToggles + OrderTypeTabs + OpenOrdersCard + MarginModeChip + PartialCloseControls + SlTpInputs + LimitPriceInput + OrderHistorySection 마운트)
+- TradeTab `pb-[260px]` → `pb-[280px]` (Stage 17 신규 컴포넌트 누적 후 충분 검증)
+- 6 locale (en/ko/ru/tr/vi/id) 신규 키: orderType / orders / slTp / partialClose / marginMode / timeframe / indicators
+- localStorage `tg.chart.timeframe` + `tg.chart.indicators` 기억 (화이트리스트 검증 + JSON.parse try/catch)
+- TradingChart MA20 LineSeries + Volume HistogramSeries (실 Binance kline volume, mock random 0)
+- OrderBook 10단 + depth bar 양쪽 (emerald/rose)
+- RecentTrades 10행 + `>$10K` amber-400/20 강조
+- Polish: Cross 🔒 + (Soon) 라벨 / Stop `[Coming Soon]` 라벨 amber-400 / OrderTypeTabs·TimeframeRow active amber → gold token / MarginModeChip active violet → emerald (premium 컨벤션 위반 fix) / ActionPanel leverage amber-400 → warning token / Premium·Recharge 결제 버튼 `min-h-[44px]` (WCAG)
+- Cleanup: academy.* 미사용 i18n 45 키 6 locale 삭제 (nav.academy 보존), `node-cron` + `@types/node-cron` 의존성 제거, `docs/design/tokens-changelog.md` + `docs/ops/db-backup-restore.md` 삭제
+- GOTCHAS.md 누적: `## Stage 17 Phase F` (IDOR / 방향 검증 / orderMatcher 상태 / any 캐스트 금지) + `## Stage 17 Phase H` (React inline style 단위 / lightweight-charts histogram 별도 update / localStorage 화이트리스트 / Volume mock 금지)
+
+## 🔄 Remaining (우선순위 순)
+
+### CEO 결정 필요
+1. **CEO 본인 계정 reset 여부** — `Trader` (telegram_id 7626898903) wallet $11,496 → $10K, closed positions 11개 archive. 명시 지시 시에만 진행.
+2. **askbit 계정 정리** — balance $160,484 가 Stage 15.1 $10K seed 정책 대비 비정상. 의도된 promo / test data 인지 확인 필요.
+3. **사업자등록 + 통신판매업 신고** (정부24, 1-2일) → BusinessInfo placeholder 실제값 교체.
+4. **Cross margin 진짜 구현** (Stage 18) — UI 만 disabled. Stage 17 의도적 제외 §0.
+5. **Stop 주문 별도 진입 UX** — 현재 Limit + SlTp 옵션에 통합. 별도 Stop 탭 원하면 새 PRD 필요.
+
+### 자율 가능 (다음 세션 풀오토)
+6. **남은 미사용 i18n ~109 키** 보수적 추가 검증 (landing/elite/common/nav/trade/orders/settings 카테고리). 동적 호출 패턴 안전 검증 후 30~50개 추가 삭제 가능.
+7. **더 큰 디자인 리프레시** — CEO "디자인/버튼/편리성 업그레이드" 광범위 피드백. design-lead 에 토큰 + 컴포넌트 그루핑 가이드 받아서 frontend-developer 가 적용. (이번 세션 Polish 는 표시 명확성 + 토큰 일관성 + 접근성만 처리)
+8. **bundle size 절감** — web build 1.49MB (gzip 441KB). 500KB warning. dynamic import 코드 스플릿 검토.
+9. **Stage 17 신규 컴포넌트 unit test** — orderMatcher matchLimit/matchStopOrder 가드 케이스, closePartial RPC 시뮬레이션. `bot/__tests__` 또는 vitest.
+
+## 🚧 Blockers
+- **Sentry DSN 미발급** — Phase B 에서 코드는 wired up, DSN 없어 실제 에러 추적 안 됨. sentry.io 무료 가입 후 Render `SENTRY_DSN` + Vercel `VITE_SENTRY_DSN` 입력 필요. (CEO 직접, 5분)
+- **Render free plan cold start** — 15분 무활동 sleep → polling 끊김. Starter $7/월 또는 UptimeRobot ping 필요.
+- **DB 자동 백업** — Supabase Pro $25/월 (PITR 30일) 또는 GitHub Actions `pg_dump` cron 미구현.
+- **package-lock.json** — `node-cron` 의존성 package.json 에서 제거됐지만 lock 파일은 보호 파일이라 미동기화. Render 가 다음 deploy 시 `npm install` 자동 실행으로 자연 동기화 (장애 없음, 주의만).
+
+## 📝 Notes for Next Session
+
+### 마스터 플랜 위치
+- Stage 17 마스터 플랜: `C:\Users\user\Desktop\Stage17_Master_Plan_2026-05-05.md` (소유: CEO Desktop)
+- Stage 17 spec (1166 lines): `docs/specs/stage-17-binance-futures.md`
+- Stage 17 design (1192 lines): `docs/design/stage-17-binance-futures.md`
+
+### 절대 잊지 말 것 (이번 세션에서 학습한 GOTCHAS)
+1. **모든 user-scoped mutate 함수에 userId 인자 강제** — `placeStopOrder/cancelOrder/closePartial/closePosition/setSlTpForPosition` 모두 `.eq('user_id', userId)` 이중 가드. RPC 도 `p_user_id` 파라미터 + 함수 내 RAISE UNAUTHORIZED. service_role 키가 RLS 우회하므로 애플리케이션 레벨이 마지막 방어선.
+2. **SL/TP 가격 방향 검증 필수** — Long: SL ≤ entry / TP ≥ entry, Short 반대. 위반 즉시 청산 트리거 → 자산 사고. `setSlTpForPosition` + `placeStopOrder` 둘 다.
+3. **orderMatcher catch 에서 rethrow 절대 금지** — for-loop 안에서 rethrow 시 같은 tick 의 다른 주문 매칭 막힘. console.error + status update만.
+4. **orderMatcher 매칭 실패 상태 구분** — `INSUFFICIENT_BALANCE`/`LIQUIDATED` → `expired` (사용자 통제 외), 그 외 → `cancelled` (시스템 책임).
+5. **React inline style 단위 명시** — `style={{ paddingBottom: 280 }}` 는 unitless = 0px. 반드시 `'280px'` 또는 className `pb-[280px]`.
+6. **lightweight-charts Histogram series 별도 update** — Candlestick `update()` 가 volume 필드 무시. ticking 시 `volumeSeries.update({time, value, color})` 명시 안 하면 1분 지연.
+7. **Volume 데이터 mock random 절대 금지** — 거래 신호 fake. Binance kline tuple `[5]` 에서 실 volume 매핑.
+8. **타입 안전** — PositionRow/OrderRow 를 `any` 캐스트 금지 (supabase-js numeric → string 변환 누락 silent bug).
+9. **Cross/Stop 탭 disabled** — 의도된 동작. Cross = Stage 18, Stop = Limit+SlTp 통합. CEO 가 LIVE 보고 "왜 안 돼?" 질문 가능 — 답변 준비.
+
+### 다음 세션 시작할 때
+1. `/status` 입력 또는 PROGRESS.md 정독.
+2. 추가 i18n cleanup 또는 디자인 리프레시 둘 중 하나 (CEO 지시 따라).
+3. CEO 가 DB row 정리 / 사업자등록 / Sentry DSN 발급 결정 했는지 확인.
+4. Stage 18 시작 시 Cross margin 진짜 구현 (잔고 공유 + liquidation 재계산) — 별도 PRD 필요.
+
+---
+
+## Archive — 2026-05-01 LATE (Stage 15.5 인프라 완성 · 출시 가능 상태)
+
+**4 Phase (A→D) 풀 자동 처리 + 결제 받을 수 있는 상태로 LIVE.**
+- Phase A 백엔드 안전망 (commit `f5fe80d`): render.yaml + migration 09 payment_events + migration 10 atomic RPC + recordPaymentEvent helper + deterministic chargeId
+- Phase B 프론트 안전망 (commit `fefc62a`): Sentry + ErrorBoundary + i18n trade.* + 결제 에러 다국어
+- Phase C 법적·결제 UX (commit `c8ee015`): TermsPage/PrivacyPage/RefundPage + BusinessInfo placeholder + 동의 체크박스 + DemoBadge + AppFooter + usePaymentPolling
+- Phase D 디자인 업그레이드 (commit `df5c5a6`): tokens.{ts,css} + card-tone-guide + lucide-react SVG BottomNav + framer-motion AnimatePresence
+- 검증: 가드 4개 PASS (4탭 잘림 / PricingCard inline gold / ActionPanel Mark Price ▲▼ / BottomNav lucide SVG)
 
 ---
 
