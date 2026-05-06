@@ -52,6 +52,25 @@ async function main(): Promise<void> {
   // /api/admin/signal-tick endpoint can call its forceTick() method.
   const signalCron = new SignalCron(bot, priceCache);
   const server = createServer({ engine, priceCache, bot, rankingEngine, signalCron });
+
+  // Stage 21 — Telegram-side admin trigger so CEO can force a signal post
+  // by DM-ing the bot, no curl / ADMIN_SECRET required. ADMIN_TG_ID gate
+  // is fail-closed: missing env returns false from String comparison.
+  bot.command('signal_now', async (ctx) => {
+    const fromId = ctx.from?.id;
+    if (!fromId || !env.ADMIN_TG_ID || String(fromId) !== env.ADMIN_TG_ID) return;
+    await ctx.reply('🚀 forceTick 시작…');
+    try {
+      const result = await signalCron.forceTick();
+      await ctx.reply(
+        result.posted
+          ? '✅ 시그널방에 1개 송출됨'
+          : `⚠️ 송출 안 됨: ${result.reason ?? 'all symbols skipped this tick'}`,
+      );
+    } catch (err) {
+      await ctx.reply(`❌ 에러: ${(err as Error).message}`);
+    }
+  });
   
   // Set up liquidation recovery DMs
   setupLiquidationRecovery(bot, engine);
