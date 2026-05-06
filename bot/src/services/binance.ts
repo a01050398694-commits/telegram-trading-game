@@ -53,9 +53,16 @@ export class BinancePriceFeed extends EventEmitter {
   }
 
   private connect(): void {
-    // combined stream for Binance Futures USDT-M: /stream?streams=btcusdt@ticker/ethusdt@ticker
+    // Stage 21 fix — switch from fstream.binance.com (Binance Futures global) to
+    // stream.binance.us (Binance.US Spot). The global endpoint is geo-blocked
+    // (HTTP 403) from US and KR IPs, so a Render free-plan box (US datacenter)
+    // could never establish the WS — silently looping reconnect → priceCache
+    // stayed empty → signalCron / scanAndLiquidate / orderMatcher all stalled.
+    // Spot @ticker payload shape is identical (e/s/c/E fields) so no parser change.
+    // Env override exists so we can flip back to global if Binance.US is ever down.
     const streams = this.symbols.map((s) => `${s.toLowerCase()}@ticker`).join('/');
-    const url = `wss://fstream.binance.com/stream?streams=${streams}`;
+    const baseUrl = process.env.BINANCE_WS_URL ?? 'wss://stream.binance.us:9443/stream';
+    const url = `${baseUrl}?streams=${streams}`;
 
     const ws = new WebSocket(url);
     this.ws = ws;

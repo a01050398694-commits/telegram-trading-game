@@ -1093,8 +1093,16 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
         creditUsd: spec.creditUsd ?? null,
       });
     } catch (err) {
-      console.error('[server] /invoice/create:', err);
-      res.status(500).json({ error: (err as Error).message });
+      // Why surface grammy/Telegram detail: a 400 from createInvoiceLink (e.g.
+      // bad title chars, region-blocked Stars setup) was previously masked as
+      // a generic 500 — operator had to dig in Render logs to know the cause.
+      // GrammyError exposes .description (Telegram raw) and .error_code; pull
+      // them through to the frontend so the user (and us) see the truth.
+      const grammyErr = err as { description?: string; error_code?: number; method?: string; message?: string };
+      const detail = grammyErr.description ?? grammyErr.message ?? 'unknown error';
+      const code = grammyErr.error_code;
+      console.error('[server] /invoice/create:', { method: grammyErr.method, code, detail, raw: err });
+      res.status(500).json({ error: detail, telegramErrorCode: code ?? null });
     }
   });
 

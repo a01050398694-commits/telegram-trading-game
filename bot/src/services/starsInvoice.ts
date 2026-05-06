@@ -71,12 +71,19 @@ function readStarsPrice(envKey: string, fallback: number): number {
 }
 
 export function getPlanSpec(plan: StarsPlan): PlanSpec {
+  // Why no fancy punctuation:
+  //   Telegram's createInvoiceLink rejects titles/descriptions containing certain
+  //   non-ASCII separators (verified: U+00B7 middle dot · → 400 "invoice title must
+  //   be encoded in UTF-8"). The Telegram client surfaces this as a generic
+  //   "PROVIDER_ACCOUNT_INVALID"-style error to the user, which led us astray.
+  //   Sticking to ASCII punctuation (— em dash works, but plain spaces are safest)
+  //   keeps invoices reliable across all symbol/currency combinations.
   switch (plan) {
     case 'premium':
       return {
-        title: 'VIP Premium · 30 days',
+        title: 'VIP Premium 30 Days',
         description:
-          'Hourly buckets · Leverage analytics · Behavior insights · Weekly report · VIP room.',
+          'Hourly buckets, leverage analytics, behavior insights, weekly report, VIP room.',
         amountStars: readStarsPrice('STARS_PRICE_PREMIUM', 2500),
         priceUsd: 39.99,
       };
@@ -91,7 +98,7 @@ export function getPlanSpec(plan: StarsPlan): PlanSpec {
     case 'recharge_5k':
       return {
         title: '+$5,000 Game Credit',
-        description: 'Add $5,000 paper-trading balance — best value.',
+        description: 'Add $5,000 paper-trading balance, best value.',
         amountStars: readStarsPrice('STARS_PRICE_RECHARGE_5K', 500),
         priceUsd: 7.99,
         creditUsd: 5000,
@@ -139,12 +146,30 @@ export function parsePayload(raw: string): ParsedPayload | null {
   return { plan, userId };
 }
 
+// Why this guard: Telegram's createInvoiceLink rejects titles/descriptions with
+// certain non-ASCII characters (verified: U+00B7 middle dot · returns 400 with
+// the misleading message "invoice title must be encoded in UTF-8"; the user
+// then sees a generic "PROVIDER_ACCOUNT_INVALID"-like client-side error). Plain
+// ASCII printable + space is the safe envelope for both fields. Catching this
+// at link-build time prevents a future PR from silently breaking Stars checkout.
+function assertAsciiSafe(label: string, value: string): void {
+  // eslint-disable-next-line no-control-regex
+  if (!/^[\x20-\x7E]*$/.test(value)) {
+    const offending = [...value].find((c) => c.charCodeAt(0) < 0x20 || c.charCodeAt(0) > 0x7e);
+    throw new Error(
+      `starsInvoice: ${label} contains non-ASCII char "${offending}" (U+${offending?.charCodeAt(0).toString(16).padStart(4, '0').toUpperCase()}); Telegram will reject the invoice. Use ASCII only.`,
+    );
+  }
+}
+
 export async function createStarsInvoiceLink(args: {
   bot: Bot;
   plan: StarsPlan;
   userId: string;
 }): Promise<{ invoiceLink: string; spec: PlanSpec }> {
   const spec = getPlanSpec(args.plan);
+  assertAsciiSafe('title', spec.title);
+  assertAsciiSafe('description', spec.description);
   const payload = buildPayload(args.plan, args.userId);
 
   // provider_token = '' is mandatory for Telegram Stars (XTR). currency must be 'XTR'.

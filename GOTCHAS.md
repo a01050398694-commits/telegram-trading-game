@@ -354,3 +354,13 @@
 - **MUST NOT** rethrow `already_processed:*` from the Stars handler — that prefix is the engine's idempotency signal. Treat as silent return; otherwise duplicate Telegram retries fill Sentry with false positives.
 - **MUST NOT** put the InviteMember Stars URL ahead of the native invoice path. We default to native; the URL is only a legacy-client fallback when `tg.openInvoice` is missing.
 - **MUST NOT** mint payloads >128 bytes — Telegram silently rejects the createInvoiceLink call. The current prefix (`tgs1`) + plan + UUID + nonce stays well under, but any future field must be guarded.
+- **MUST NOT** put non-ASCII characters in invoice title/description (verified offenders: U+00B7 middle dot `·`, em dash `—`). Telegram returns 400 with the misleading message *"invoice title must be encoded in UTF-8"*; the user-facing client surfaces it as a generic *"PROVIDER_ACCOUNT_INVALID"*-style popup. `assertAsciiSafe()` in `services/starsInvoice.ts` blocks the regression at link-build time.
+
+## Stage 21 — Binance feed geo-block
+
+### MUST
+- **MUST** point the realtime price WebSocket at **Binance.US** (`wss://stream.binance.us:9443/stream?streams=…`), not the global `fstream.binance.com`. The global endpoint returns HTTP 403 from US and KR IPs (verified), so a Render free-plan instance silently looped reconnect → `priceCache` stayed empty → `signalCron` had no live price (REST fallback partially works) and `scanAndLiquidate` / `orderMatcher` stalled completely.
+- **MUST** keep the WS endpoint as `process.env.BINANCE_WS_URL` overrideable so we can flip back to Binance global from a non-blocked region without a redeploy.
+
+### MUST NOT
+- **MUST NOT** mix Binance.US REST (`api.binance.us`) with Binance Futures global WS (`fstream.binance.com`). The two are different products and the global WS is the geo-blocked one. Stage 16 commit `c1c3937` migrated REST but forgot WS — the bug stayed silent because the price cache decay was attributed to "cold start".

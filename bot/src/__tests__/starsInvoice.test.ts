@@ -112,6 +112,17 @@ describe('starsInvoice — plan spec', () => {
     expect(isStarsPlan('rogue')).toBe(false);
     expect(isStarsPlan('')).toBe(false);
   });
+
+  it('all plan title + description are ASCII-only (Telegram requirement)', () => {
+    const plans: StarsPlan[] = ['premium', 'recharge_1k', 'recharge_5k', 'recharge_10k'];
+    // eslint-disable-next-line no-control-regex
+    const asciiOnly = /^[\x20-\x7E]*$/;
+    for (const plan of plans) {
+      const spec = getPlanSpec(plan);
+      expect(asciiOnly.test(spec.title), `${plan} title contains non-ASCII`).toBe(true);
+      expect(asciiOnly.test(spec.description), `${plan} description contains non-ASCII`).toBe(true);
+    }
+  });
 });
 
 describe('starsInvoice — createStarsInvoiceLink', () => {
@@ -124,7 +135,7 @@ describe('starsInvoice — createStarsInvoiceLink', () => {
     expect(result.invoiceLink).toBe('https://t.me/$abc');
     expect(createInvoiceLink).toHaveBeenCalledTimes(1);
     const args = createInvoiceLink.mock.calls[0]!;
-    expect(args[0]).toBe('VIP Premium · 30 days'); // title
+    expect(args[0]).toBe('VIP Premium 30 Days'); // title (ASCII only — see assertAsciiSafe)
     expect(typeof args[1]).toBe('string'); // description
     expect(typeof args[2]).toBe('string'); // payload
     expect(args[3]).toBe(''); // provider_token (empty = Stars)
