@@ -17,6 +17,9 @@ type Deps = {
   priceCache: PriceCache;
   bot: Bot;
   rankingEngine: RankingEngine;
+  // Stage 21 — optional so existing tests/callers don't have to wire it.
+  // The admin signal-tick endpoint just 503s when missing.
+  signalCron?: { forceTick(): Promise<{ posted: boolean; reason?: string }> };
 };
 
 // -------------------------------------------------------------------------
@@ -119,7 +122,7 @@ async function resolveUser(
 // -------------------------------------------------------------------------
 // Express 앱 구성 — 엔진/캐시/봇 을 주입받아 라우트 연결.
 // -------------------------------------------------------------------------
-export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): Express {
+export function createServer({ engine, priceCache, bot, rankingEngine, signalCron }: Deps): Express {
   const app = express();
   const yesterdayPnlCache = new Map<string, { value: number; date: string }>();
 
@@ -1103,6 +1106,29 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
       const code = grammyErr.error_code;
       console.error('[server] /invoice/create:', { method: grammyErr.method, code, detail, raw: err });
       res.status(500).json({ error: detail, telegramErrorCode: code ?? null });
+    }
+  });
+
+  // POST /api/admin/signal-tick — Stage 21: force one signal tick now.
+  // Why: when CEO needs to verify the cron is alive (e.g. after a redeploy)
+  // we want a one-line curl that drops a real signal into the community room
+  // instead of waiting up to 83 minutes for the next scheduled tick.
+  app.post('/api/admin/signal-tick', async (req, res) => {
+    try {
+      const adminSecret = req.headers['x-admin-secret'];
+      if (!adminSecret || adminSecret !== process.env.ADMIN_SECRET) {
+        res.status(401).json({ error: 'unauthorized admin' });
+        return;
+      }
+      if (!signalCron) {
+        res.status(503).json({ error: 'signalCron not wired into server' });
+        return;
+      }
+      const result = await signalCron.forceTick();
+      res.json({ ok: true, ...result });
+    } catch (err) {
+      console.error('[server] /admin/signal-tick:', err);
+      res.status(500).json({ error: (err as Error).message });
     }
   });
 

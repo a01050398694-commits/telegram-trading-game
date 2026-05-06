@@ -136,6 +136,20 @@ export class SignalCron {
     }
   }
 
+  // Stage 21 — admin-triggered immediate tick. Used to "send one right now"
+  // without waiting for the 83-min interval. Does NOT disturb the schedule:
+  // the next regular tick still fires at the same wall-clock as before.
+  async forceTick(): Promise<{ posted: boolean; reason?: string }> {
+    if (!env.COMMUNITY_CHAT_ID) {
+      return { posted: false, reason: 'COMMUNITY_CHAT_ID missing' };
+    }
+    console.log('[signalCron] forceTick triggered (manual)');
+    const before = this.dailyCount;
+    await this.tick();
+    const after = this.dailyCount;
+    return { posted: after > before };
+  }
+
   private scheduleNext(): void {
     if (this.timer) clearTimeout(this.timer);
     this.timer = setTimeout(() => {
@@ -156,18 +170,29 @@ export class SignalCron {
   }
 
   private async tick(): Promise<void> {
-    if (!env.COMMUNITY_CHAT_ID) return;
-    this.resetCountersIfDue();
+    // Stage 21 — outer try/catch makes the cron unkillable: no thrown error
+    // from macro fetch, signal build, or send can prevent scheduleNext() from
+    // firing. The previous shape relied on the .finally() chain alone, which
+    // worked for the timer but emitted unhandled-rejection noise to Sentry
+    // every time getFullMacroSnapshot() upstream went down.
+    try {
+      if (!env.COMMUNITY_CHAT_ID) return;
+      this.resetCountersIfDue();
 
-    const isDryRun = env.SIGNAL_CRON_DRY_RUN === 'true';
-    const snap = this.priceCache.snapshot();
-    // Why: macro context (DXY/BTC.D/news/ETF/correlation) is shared across all symbols this tick.
-    // 30-min internal cache, so a tick every 30 min refetches; per-source safeCollect on top.
-    const macro = await getFullMacroSnapshot();
-    // Stage 18 — fresh (style, mood) per symbol per tick.
-    const presetMap = shuffleAndAssign(SIGNAL_SYMBOLS);
+      const isDryRun = env.SIGNAL_CRON_DRY_RUN === 'true';
+      const snap = this.priceCache.snapshot();
+      // Why: macro context (DXY/BTC.D/news/ETF/correlation) is shared across all symbols this tick.
+      // 30-min internal cache, so a tick every 30 min refetches; per-source safeCollect on top.
+      // Macro is best-effort — if every source hangs we still post the signal with stale/null
+      // macro rather than skipping the entire tick.
+      const macro = await getFullMacroSnapshot().catch((err) => {
+        console.warn('[signalCron] macro fetch threw, continuing with empty macro:', err instanceof Error ? err.message : err);
+        return null as unknown as Awaited<ReturnType<typeof getFullMacroSnapshot>>;
+      });
+      // Stage 18 — fresh (style, mood) per symbol per tick.
+      const presetMap = shuffleAndAssign(SIGNAL_SYMBOLS);
 
-    for (const symbol of SIGNAL_SYMBOLS) {
+      for (const symbol of SIGNAL_SYMBOLS) {
       try {
         if (this.hourlyCount >= HOURLY_CAP) {
           console.log('[signalCron] hourly cap reached, stopping this tick');
@@ -269,6 +294,12 @@ export class SignalCron {
         // Why: any single-symbol failure must not abort the whole tick.
         console.warn(`[signalCron] symbol ${symbol} error:`, err);
       }
+    }
+    } catch (err) {
+      // Stage 21 — outermost guard. Anything that escaped the per-symbol try
+      // (macro post-processing, presetMap math, env reads) lands here. We
+      // log + return; the .finally() in start()/scheduleNext() still reschedules.
+      console.error('[signalCron] tick fatal (caught, will reschedule):', err);
     }
   }
 }

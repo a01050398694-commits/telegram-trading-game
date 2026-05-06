@@ -43,13 +43,15 @@ async function main(): Promise<void> {
   const orderMatcher = new OrderMatcher(db, engine);
   const rankingEngine = new RankingEngine(db, priceCache);
   const bot = createBot(engine);
-  const server = createServer({ engine, priceCache, bot, rankingEngine });
   const chatSwitcher = new ChatSwitcher(bot, rankingEngine);
   const retentionCron = new RetentionCron(bot, db);
   const affiliateReconcileCron = new AffiliateReconcileCron(db);
   const marketBriefCron = new MarketBriefCron(bot, priceCache);
   const weeklyReportCron = new WeeklyReportCron(bot, db);
+  // Stage 21 — instantiate signalCron BEFORE createServer so the admin
+  // /api/admin/signal-tick endpoint can call its forceTick() method.
   const signalCron = new SignalCron(bot, priceCache);
+  const server = createServer({ engine, priceCache, bot, rankingEngine, signalCron });
   
   // Set up liquidation recovery DMs
   setupLiquidationRecovery(bot, engine);
@@ -220,6 +222,24 @@ async function main(): Promise<void> {
   server.listen(env.SERVER_PORT, '0.0.0.0', () => {
     console.log(`[server] listening on 0.0.0.0:${env.SERVER_PORT}`);
   });
+
+  // Stage 21 — self-ping every 10 minutes to keep Render free-plan instance
+  // from going to sleep after 15 minutes of inactivity. Sleeping kills both
+  // the binance WS and signalCron timer mid-flight, so the next signal tick
+  // can drift by hours. Self-ping runs internally so it doesn't depend on an
+  // external uptimerobot, and uses HEAD on /health so the request is cheap.
+  // Skipped on local dev (NODE_ENV !== 'production') to avoid noise.
+  if (env.NODE_ENV === 'production') {
+    const selfPingUrl = process.env.SELF_PING_URL ?? 'https://telegram-trading-bot-o9r7.onrender.com/health';
+    setInterval(() => {
+      fetch(selfPingUrl, { method: 'GET', signal: AbortSignal.timeout(8000) })
+        .then((r) => {
+          if (!r.ok) console.warn(`[selfPing] HTTP ${r.status}`);
+        })
+        .catch((err) => console.warn('[selfPing] failed:', (err as Error).message));
+    }, 10 * 60_000);
+    console.log('[selfPing] enabled (10min interval) — Render free-plan sleep guard');
+  }
 
   // graceful shutdown
   const shutdown = async (signal: string): Promise<void> => {
