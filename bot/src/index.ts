@@ -53,12 +53,25 @@ async function main(): Promise<void> {
   const signalCron = new SignalCron(bot, priceCache);
   const server = createServer({ engine, priceCache, bot, rankingEngine, signalCron });
 
-  // Stage 21 — Telegram-side admin trigger so CEO can force a signal post
-  // by DM-ing the bot, no curl / ADMIN_SECRET required. ADMIN_TG_ID gate
-  // is fail-closed: missing env returns false from String comparison.
+  // Stage 21 — admin id resolver. Combines:
+  //   ADMIN_TG_ID  (singleton env, sync:false in render.yaml)
+  //   ADMIN_TG_IDS (comma list — backup so a single misconfigured env doesn't
+  //                  lock the operator out)
+  //   '7626898903' (PROGRESS-documented CEO id — last-resort recovery fallback)
+  // The hardcoded id is justified because it's already public in PROGRESS and the
+  // alternative is the operator being unable to reach the bot at all when env is
+  // wrong. All admin commands use this single resolver.
+  const HARDCODED_OPERATOR_ID = '7626898903';
+  const adminIdSet = new Set<string>(
+    [env.ADMIN_TG_ID, ...env.ADMIN_TG_IDS, HARDCODED_OPERATOR_ID].filter(
+      (s): s is string => Boolean(s),
+    ),
+  );
+  const isAdminTg = (id: number | undefined): boolean =>
+    id !== undefined && adminIdSet.has(String(id));
+
   bot.command('signal_now', async (ctx) => {
-    const fromId = ctx.from?.id;
-    if (!fromId || !env.ADMIN_TG_ID || String(fromId) !== env.ADMIN_TG_ID) return;
+    if (!isAdminTg(ctx.from?.id)) return;
     await ctx.reply('🚀 forceTick 시작…');
     try {
       const result = await signalCron.forceTick();
@@ -71,6 +84,47 @@ async function main(): Promise<void> {
       await ctx.reply(`❌ 에러: ${(err as Error).message}`);
     }
   });
+
+  // Stage 21 — environment diagnostic so the operator can verify in 1 DM that
+  // the cron is wired and not in dry-run. Strings only, no PII / token leakage.
+  bot.command('diag', async (ctx) => {
+    if (!isAdminTg(ctx.from?.id)) return;
+    const snap = priceCache.snapshot();
+    const symbolCount = Object.keys(snap).length;
+    const lines = [
+      '🔧 Bot diagnostic',
+      `• ADMIN_TG_ID env: ${env.ADMIN_TG_ID || '(empty)'}`,
+      `• ADMIN_TG_IDS env: ${env.ADMIN_TG_IDS.join(',') || '(empty)'}`,
+      `• your tg id: ${ctx.from?.id ?? '?'}`,
+      `• COMMUNITY_CHAT_ID: ${env.COMMUNITY_CHAT_ID || '(empty — signals DISABLED)'}`,
+      `• SIGNAL_CRON_DRY_RUN: ${env.SIGNAL_CRON_DRY_RUN}  (live = "false")`,
+      `• SIGNAL_TICK_INTERVAL_MIN: ${env.SIGNAL_TICK_INTERVAL_MIN}`,
+      `• SIGNAL_SYMBOLS: ${env.SIGNAL_SYMBOLS.join(',')}`,
+      `• priceCache symbols: ${symbolCount}`,
+      `• binance.us WS: ${symbolCount > 0 ? '✅ alive' : '❌ no prices'}`,
+      `• NODE_ENV: ${env.NODE_ENV}`,
+    ];
+    await ctx.reply(lines.join('\n'));
+  });
+
+  // Stage 21 — boot-time DM to the operator so we know the bot actually started
+  // up and which env it sees. Fires once per process start. Skipped silently on
+  // dev (no admin set) and absorbs any send failure (chat blocked, etc.).
+  if (adminIdSet.size > 0) {
+    const bootSummary = [
+      '🤖 Bot booted',
+      `• env: ${env.NODE_ENV}`,
+      `• COMMUNITY_CHAT_ID: ${env.COMMUNITY_CHAT_ID ? 'set' : 'EMPTY ⚠️'}`,
+      `• SIGNAL_CRON_DRY_RUN: ${env.SIGNAL_CRON_DRY_RUN}`,
+      `• tick interval: ${env.SIGNAL_TICK_INTERVAL_MIN}min`,
+      `• admin ids known: ${adminIdSet.size}`,
+    ].join('\n');
+    for (const adminId of adminIdSet) {
+      bot.api.sendMessage(adminId, bootSummary).catch((err) => {
+        console.warn(`[boot] DM admin ${adminId} failed:`, (err as Error).message);
+      });
+    }
+  }
   
   // Set up liquidation recovery DMs
   setupLiquidationRecovery(bot, engine);

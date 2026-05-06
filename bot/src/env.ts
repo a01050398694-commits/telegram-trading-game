@@ -74,6 +74,11 @@ export const env = {
   RECHARGE_CHANNEL_5K_ID: optional('RECHARGE_CHANNEL_5K_ID', ''),
   RECHARGE_CHANNEL_10K_ID: optional('RECHARGE_CHANNEL_10K_ID', ''),
   ADMIN_TG_ID: optional('ADMIN_TG_ID', ''),
+  // Stage 21 — multi-admin support. ADMIN_TG_IDS=id1,id2,id3 (comma-separated).
+  // Combined with ADMIN_TG_ID at use-site so a single misconfigured env doesn't
+  // lock the operator out of /signal_now and /diag. PROGRESS-known CEO ID is
+  // an extra fallback so the operator can always recover the bot.
+  ADMIN_TG_IDS: list('ADMIN_TG_IDS', ''),
   COMMUNITY_CHAT_ID: optional('COMMUNITY_CHAT_ID', ''),
   COMMUNITY_GROUP_URL: optional('COMMUNITY_GROUP_URL', 'https://t.me/Trader_club'),
   
@@ -83,8 +88,11 @@ export const env = {
   // Shill Engine
   SHILL_BOT_TOKENS: list('SHILL_BOT_TOKENS', ''),
 
-  // Signal Cron — defaults to dry-run; Render must explicitly set 'false' to broadcast.
-  SIGNAL_CRON_DRY_RUN: optional('SIGNAL_CRON_DRY_RUN', 'true'),
+  // Signal Cron — Stage 21: default flipped to 'false' (live broadcast). Pre-Stage-21
+  // we defaulted to dry-run as a "safety on first deploy" guardrail, but in production
+  // operation that meant a Render env regression silently muted the entire signal
+  // pipeline. Going live by default + explicit 'true' to opt out is the right shape.
+  SIGNAL_CRON_DRY_RUN: optional('SIGNAL_CRON_DRY_RUN', 'false'),
 
   // Stage 20 — Algorithmic trader bot mode. Default: 3 symbols, 83-min tick, AI persona OFF, outcome tracking ON.
   SIGNAL_SYMBOLS: list('SIGNAL_SYMBOLS', 'btcusdt,ethusdt,solusdt'),
