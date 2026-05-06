@@ -337,3 +337,20 @@
 
 ### MUST NOT
 - **MUST NOT** Volume histogram 데이터에 mock random 값 — 사용자 거래 신호 fake. 반드시 실 Binance kline tuple [5] (volume) 매핑.
+
+## Stage 21 — Telegram Stars NATIVE invoice
+
+### MUST
+- **MUST** call `bot.api.createInvoiceLink` with grammy 1.x positional args (`title, description, payload, provider_token, currency, prices`) — `@grammyjs/types` shows a named-args object signature, but `grammy/out/core/api.d.ts` actually exposes positional. Mixing causes `TS2554: Expected 6-8 arguments, but got 1`.
+- **MUST** pass `provider_token: ''` (empty string) AND `currency: 'XTR'` for Telegram Stars. Any provider_token at all turns the invoice into a fiat one and the open popup falls through with a generic error.
+- **MUST** verify `ctx.from.id ↔ payload.userId` inside `pre_checkout_query` before answering ok=true. The payload is server-issued, but defense in depth keeps stale invoice links from crediting the wrong account if a user shares the link.
+- **MUST** dedupe on `telegram_payment_charge_id` via `payment_events` table BEFORE calling activatePremium/creditRecharge. Telegram retries `successful_payment` updates and the engine methods' UNIQUE constraints already throw, but the early gate keeps Sentry noise low.
+- **MUST** keep PayPal on InviteMember external page. PayPal SDK is blocked inside Telegram WebView (cross-origin lockdown) — embedding it inside the mini app simply does nothing.
+- **MUST** include `'pre_checkout_query'` and `'message'` in `bot.start({ allowed_updates })`. Stars `successful_payment` arrives as a `message` field, not a separate update type.
+
+### MUST NOT
+- **MUST NOT** rely on the FIRST `payment` block in any locale JSON — the file has TWO `payment` blocks (legacy + Stage 15.5). JSON.parse keeps the LAST one, so `failed`/`processing` keys must live in the second block or they are silently lost.
+- **MUST NOT** wire the `<button onClick={handleSubscribe}>` directly when `handleSubscribe` is async — return Promise leaks. Wrap in `() => { void handleSubscribe(); }`.
+- **MUST NOT** rethrow `already_processed:*` from the Stars handler — that prefix is the engine's idempotency signal. Treat as silent return; otherwise duplicate Telegram retries fill Sentry with false positives.
+- **MUST NOT** put the InviteMember Stars URL ahead of the native invoice path. We default to native; the URL is only a legacy-client fallback when `tg.openInvoice` is missing.
+- **MUST NOT** mint payloads >128 bytes — Telegram silently rejects the createInvoiceLink call. The current prefix (`tgs1`) + plan + UUID + nonce stays well under, but any future field must be guarded.

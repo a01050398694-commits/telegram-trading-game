@@ -113,6 +113,7 @@ describe('closePosition RPC contract', () => {
   it('calls close_position_atomic with p_position_id / p_pnl / p_return_amount', async () => {
     const positionRow = {
       id: 'pos-uuid',
+      user_id: 'user-uuid',
       side: 'long' as const,
       entry_price: '60000',
       size: 1_000,
@@ -120,9 +121,11 @@ describe('closePosition RPC contract', () => {
       status: 'open' as const,
     };
 
+    // Stage 17 added a 3rd .eq() (status='open') for IDOR-hardening; mock the full chain.
     const positionsSingle = vi.fn().mockResolvedValue({ data: positionRow, error: null });
     const positionsEqStatus = vi.fn().mockReturnValue({ single: positionsSingle });
-    const positionsEqId = vi.fn().mockReturnValue({ eq: positionsEqStatus });
+    const positionsEqUser = vi.fn().mockReturnValue({ eq: positionsEqStatus });
+    const positionsEqId = vi.fn().mockReturnValue({ eq: positionsEqUser });
     const positionsSelect = vi.fn().mockReturnValue({ eq: positionsEqId });
     const from = vi.fn().mockReturnValue({ select: positionsSelect });
 
@@ -130,7 +133,11 @@ describe('closePosition RPC contract', () => {
     const db = { from, rpc } as unknown as Db;
     const engine = new TradingEngine(db);
 
-    const out = await engine.closePosition({ positionId: 'pos-uuid', markPrice: 66_000 });
+    const out = await engine.closePosition({
+      userId: 'user-uuid',
+      positionId: 'pos-uuid',
+      markPrice: 66_000,
+    });
 
     expect(rpc).toHaveBeenCalledWith(
       'close_position_atomic',
