@@ -281,13 +281,16 @@
     }
   },
   "payment": {
-    "consentLabel": "I agree to the Terms of Service, Privacy Policy, and Refund Policy",
-    "consentAnd": "and",
-    "consentRequired": "Please agree to the terms",
-    "pendingTitle": "Processing Payment",
-    "pendingBody": "Your payment is being processed. Please wait...",
-    "confirmedToast": "Payment successful!",
-    "timeoutToast": "Payment confirmation timed out. Contact support."
+    "consentLabel": "Hizmet Şartları, Gizlilik Politikası ve İade Politikasını kabul ediyorum",
+    "consentAnd": "ve",
+    "consentRequired": "Lütfen şartları kabul edin",
+    "pendingTitle": "Ödeme İşleniyor",
+    "pendingBody": "Ödemeniz işleniyor. Lütfen bekleyin...",
+    "confirmedToast": "Ödeme başarılı!",
+    "timeoutToast": "Ödeme onayı zaman aşımına uğradı. Destek ile iletişime geçin.",
+    "processing": "Ödeme işleniyor...",
+    "failed": "Ödeme başarısız. Lütfen tekrar deneyin.",
+    "starsUnsupported": "Telegram Stars bu sürümde desteklenmiyor. Telegram'ı güncelleyin veya PayPal kullanın."
   },
   "demoBadge": {
     "compact": "PAPER · 18+",

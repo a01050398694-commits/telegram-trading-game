@@ -1,8 +1,11 @@
 /**
- * Stage 15.5 — Premium Pricing Card (Amex Black Card 톤)
+ * Stage 15.5 / Stage 21 — Premium Pricing Card (Amex Black Card 톤)
  *
- * 결제 흐름: tg.openLink(InviteMember Premium URL).
- *   InviteMember 페이지에서 PayPal + Telegram Stars 둘 다 결제 옵션 노출.
+ * 결제 흐름:
+ *   · PayPal → tg.openLink(InviteMember Premium URL) (in-app browser, 외부)
+ *   · Stars  → POST /api/invoice/create → tg.openInvoice() Telegram NATIVE popup
+ *              callback('paid') 시 즉시 polling 트리거.
+ *              openInvoice 미지원 클라이언트 → InviteMember Stars URL fallback.
  *
  * 디자인:
  *   · 카드 bg: 검정 + 골드 그라디언트 — Amex Black 레퍼런스
@@ -13,13 +16,20 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ANALYTICS_TOKENS as T } from '../../styles/tokens';
-import { hapticImpact, openTelegramLinkSafe } from '../../utils/telegram';
+import {
+  hapticImpact,
+  hapticNotification,
+  openTelegramLinkSafe,
+  openInvoiceAsync,
+  isInvoiceSupported,
+} from '../../utils/telegram';
 import { setLegalPage, type LegalPageKey } from '../../lib/legalRoute';
 import { usePaymentPolling } from '../../hooks/usePaymentPolling';
 import { track } from '../../lib/analytics';
+import { createStarsInvoice, ApiError } from '../../lib/api';
 
 const INVITEMEMBER_PREMIUM_URL = import.meta.env.VITE_INVITEMEMBER_PREMIUM_URL ?? '';
-// Stars 결제 전용 별도 plan (env 비면 토글 숨김 + PayPal 단독)
+// Stars fallback URL — only used when openInvoice is unsupported (very old clients).
 const INVITEMEMBER_PREMIUM_STARS_URL = import.meta.env.VITE_INVITEMEMBER_PREMIUM_STARS_URL ?? '';
 
 type PayMethod = 'paypal' | 'stars';
@@ -33,7 +43,7 @@ export function PricingCard({ telegramUserId, onPaid }: PricingCardProps) {
   const { t } = useTranslation();
   const [pending, setPending] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [payMethod, setPayMethod] = useState<PayMethod>('paypal');
+  const [payMethod, setPayMethod] = useState<PayMethod>('stars');
   const [consent, setConsent] = useState(false);
 
   const paymentPolling = usePaymentPolling(
@@ -44,20 +54,74 @@ export function PricingCard({ telegramUserId, onPaid }: PricingCardProps) {
     },
   );
 
-  const starsAvailable = Boolean(INVITEMEMBER_PREMIUM_STARS_URL);
+  // Stars is now ALWAYS available (native path doesn't need an env URL).
+  // The toggle stays visible only as a chooser between native Stars vs PayPal.
+  const starsAvailable = true;
 
-  const handleSubscribe = (): void => {
+  const handleSubscribe = async (): Promise<void> => {
     if (pending || !consent) return;
-    const url = payMethod === 'stars' ? INVITEMEMBER_PREMIUM_STARS_URL : INVITEMEMBER_PREMIUM_URL;
+    hapticImpact('medium');
+    setErrorMessage(null);
+    track('premium_cta_clicked', { method: payMethod, source: 'pricing_card' });
+
+    if (payMethod === 'stars') {
+      // Try native Stars first; fall back to InviteMember Stars URL only if the
+      // Telegram client is too old to expose tg.openInvoice.
+      if (!isInvoiceSupported()) {
+        if (INVITEMEMBER_PREMIUM_STARS_URL) {
+          setPending(true);
+          paymentPolling.startPayment();
+          try {
+            openTelegramLinkSafe(INVITEMEMBER_PREMIUM_STARS_URL);
+          } catch (err) {
+            setErrorMessage((err as Error).message);
+            setPending(false);
+          }
+          return;
+        }
+        setErrorMessage(t('payment.starsUnsupported'));
+        return;
+      }
+
+      setPending(true);
+      try {
+        const inv = await createStarsInvoice('premium');
+        const status = await openInvoiceAsync(inv.invoiceLink);
+        if (status === 'paid') {
+          hapticNotification('success');
+          paymentPolling.startPayment();
+          // onPaid is invoked by the polling hook once the bot's webhook lands the
+          // premium grant in DB and /api/user/status reflects it. Keeping pending
+          // until then prevents the "click twice" race.
+        } else if (status === 'cancelled') {
+          setPending(false);
+        } else if (status === 'pending') {
+          // Telegram briefly emits 'pending' for Stars; treat like paid + poll.
+          paymentPolling.startPayment();
+        } else {
+          // 'failed' or 'unsupported' (the latter is a client edge case after the
+          // gate above — treat as failed since we couldn't even render the popup).
+          setPending(false);
+          hapticNotification('error');
+          setErrorMessage(t('payment.failed'));
+        }
+      } catch (err) {
+        setPending(false);
+        hapticNotification('error');
+        const msg = err instanceof ApiError ? err.message : (err as Error).message;
+        setErrorMessage(msg || t('payment.failed'));
+      }
+      return;
+    }
+
+    // PayPal — InviteMember external page (unchanged).
+    const url = INVITEMEMBER_PREMIUM_URL;
     if (!url) {
       setErrorMessage(t('errors.paymentLinkMissing', { handle: t('errors.supportHandle') }));
       return;
     }
-    hapticImpact('medium');
     setPending(true);
-    setErrorMessage(null);
     paymentPolling.startPayment();
-    track('premium_cta_clicked', { method: payMethod, source: 'pricing_card' });
     try {
       openTelegramLinkSafe(url);
     } catch (err) {
@@ -344,7 +408,7 @@ export function PricingCard({ telegramUserId, onPaid }: PricingCardProps) {
       {/* ── 결제 버튼 (메탈릭 골드) ── */}
       <button
         type="button"
-        onClick={handleSubscribe}
+        onClick={() => { void handleSubscribe(); }}
         disabled={pending || !consent}
         style={{
           position: 'relative',

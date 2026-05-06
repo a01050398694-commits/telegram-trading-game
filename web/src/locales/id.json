@@ -281,13 +281,16 @@
     }
   },
   "payment": {
-    "consentLabel": "I agree to the Terms of Service, Privacy Policy, and Refund Policy",
-    "consentAnd": "and",
-    "consentRequired": "Please agree to the terms",
-    "pendingTitle": "Processing Payment",
-    "pendingBody": "Your payment is being processed. Please wait...",
-    "confirmedToast": "Payment successful!",
-    "timeoutToast": "Payment confirmation timed out. Contact support."
+    "consentLabel": "Saya setuju dengan Ketentuan Layanan, Kebijakan Privasi, dan Kebijakan Pengembalian Dana",
+    "consentAnd": "dan",
+    "consentRequired": "Silakan setujui ketentuannya",
+    "pendingTitle": "Memproses Pembayaran",
+    "pendingBody": "Pembayaran Anda sedang diproses. Mohon tunggu...",
+    "confirmedToast": "Pembayaran berhasil!",
+    "timeoutToast": "Konfirmasi pembayaran kedaluwarsa. Hubungi dukungan.",
+    "processing": "Memproses pembayaran...",
+    "failed": "Pembayaran gagal. Silakan coba lagi.",
+    "starsUnsupported": "Telegram Stars tidak didukung pada versi ini. Perbarui Telegram atau gunakan PayPal."
   },
   "demoBadge": {
     "compact": "PAPER · 18+",

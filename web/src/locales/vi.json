@@ -281,13 +281,16 @@
     }
   },
   "payment": {
-    "consentLabel": "I agree to the Terms of Service, Privacy Policy, and Refund Policy",
-    "consentAnd": "and",
-    "consentRequired": "Please agree to the terms",
-    "pendingTitle": "Processing Payment",
-    "pendingBody": "Your payment is being processed. Please wait...",
-    "confirmedToast": "Payment successful!",
-    "timeoutToast": "Payment confirmation timed out. Contact support."
+    "consentLabel": "Tôi đồng ý với Điều khoản Dịch vụ, Chính sách Bảo mật và Chính sách Hoàn tiền",
+    "consentAnd": "và",
+    "consentRequired": "Vui lòng đồng ý với các điều khoản",
+    "pendingTitle": "Đang xử lý thanh toán",
+    "pendingBody": "Thanh toán của bạn đang được xử lý. Vui lòng đợi...",
+    "confirmedToast": "Thanh toán thành công!",
+    "timeoutToast": "Xác nhận thanh toán đã hết thời gian. Vui lòng liên hệ hỗ trợ.",
+    "processing": "Đang xử lý thanh toán...",
+    "failed": "Thanh toán thất bại. Vui lòng thử lại.",
+    "starsUnsupported": "Telegram Stars không được hỗ trợ trên phiên bản này. Vui lòng cập nhật Telegram hoặc sử dụng PayPal."
   },
   "demoBadge": {
     "compact": "PAPER · 18+",

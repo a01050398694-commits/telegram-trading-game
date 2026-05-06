@@ -287,7 +287,10 @@
     "pendingTitle": "Processing Payment",
     "pendingBody": "Your payment is being processed. Please wait...",
     "confirmedToast": "Payment successful!",
-    "timeoutToast": "Payment confirmation timed out. Contact support."
+    "timeoutToast": "Payment confirmation timed out. Contact support.",
+    "processing": "Processing payment...",
+    "failed": "Payment failed. Please try again.",
+    "starsUnsupported": "Telegram Stars not supported on this client. Please update Telegram or use PayPal."
   },
   "demoBadge": {
     "compact": "PAPER · 18+",

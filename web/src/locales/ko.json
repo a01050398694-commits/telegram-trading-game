@@ -287,7 +287,10 @@
     "pendingTitle": "결제 처리 중",
     "pendingBody": "결제가 진행 중입니다. 잠시 기다려주세요...",
     "confirmedToast": "결제가 완료되었습니다!",
-    "timeoutToast": "결제 확인 시간이 초과되었습니다. 지원팀에 문의하세요."
+    "timeoutToast": "결제 확인 시간이 초과되었습니다. 지원팀에 문의하세요.",
+    "processing": "결제 처리 중...",
+    "failed": "결제 실패. 다시 시도해주세요.",
+    "starsUnsupported": "이 텔레그램 버전에서는 Stars 결제가 지원되지 않습니다. 앱 업데이트 후 다시 시도하거나 PayPal 을 이용해주세요."
   },
   "demoBadge": {
     "compact": "PAPER · 18+",

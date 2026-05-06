@@ -191,6 +191,28 @@ export function submitVerification(
 export { ApiError };
 
 // ---------------------------------------------------------------------------
+// Stage 21 — Telegram Stars NATIVE invoice
+// ---------------------------------------------------------------------------
+
+export type StarsPlan = 'premium' | 'recharge_1k' | 'recharge_5k' | 'recharge_10k';
+
+export interface StarsInvoiceResponse {
+  ok: true;
+  invoiceLink: string;
+  plan: StarsPlan;
+  amountStars: number;
+  priceUsd: number;
+  creditUsd: number | null;
+}
+
+export function createStarsInvoice(plan: StarsPlan): Promise<StarsInvoiceResponse> {
+  return request<StarsInvoiceResponse>('/api/invoice/create', {
+    method: 'POST',
+    body: JSON.stringify({ plan }),
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Stage 15.2 — Premium 매매 분석기 API
 // ---------------------------------------------------------------------------
 

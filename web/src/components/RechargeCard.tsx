@@ -1,16 +1,16 @@
 /**
- * Stage 15.5 — Recharge Card (Amex/Apple Card 톤 luxurious 업그레이드)
+ * Stage 15.5 / Stage 21 — Recharge Card (Amex/Apple Card 톤 luxurious 업그레이드)
  *
  * 패키지:
  *   · $2.99   → +$1,000 게임머니
  *   · $7.99   → +$5,000  ("BEST VALUE" 강조)
  *   · $13.99  → +$10,000
  *
- * 흐름:
- *   1. 사용자가 패키지 선택 → InviteMember plan URL 외부 링크 (PayPal/Stars 둘 다)
- *   2. 결제 성공 → InviteMember 가 패키지 별 채널에 자동 초대
- *   3. 봇 chat_member 핸들러가 채널 ID 보고 credit 매핑 → DB +balance
- *   4. 5분 후 자동 ban+unban → 다음 결제 시 재가입 가능
+ * 결제 흐름:
+ *   · PayPal → tg.openLink(InviteMember plan URL). InviteMember 가 패키지 별 채널에
+ *     자동 초대 → 봇 chat_member 핸들러가 +balance.
+ *   · Stars  → POST /api/invoice/create → tg.openInvoice() Telegram NATIVE popup.
+ *              callback('paid') → polling 으로 새 잔고 반영. InviteMember 우회.
  *
  * 디자인 (Stage 15.5 폴리시):
  *   · 메탈릭 골드 강조 (idle) / amber dramatic (liquidated)
@@ -24,12 +24,26 @@
  */
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { hapticImpact, hapticSelection, openTelegramLinkSafe } from '../utils/telegram';
+import {
+  hapticImpact,
+  hapticNotification,
+  hapticSelection,
+  openTelegramLinkSafe,
+  openInvoiceAsync,
+  isInvoiceSupported,
+} from '../utils/telegram';
 import { setLegalPage, type LegalPageKey } from '../lib/legalRoute';
 import { usePaymentPolling } from '../hooks/usePaymentPolling';
 import { track } from '../lib/analytics';
+import { createStarsInvoice, ApiError, type StarsPlan } from '../lib/api';
 
 type Tier = '1k' | '5k' | '10k';
+
+const TIER_TO_STARS_PLAN: Record<Tier, StarsPlan> = {
+  '1k': 'recharge_1k',
+  '5k': 'recharge_5k',
+  '10k': 'recharge_10k',
+};
 
 // PayPal/USD 외부 페이지 plan — InviteMember 가 외부 브라우저 결제로 PayPal/카드 노출.
 const TIER_URL: Record<Tier, string> = {
@@ -38,8 +52,7 @@ const TIER_URL: Record<Tier, string> = {
   '10k': import.meta.env.VITE_INVITEMEMBER_RECHARGE_10K_URL ?? '',
 };
 
-// Stars 결제 전용 plan (InviteMember 별도 plan, Stars 가격 책정).
-// env 비어있으면 토글 자체 숨김 (PayPal 단독 흐름).
+// Stars fallback (only used when openInvoice unsupported on the user's client).
 const TIER_STARS_URL: Record<Tier, string> = {
   '1k': import.meta.env.VITE_INVITEMEMBER_RECHARGE_1K_STARS_URL ?? '',
   '5k': import.meta.env.VITE_INVITEMEMBER_RECHARGE_5K_STARS_URL ?? '',
@@ -69,7 +82,7 @@ type PayMethod = 'paypal' | 'stars';
 export function RechargeCard({ telegramUserId, onPaid, variant = 'idle' }: RechargeCardProps) {
   const { t } = useTranslation();
   const [selectedTier, setSelectedTier] = useState<Tier>('1k');
-  const [payMethod, setPayMethod] = useState<PayMethod>('paypal');
+  const [payMethod, setPayMethod] = useState<PayMethod>('stars');
   const [pending, setPending] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [consent, setConsent] = useState(false);
@@ -82,20 +95,67 @@ export function RechargeCard({ telegramUserId, onPaid, variant = 'idle' }: Recha
     },
   );
 
-  const starsAvailable = Boolean(TIER_STARS_URL[selectedTier]);
+  // Stars is always shown — native flow doesn't depend on the InviteMember Stars URL.
+  const starsAvailable = true;
 
-  const handlePay = (): void => {
+  const handlePay = async (): Promise<void> => {
     if (pending || !consent) return;
-    const url = payMethod === 'stars' ? TIER_STARS_URL[selectedTier] : TIER_URL[selectedTier];
+    hapticImpact('medium');
+    setErrorMessage(null);
+    track('premium_cta_clicked', { method: payMethod, source: 'recharge_card', tier: selectedTier });
+
+    if (payMethod === 'stars') {
+      // Native Stars first, InviteMember Stars URL only as a legacy-client fallback.
+      if (!isInvoiceSupported()) {
+        const fallback = TIER_STARS_URL[selectedTier];
+        if (fallback) {
+          setPending(true);
+          paymentPolling.startPayment();
+          try {
+            openTelegramLinkSafe(fallback);
+          } catch (err) {
+            setErrorMessage((err as Error).message);
+            setPending(false);
+          }
+          return;
+        }
+        setErrorMessage(t('payment.starsUnsupported'));
+        return;
+      }
+
+      setPending(true);
+      try {
+        const inv = await createStarsInvoice(TIER_TO_STARS_PLAN[selectedTier]);
+        const status = await openInvoiceAsync(inv.invoiceLink);
+        if (status === 'paid') {
+          hapticNotification('success');
+          paymentPolling.startPayment();
+        } else if (status === 'cancelled') {
+          setPending(false);
+        } else if (status === 'pending') {
+          paymentPolling.startPayment();
+        } else {
+          setPending(false);
+          hapticNotification('error');
+          setErrorMessage(t('payment.failed'));
+        }
+      } catch (err) {
+        setPending(false);
+        hapticNotification('error');
+        const msg = err instanceof ApiError ? err.message : (err as Error).message;
+        setErrorMessage(msg || t('payment.failed'));
+      }
+      return;
+    }
+
+    // PayPal: InviteMember external page.
+    const url = TIER_URL[selectedTier];
     if (!url) {
       setErrorMessage(t('errors.paymentLinkMissing', { handle: t('errors.supportHandle') }));
       return;
     }
-    hapticImpact('medium');
     setPending(true);
-    setErrorMessage(null);
     paymentPolling.startPayment();
-    track('premium_cta_clicked', { method: payMethod, source: 'recharge_card', tier: selectedTier });
     try {
       openTelegramLinkSafe(url);
     } catch (err) {
@@ -231,7 +291,7 @@ export function RechargeCard({ telegramUserId, onPaid, variant = 'idle' }: Recha
       {/* ── 결제 버튼 — 메탈릭 그라디언트 + 큰 명조 ── */}
       <button
         type="button"
-        onClick={handlePay}
+        onClick={() => { void handlePay(); }}
         disabled={pending || !consent}
         className={
           liquidated

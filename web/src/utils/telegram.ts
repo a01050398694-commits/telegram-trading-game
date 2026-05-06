@@ -192,3 +192,46 @@ export function openTelegramLinkSafe(url: string): void {
   window.open(url, '_blank', 'noopener,noreferrer');
 }
 
+// ---------- Stars native invoice ----------
+// Stage 21 — wraps tg.openInvoice in a Promise so callers can `await` the user
+// closing the popup and react to the final status. The Telegram callback is fired
+// exactly once per invoice. We never resolve outside of that callback path so a
+// stuck popup won't confuse caller state.
+//
+// Why a Promise instead of raw callback: it lets the calling component pair the
+// awaited status with hapticNotification + setPending(false) cleanly, and stops
+// us from accidentally double-binding state updates if the user retries.
+//
+// `'unsupported'` is our own status (not in Telegram's enum) — emitted when the
+// user's Telegram client is too old to expose openInvoice. Caller should fall back
+// to InviteMember (openTelegramLinkSafe) in that branch.
+export type InvoiceStatus = 'paid' | 'cancelled' | 'failed' | 'pending' | 'unsupported';
+
+export function isInvoiceSupported(): boolean {
+  const tg = getTg();
+  return Boolean(tg && typeof tg.openInvoice === 'function');
+}
+
+export function openInvoiceAsync(invoiceLink: string): Promise<InvoiceStatus> {
+  return new Promise((resolve) => {
+    const tg = getTg();
+    if (!tg || typeof tg.openInvoice !== 'function') {
+      resolve('unsupported');
+      return;
+    }
+    try {
+      tg.openInvoice(invoiceLink, (status) => {
+        // Telegram passes one of 'paid' | 'cancelled' | 'failed' | 'pending'.
+        // Defensive narrowing — older clients have been observed sending unknown values.
+        if (status === 'paid' || status === 'cancelled' || status === 'failed' || status === 'pending') {
+          resolve(status);
+        } else {
+          resolve('failed');
+        }
+      });
+    } catch {
+      resolve('failed');
+    }
+  });
+}
+

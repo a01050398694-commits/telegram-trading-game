@@ -133,6 +133,7 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
   app.use('/api', readLimiter);
   app.use('/api/trade', tradeLimiter);
   app.use('/api/payment', tradeLimiter);
+  app.use('/api/invoice', tradeLimiter);
   app.use('/api/admin', adminLimiter);
 
   app.get('/health', (_req, res) => {
@@ -1054,6 +1055,45 @@ export function createServer({ engine, priceCache, bot, rankingEngine }: Deps): 
       res.json({ ok: true, ...result });
     } catch (err) {
       console.error('[server] /premium/lock-mode:', err);
+      res.status(500).json({ error: (err as Error).message });
+    }
+  });
+
+  // ---- Stage 21 — Telegram Stars NATIVE invoice creation ------------------
+  // POST /api/invoice/create  body: { plan }
+  // Returns an invoice link the frontend feeds into tg.openInvoice() so the user
+  // sees Telegram's native popup instead of an external InviteMember page.
+  // tradeLimiter is enough — same throttling profile as other write endpoints.
+  app.post('/api/invoice/create', async (req, res) => {
+    try {
+      const resolved = await resolveUser(engine, req);
+      if (typeof resolved !== 'string') {
+        res.status(resolved.status).json({ error: resolved.error });
+        return;
+      }
+
+      const { isStarsPlan, createStarsInvoiceLink } = await import('./services/starsInvoice.js');
+      const planRaw = (req.body as { plan?: unknown }).plan;
+      if (typeof planRaw !== 'string' || !isStarsPlan(planRaw)) {
+        res.status(400).json({ error: 'invalid plan (premium | recharge_1k | recharge_5k | recharge_10k)' });
+        return;
+      }
+
+      const { invoiceLink, spec } = await createStarsInvoiceLink({
+        bot,
+        plan: planRaw,
+        userId: resolved,
+      });
+      res.json({
+        ok: true,
+        invoiceLink,
+        plan: planRaw,
+        amountStars: spec.amountStars,
+        priceUsd: spec.priceUsd,
+        creditUsd: spec.creditUsd ?? null,
+      });
+    } catch (err) {
+      console.error('[server] /invoice/create:', err);
       res.status(500).json({ error: (err as Error).message });
     }
   });
