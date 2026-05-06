@@ -72,16 +72,16 @@ async function main(): Promise<void> {
 
   bot.command('signal_now', async (ctx) => {
     if (!isAdminTg(ctx.from?.id)) return;
-    await ctx.reply('🚀 forceTick 시작…');
+    await ctx.reply('🚀 forceTick triggered…');
     try {
       const result = await signalCron.forceTick();
       await ctx.reply(
         result.posted
-          ? '✅ 시그널방에 1개 송출됨'
-          : `⚠️ 송출 안 됨: ${result.reason ?? 'all symbols skipped this tick'}`,
+          ? '✅ Signal posted to community channel'
+          : `⚠️ Not posted: ${result.reason ?? 'all symbols skipped this tick'}`,
       );
     } catch (err) {
-      await ctx.reply(`❌ 에러: ${(err as Error).message}`);
+      await ctx.reply(`❌ Error: ${(err as Error).message}`);
     }
   });
 
@@ -275,7 +275,7 @@ async function main(): Promise<void> {
     await bot.api.setChatMenuButton({
       menu_button: {
         type: 'web_app',
-        text: '🎓 아카데미 열기',
+        text: 'Trading Terminal',
         web_app: { url: cacheBustedMenuUrl }
       }
     });
@@ -291,7 +291,7 @@ async function main(): Promise<void> {
     try {
       const member = await ctx.getChatMember(userId);
       if (member.status === 'administrator' || member.status === 'creator') {
-        await ctx.reply('✅ 알겠습니다! 지금부터 이 방에서 매 30분마다 제가 먼저 코인 수다를 시작하겠습니다. (첫 번째 수다 생성 중...)');
+        await ctx.reply('✅ Got it. Starting auto-chat in this room every 30 minutes (generating first message…)');
         await marketBriefCron.forceTick(ctx.chat.id.toString());
       }
     } catch (e) {

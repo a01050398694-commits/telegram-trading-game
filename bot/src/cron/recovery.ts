@@ -2,13 +2,32 @@ import type { Bot } from 'grammy';
 import type { TradingEngine } from '../engine/trading.js';
 
 /**
- * Stage 15.2 — 청산 DM을 inline_keyboard web_app 버튼으로 변경.
+ * Stage 15.2 — Liquidation DM with inline_keyboard web_app button.
  *
- * 왜 web_app 버튼인가:
- *   · 기존 마크다운 링크는 외부 브라우저로 열려 PayPal만 보임.
- *   · web_app 버튼은 텔레그램 in-app WebView로 열림 → Stars 결제 가능.
- *   · parse_mode 제거 (web_app 버튼과 호환 안 됨).
+ * Stage 21 — translated to language-aware: English default for global users,
+ * Korean for users with language_code='ko'. Bot DMs reaching the wrong-language
+ * audience was a real complaint ("봇방에 한국어 떠").
  */
+
+interface RecoveryCopy {
+  body: string;
+  inAppButton: string;
+  browserButton: string;
+}
+
+const COPY: Record<'en' | 'ko', RecoveryCopy> = {
+  en: {
+    body: 'You were liquidated.\n\nRecharge $1,000 instantly for $2.99.',
+    inAppButton: '💳 Recharge $2.99',
+    browserButton: '🌐 Pay via browser',
+  },
+  ko: {
+    body: '시장에서 청산당했습니다.\n\n$2.99로 즉시 $1,000 충전합니다.',
+    inAppButton: '💳 $2.99 충전하기',
+    browserButton: '🌐 브라우저로 결제',
+  },
+};
+
 export function setupLiquidationRecovery(bot: Bot, engine: TradingEngine) {
   engine.on('liquidated', async (userId: string) => {
     try {
@@ -16,25 +35,23 @@ export function setupLiquidationRecovery(bot: Bot, engine: TradingEngine) {
       const tgId = user?.telegram_id;
       if (!tgId) return;
 
+      const lang = user?.language_code === 'ko' ? 'ko' : 'en';
+      const copy = COPY[lang];
+
       const rechargeUrl =
         process.env.INVITEMEMBER_RECHARGE_URL ||
         'https://im.page/viptraderx/plan?planId=375d3420-42cd-11f1-aecf-19beb80868b2';
 
-      // web_app 버튼 (in-app Stars 결제) + 외부 브라우저 fallback (PayPal)
-      await bot.api.sendMessage(
-        tgId,
-        '시장에서 청산당했습니다.\n\n$2.99로 즉시 $1,000 충전합니다.',
-        {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '💳 $2.99 충전하기', web_app: { url: rechargeUrl } }],
-              [{ text: '🌐 브라우저로 결제', url: rechargeUrl }],
-            ],
-          },
+      await bot.api.sendMessage(tgId, copy.body, {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: copy.inAppButton, web_app: { url: rechargeUrl } }],
+            [{ text: copy.browserButton, url: rechargeUrl }],
+          ],
         },
-      );
+      });
 
-      console.log(`[recovery] sent recharge DM to user ${userId} (${tgId})`);
+      console.log(`[recovery] sent recharge DM to user ${userId} (${tgId}) lang=${lang}`);
     } catch (err) {
       console.error(`[recovery] error sending recharge DM for ${userId}:`, err);
     }
