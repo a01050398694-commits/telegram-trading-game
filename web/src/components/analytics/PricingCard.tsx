@@ -31,6 +31,12 @@ import { createStarsInvoice, ApiError } from '../../lib/api';
 const INVITEMEMBER_PREMIUM_URL = import.meta.env.VITE_INVITEMEMBER_PREMIUM_URL ?? '';
 // Stars fallback URL — only used when openInvoice is unsupported (very old clients).
 const INVITEMEMBER_PREMIUM_STARS_URL = import.meta.env.VITE_INVITEMEMBER_PREMIUM_STARS_URL ?? '';
+// Stage 21 — PayPal toggle gate. Default OFF: InviteMember's external checkout page
+// rendered the entire plan list (Premium + 3 Recharge tiers) on a single screen,
+// confusing users who only wanted to subscribe to the $39.99 Premium. Stars native
+// flow shows a single-plan popup so we hide the PayPal toggle entirely until the
+// operator reorganizes InviteMember to one-plan-per-page and flips this flag back.
+const PAYPAL_ENABLED = import.meta.env.VITE_PAYPAL_ENABLED === 'true';
 
 type PayMethod = 'paypal' | 'stars';
 
@@ -54,9 +60,9 @@ export function PricingCard({ telegramUserId, onPaid }: PricingCardProps) {
     },
   );
 
-  // Stars is now ALWAYS available (native path doesn't need an env URL).
-  // The toggle stays visible only as a chooser between native Stars vs PayPal.
-  const starsAvailable = true;
+  // Toggle is only rendered when PayPal is enabled. With PayPal off there is
+  // nothing to choose — Stars is the single payment method.
+  const showPayMethodToggle = PAYPAL_ENABLED;
 
   const handleSubscribe = async (): Promise<void> => {
     if (pending || !consent) return;
@@ -268,7 +274,7 @@ export function PricingCard({ telegramUserId, onPaid }: PricingCardProps) {
       </div>
 
       {/* ── 결제 수단 토글 (PayPal / Stars) ── env 채워진 경우만 노출 */}
-      {starsAvailable && (
+      {showPayMethodToggle && (
         <div style={{
           position: 'relative',
           display: 'grid',

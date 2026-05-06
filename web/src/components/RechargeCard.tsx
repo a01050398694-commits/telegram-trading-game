@@ -59,6 +59,12 @@ const TIER_STARS_URL: Record<Tier, string> = {
   '10k': import.meta.env.VITE_INVITEMEMBER_RECHARGE_10K_STARS_URL ?? '',
 };
 
+// Stage 21 — same gate as PricingCard. PayPal toggle hidden by default because
+// the InviteMember external page renders all four plans on a single screen and
+// confuses users. Stars native flow is single-plan popup. Flip on once
+// InviteMember is reorganized to one-plan-per-page.
+const PAYPAL_ENABLED = import.meta.env.VITE_PAYPAL_ENABLED === 'true';
+
 const TIER_PRICE: Record<Tier, string> = {
   '1k': '$2.99',
   '5k': '$7.99',
@@ -95,8 +101,7 @@ export function RechargeCard({ telegramUserId, onPaid, variant = 'idle' }: Recha
     },
   );
 
-  // Stars is always shown — native flow doesn't depend on the InviteMember Stars URL.
-  const starsAvailable = true;
+  const showPayMethodToggle = PAYPAL_ENABLED;
 
   const handlePay = async (): Promise<void> => {
     if (pending || !consent) return;
@@ -233,7 +238,7 @@ export function RechargeCard({ telegramUserId, onPaid, variant = 'idle' }: Recha
       </div>
 
       {/* ── 결제 수단 토글 (PayPal / Stars) — Stars URL 채워질 때만 노출 ── */}
-      {starsAvailable && (
+      {showPayMethodToggle && (
         <div className="relative mb-3 grid grid-cols-2 gap-1 rounded-xl border border-white/10 bg-white/[0.02] p-1">
           <PayMethodTab
             active={payMethod === 'paypal'}
