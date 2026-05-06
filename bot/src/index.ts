@@ -107,23 +107,92 @@ async function main(): Promise<void> {
     await ctx.reply(lines.join('\n'));
   });
 
-  // Stage 21 — boot-time DM to the operator so we know the bot actually started
-  // up and which env it sees. Fires once per process start. Skipped silently on
-  // dev (no admin set) and absorbs any send failure (chat blocked, etc.).
-  if (adminIdSet.size > 0) {
-    const bootSummary = [
-      '🤖 Bot booted',
-      `• env: ${env.NODE_ENV}`,
-      `• COMMUNITY_CHAT_ID: ${env.COMMUNITY_CHAT_ID ? 'set' : 'EMPTY ⚠️'}`,
-      `• SIGNAL_CRON_DRY_RUN: ${env.SIGNAL_CRON_DRY_RUN}`,
-      `• tick interval: ${env.SIGNAL_TICK_INTERVAL_MIN}min`,
-      `• admin ids known: ${adminIdSet.size}`,
-    ].join('\n');
-    for (const adminId of adminIdSet) {
-      bot.api.sendMessage(adminId, bootSummary).catch((err) => {
-        console.warn(`[boot] DM admin ${adminId} failed:`, (err as Error).message);
-      });
+  // Stage 21 — boot self-check. Verifies:
+  //   1. The community chat is reachable (bot is still a member with send rights).
+  //   2. priceCache will populate (binance WS not silently rejected).
+  //   3. Operator gets an actionable DM if anything is broken so we never have
+  //      another "signals just stopped at 4pm and nobody noticed for hours" event.
+  // History: a previous incident saw the bot silently removed from the signal
+  // channel (Forbidden: bot is not a member). signalCron logged the per-symbol
+  // failure but the message was buried in Render logs and the chat membership
+  // problem was invisible from /health. Now boot DM surfaces it directly.
+  async function runBootSelfCheck(): Promise<string[]> {
+    const lines: string[] = [];
+    if (env.COMMUNITY_CHAT_ID) {
+      try {
+        const chat = await bot.api.getChat(env.COMMUNITY_CHAT_ID);
+        const title = 'title' in chat ? chat.title : '(private)';
+        lines.push(`✅ COMMUNITY_CHAT_ID resolves to "${title}" (${env.COMMUNITY_CHAT_ID})`);
+        // Dry sendChatAction probes write permission without spamming the channel.
+        try {
+          await bot.api.sendChatAction(env.COMMUNITY_CHAT_ID, 'typing');
+          lines.push('✅ bot has send permission in the community chat');
+        } catch (sendErr) {
+          lines.push(
+            `❌ bot CANNOT send to community chat: ${(sendErr as Error).message}\n` +
+              `   ACTION: open the chat → Manage → Administrators → add @Tradergames_bot with "Post Messages" right.`,
+          );
+        }
+      } catch (chatErr) {
+        lines.push(
+          `❌ COMMUNITY_CHAT_ID=${env.COMMUNITY_CHAT_ID} unreachable: ${(chatErr as Error).message}\n` +
+            `   ACTION: verify the id and that the bot was not kicked from the chat.`,
+        );
+      }
+    } else {
+      lines.push('❌ COMMUNITY_CHAT_ID is empty — signals are DISABLED. Set it in Render env.');
     }
+    return lines;
+  }
+
+  if (adminIdSet.size > 0) {
+    // Fire-and-forget so we don't block server.listen on a slow Telegram probe.
+    // The DM lands within a few seconds of boot anyway and the health check
+    // doesn't depend on it.
+    void (async () => {
+      const checkLines = await runBootSelfCheck();
+      const bootSummary = [
+        '🤖 Bot booted',
+        `• env: ${env.NODE_ENV}`,
+        `• SIGNAL_CRON_DRY_RUN: ${env.SIGNAL_CRON_DRY_RUN}  (live = "false")`,
+        `• tick interval: ${env.SIGNAL_TICK_INTERVAL_MIN}min`,
+        `• binance prices in cache: ${Object.keys(priceCache.snapshot()).length}`,
+        ...checkLines,
+      ].join('\n');
+      for (const adminId of adminIdSet) {
+        bot.api.sendMessage(adminId, bootSummary).catch((err) => {
+          console.warn(`[boot] DM admin ${adminId} failed:`, (err as Error).message);
+        });
+      }
+    })();
+    // Stage 21 — periodic membership sentinel. Telegram doesn't notify the bot
+    // when it gets removed from a channel, so we re-probe every 30 minutes and
+    // DM admins the moment the chat becomes unreachable. State machine: only
+    // alert on the OK→broken transition (not on every tick) and on broken→OK
+    // recovery, otherwise admin gets spam.
+    let lastChannelOk = true;
+    setInterval(async () => {
+      if (!env.COMMUNITY_CHAT_ID) return;
+      try {
+        await bot.api.sendChatAction(env.COMMUNITY_CHAT_ID, 'typing');
+        if (!lastChannelOk) {
+          lastChannelOk = true;
+          for (const adminId of adminIdSet) {
+            bot.api
+              .sendMessage(adminId, '✅ community channel send permission restored')
+              .catch(() => undefined);
+          }
+        }
+      } catch (err) {
+        if (lastChannelOk) {
+          lastChannelOk = false;
+          const msg = `🚨 community channel send broken: ${(err as Error).message}\nACTION: re-add @Tradergames_bot as admin with Post Messages right.`;
+          for (const adminId of adminIdSet) {
+            bot.api.sendMessage(adminId, msg).catch(() => undefined);
+          }
+        }
+      }
+    }, 30 * 60_000);
   }
   
   // Set up liquidation recovery DMs

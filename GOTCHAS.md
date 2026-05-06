@@ -364,3 +364,15 @@
 
 ### MUST NOT
 - **MUST NOT** mix Binance.US REST (`api.binance.us`) with Binance Futures global WS (`fstream.binance.com`). The two are different products and the global WS is the geo-blocked one. Stage 16 commit `c1c3937` migrated REST but forgot WS — the bug stayed silent because the price cache decay was attributed to "cold start".
+
+## Stage 21 — Channel membership silent loss
+
+### MUST
+- **MUST** treat `signalCron` not posting as a *channel membership* problem first, env / dry-run problem second. A real incident: bot was silently removed as channel admin → every `bot.api.sendMessage(env.COMMUNITY_CHAT_ID, …)` returned `403 Forbidden: bot is not a member of the channel chat` → per-symbol catch swallowed it → no signals for hours.
+- **MUST** keep the boot self-check that calls `bot.api.getChat(env.COMMUNITY_CHAT_ID)` + `bot.api.sendChatAction(…, 'typing')` and DMs every known admin if either fails. `getChat` alone is not enough — the bot can be a non-admin observer (chat resolves) but unable to send. `sendChatAction(typing)` is the cheapest write probe that doesn't spam the channel.
+- **MUST** keep the 30-min `setInterval` membership sentinel that DMs admins on the OK→broken transition. Telegram does NOT push an event when the bot is removed; we have to poll.
+- **MUST** add the bot as a channel administrator with **Post Messages** right (just being a member is not enough for channels).
+
+### MUST NOT
+- **MUST NOT** rely on `/health` returning 200 + populated prices to conclude "signal pipeline is fine". `/health` only proves the HTTP server and binance WS are up; it says nothing about Telegram chat membership.
+- **MUST NOT** swallow `403 Forbidden: bot is not a member` inside the per-symbol catch. The boot self-check + sentinel makes that case loud, but if a future `signalCron` rewrite adds another `sendMessage` site, that site needs the same alerting.
