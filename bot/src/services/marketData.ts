@@ -214,6 +214,14 @@ export async function fetchKlinesWithTime(
   }
 }
 
+// Why: SMA200 requires 200 closed bars. Stage 22's dropInProgress() removes the live
+//   in-progress candle from the tail, so a 200-bar fetch leaves only 199 closed →
+//   SMA200 returns null → every TF trend resolves to neutral → engine always returns
+//   skip → broadcast 0 (root cause of the 4-day signal blackout 2026-05-09 → 2026-05-10).
+//   250 keeps 249 closed bars after the drop, with 49-bar headroom for any future
+//   indicator that needs more lookback.
+const MTF_FETCH_LIMIT = 250;
+
 /**
  * Fetch 4 timeframes (15m / 1h / 4h / 1d) in parallel for multi-TF analysis.
  * Returns null if ANY single TF fetch fails — caller treats as data-incomplete.
@@ -222,10 +230,10 @@ export async function fetchMultiTimeframeKlines(
   symbol: FuturesSymbol
 ): Promise<MultiTimeframeKlines | null> {
   const [m15, h1, h4, d1] = await Promise.all([
-    fetchKlines(symbol, 200, '15m'),
-    fetchKlines(symbol, 200, '1h'),
-    fetchKlines(symbol, 200, '4h'),
-    fetchKlines(symbol, 200, '1d'),
+    fetchKlines(symbol, MTF_FETCH_LIMIT, '15m'),
+    fetchKlines(symbol, MTF_FETCH_LIMIT, '1h'),
+    fetchKlines(symbol, MTF_FETCH_LIMIT, '4h'),
+    fetchKlines(symbol, MTF_FETCH_LIMIT, '1d'),
   ]);
   if (!m15 || !h1 || !h4 || !d1) return null;
   return { m15, h1, h4, d1 };

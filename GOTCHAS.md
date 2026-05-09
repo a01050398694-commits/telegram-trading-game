@@ -2,6 +2,17 @@
 
 누적되는 MUST / MUST NOT 규칙. 실수 반복 방지.
 
+## Stage 22.1 Signal Pipeline Data Starvation (2026-05-10 incident)
+
+### MUST
+- **MUST** keep `MTF_FETCH_LIMIT` in `bot/src/services/marketData.ts` strictly above the heaviest TA window (currently SMA200) **plus** the 1-bar in-progress drop. Today's floor is 201; we ship 250 for headroom. Any future TA that needs more lookback must also bump this constant.
+- **MUST** test signal pipeline end-to-end against live Binance.US after touching `dropInProgress`, `fetchKlines`, or any TA window. `bot/scripts/verify-signal-fix.ts` is the regression harness — it must report `sma200ok=true` for every symbol.
+- **MUST** keep the `[signalCron] closed-bar starvation` warning in place — it's the canary that catches future fetch-limit regressions before broadcasts go to zero.
+
+### MUST NOT
+- **MUST NOT** let `fetchKlines` return only `period` bars when the engine drops the in-progress candle. The pre-fix path fetched exactly 200 bars → `dropInProgress` left 199 → `computeSMA(closes, 200)` returned `null` → `evaluateTimeframe` set every TF trend to `neutral` → `pickDominant` returned null → `direction='skip'` on every tick → 4 days of zero broadcasts (2026-05-09 16:00 → 2026-05-10) with cron still alive but silently skipping. Always fetch ≥ `period + 1`.
+- **MUST NOT** silently fall back to a shorter SMA when SMA200 is null. The fix is **more data**, not "neutral trend by default" — neutral-by-default masks the data starvation as a market-condition signal.
+
 ## Stage 1 Setup
 
 ### MUST

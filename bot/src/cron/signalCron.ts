@@ -262,6 +262,21 @@ export class SignalCron {
           h4: dropInProgress(mtf.h4),
           d1: dropInProgress(mtf.d1),
         };
+        // Why: SMA200 needs >=200 closed bars. If fetch limit ever drops below 201,
+        //   trend resolves to neutral on every TF and we silently broadcast 0 signals
+        //   (the 2026-05-09 → 2026-05-10 blackout). Loud warning so this is never
+        //   silent again — operators see it in Render logs and can intervene.
+        const minClosed = Math.min(
+          closedMtf.m15.closes.length,
+          closedMtf.h1.closes.length,
+          closedMtf.h4.closes.length,
+          closedMtf.d1.closes.length,
+        );
+        if (minClosed < 200) {
+          console.warn(
+            `[signalCron] ${symbol} closed-bar starvation: ${minClosed} bars < 200 (SMA200 will return null, trend will be neutral). Bump MTF_FETCH_LIMIT in marketData.ts.`,
+          );
+        }
         const signal = buildSignal({
           symbol: symbol as FuturesSymbol,
           currentPrice,
