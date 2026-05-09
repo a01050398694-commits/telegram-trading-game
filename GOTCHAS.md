@@ -376,3 +376,17 @@
 ### MUST NOT
 - **MUST NOT** rely on `/health` returning 200 + populated prices to conclude "signal pipeline is fine". `/health` only proves the HTTP server and binance WS are up; it says nothing about Telegram chat membership.
 - **MUST NOT** swallow `403 Forbidden: bot is not a member` inside the per-symbol catch. The boot self-check + sentinel makes that case loud, but if a future `signalCron` rewrite adds another `sendMessage` site, that site needs the same alerting.
+
+## 2026-05-09 — Sentinel false-positive on transient network blip
+
+### MUST
+- **MUST** classify Telegram send failures via `lib/classifyTelegramError.ts` before DMing the operator. grammY emits two distinct exception classes that look similar in `err.message` but mean opposite things:
+  - `HttpError` — fetch itself failed (Render→Telegram network jitter, DNS, TLS, instance restart). Self-heals; do NOT recommend re-adding the bot as admin.
+  - `GrammyError` with `error_code === 403` or description matching `/not a member|forbidden|kicked|chat not found|have no rights/i` — true permission loss. Manual admin re-add is the correct fix.
+  Pre-fix the sentinel hardcoded "ACTION: re-add @Tradergames_bot as admin" for *any* failure, sending the operator on a wild goose chase when the real cause was a 30s Render outbound jitter.
+- **MUST** debounce network-class failures (`HttpError`/`unknown`) with **2 consecutive 30-min ticks** before alerting. A single transient blip is noise. Permission-class failures (`GrammyError` 403) alert on the very first hit because they don't self-heal — every 30 min of silence is more channel signal lost.
+- **MUST** include the failure class in the recovery DM (`✅ … recovered (was: network|permission|unknown)`) so the operator knows what changed and can correlate with Render logs.
+
+### MUST NOT
+- **MUST NOT** pattern-match `(err as Error).message` strings to decide whether a Telegram send failed for permission vs network reasons. grammY's HttpError message is `Network request for '<method>' failed!` — it never contains the underlying socket error or any "403" / "Forbidden" hint. Use `instanceof HttpError` / `instanceof GrammyError` from `'grammy'`.
+- **MUST NOT** re-introduce the boolean `lastChannelOk` state machine. Replace with `consecutiveFailures` counter + `alertedAt` timestamp + `lastFailureKind` so the recovery DM can name the original class and so the debounce window survives single-tick flaps.

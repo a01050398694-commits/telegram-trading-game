@@ -23,6 +23,7 @@ import { PriceCache } from './priceCache.js';
 import { env } from './env.js';
 import { InlineKeyboard } from 'grammy';
 import { webAppDeepLink } from './lib/webappUrl.js';
+import { classifyTelegramError, type SendFailureKind } from './lib/classifyTelegramError.js';
 
 async function main(): Promise<void> {
   // CLAUDE.md §7 — silent fail 금지. 핵심 ENV 누락 시 부팅 시점에 한 번 warn.
@@ -128,15 +129,19 @@ async function main(): Promise<void> {
           await bot.api.sendChatAction(env.COMMUNITY_CHAT_ID, 'typing');
           lines.push('✅ bot has send permission in the community chat');
         } catch (sendErr) {
+          const c = classifyTelegramError(sendErr);
+          const icon = c.kind === 'network' ? '⚠️' : '❌';
           lines.push(
-            `❌ bot CANNOT send to community chat: ${(sendErr as Error).message}\n` +
-              `   ACTION: open the chat → Manage → Administrators → add @Tradergames_bot with "Post Messages" right.`,
+            `${icon} send probe failed [${c.kind}]: ${c.detail}\n` +
+              `   ACTION: ${c.action}`,
           );
         }
       } catch (chatErr) {
+        const c = classifyTelegramError(chatErr);
+        const icon = c.kind === 'network' ? '⚠️' : '❌';
         lines.push(
-          `❌ COMMUNITY_CHAT_ID=${env.COMMUNITY_CHAT_ID} unreachable: ${(chatErr as Error).message}\n` +
-            `   ACTION: verify the id and that the bot was not kicked from the chat.`,
+          `${icon} COMMUNITY_CHAT_ID=${env.COMMUNITY_CHAT_ID} unreachable [${c.kind}]: ${c.detail}\n` +
+            `   ACTION: ${c.action}`,
         );
       }
     } else {
@@ -167,26 +172,53 @@ async function main(): Promise<void> {
     })();
     // Stage 21 — periodic membership sentinel. Telegram doesn't notify the bot
     // when it gets removed from a channel, so we re-probe every 30 minutes and
-    // DM admins the moment the chat becomes unreachable. State machine: only
-    // alert on the OK→broken transition (not on every tick) and on broken→OK
-    // recovery, otherwise admin gets spam.
-    let lastChannelOk = true;
+    // DM admins when the chat is unreachable. State machine guarantees:
+    //   1) Network blips are debounced — need 2 *consecutive* failures (60min span)
+    //      before alerting, so a single Render→Telegram hiccup is silent.
+    //   2) Permission failures (GrammyError 403) alert immediately on the very
+    //      first failure — those don't self-heal and every tick of delay is signal
+    //      loss to the channel.
+    //   3) Recovery DM is only sent if we previously alerted, and it states which
+    //      class recovered, so the operator knows what changed.
+    // History: 2026-05-09 incident — a single transient HttpError fired the alert
+    // with the static "re-add admin" action, sending the operator on a wild goose
+    // chase. Pre-fix code used a boolean and undifferentiated message.
+    let consecutiveFailures = 0;
+    let lastFailureKind: SendFailureKind | null = null;
+    let alertedAt: number | null = null;
     setInterval(async () => {
       if (!env.COMMUNITY_CHAT_ID) return;
       try {
         await bot.api.sendChatAction(env.COMMUNITY_CHAT_ID, 'typing');
-        if (!lastChannelOk) {
-          lastChannelOk = true;
+        const wasAlerted = alertedAt !== null;
+        const recoveredKind = lastFailureKind;
+        consecutiveFailures = 0;
+        lastFailureKind = null;
+        alertedAt = null;
+        if (wasAlerted) {
+          const msg = `✅ community channel send recovered (was: ${recoveredKind ?? 'unknown'})`;
           for (const adminId of adminIdSet) {
-            bot.api
-              .sendMessage(adminId, '✅ community channel send permission restored')
-              .catch(() => undefined);
+            bot.api.sendMessage(adminId, msg).catch(() => undefined);
           }
         }
       } catch (err) {
-        if (lastChannelOk) {
-          lastChannelOk = false;
-          const msg = `🚨 community channel send broken: ${(err as Error).message}\nACTION: re-add @Tradergames_bot as admin with Post Messages right.`;
+        const c = classifyTelegramError(err);
+        consecutiveFailures += 1;
+        lastFailureKind = c.kind;
+        // Permission errors don't self-heal; alert on first hit.
+        // Network/unknown require 2 consecutive failures to debounce blips.
+        const shouldAlert =
+          alertedAt === null &&
+          (c.kind === 'permission' || consecutiveFailures >= 2);
+        if (shouldAlert) {
+          alertedAt = Date.now();
+          const header =
+            c.kind === 'permission'
+              ? '🚨 community channel: PERMISSION LOST'
+              : c.kind === 'network'
+                ? '⚠️ community channel: network unreachable (2 ticks)'
+                : '🚨 community channel: send failing';
+          const msg = `${header}\n${c.detail}\nACTION: ${c.action}`;
           for (const adminId of adminIdSet) {
             bot.api.sendMessage(adminId, msg).catch(() => undefined);
           }
