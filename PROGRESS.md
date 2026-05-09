@@ -30,6 +30,34 @@ _Last updated: 2026-05-10_
 - 코드 fix: `drawdownBrake.ts` 에 `lastTriggerLossExitAt` 추적자 추가. 다음 reconcile 이 같은 손실 묶음을 봐도 더 새 손실이 있을 때만 재발동. 향후 같은 deadlock 재발 방지.
 - 검증: 123/123 tests green · live DB closed=3 (BTC TP1 / SOL SL / ETH TP1) → 연속 손실 0 → 다음 부팅 시 cooldown 0.
 
+**3단 차단 해제: XRP silent skip 가시성**
+
+- 첫 fix 후 3 ticks (17:07 / 17:15 / 17:17 UTC) 모두 BTC/ETH/SOL 만 기록, XRP 누락. fetchMultiTimeframeKlines 가 null 반환 시 cron 이 silent continue → DB row 없음 → 운영자가 "왜 XRP 안 보임?" 알 수 없음.
+- 코드 fix: `bot/src/cron/signalCron.ts` 에 1.5s backoff 1회 retry + 영속 실패 시 audit-only `signal_outcomes` row 기록 (`status=skipped`, rationale 에 "fetchMultiTimeframeKlines returned null after retry").
+- 회귀 테스트: `bot/src/__tests__/drawdownBrake.test.ts` 에 idempotency 테스트 추가 (124/124 green).
+
+**최종 푸시 4 commits** (이번 인시던트):
+- `87a3663` SMA200 starvation fix
+- `7523783` drawdown brake idempotency + migration 16
+- `9c2c3c0` XRP retry + audit-row fallback
+- `dc4da3b` drawdown brake idempotency regression test
+
+**라이브 검증 (17:17 UTC tick — 3rd tick post-fix)**:
+- BTCUSDT direction=long score=53 alignment 3/4 → validator G4 reject (정상 보호: tp2Dist > 12*ATR)
+- ETHUSDT direction=skip — 진짜 0/4 (m15:bull h1:bear h4:bull d1:bear)
+- SOLUSDT direction=skip — divergence bearish on h1/h4 (engine hard-skip)
+- XRPUSDT — fetch null pattern 지속 (audit fix는 다음 deploy로 가시성 확보)
+
+**검증 게이트 (CLAUDE.md §3 준수)**:
+- typecheck OK (web + bot 양쪽)
+- 124/124 tests green
+- 라이브 Binance.US 4종 전부 SMA200 작동
+- 라이브 DB: 4일 silence (5/6→5/9 16:00) 종료 후 ~10분 간격 정상 tick 기록
+- 4번 Render auto-deploy 성공
+
+**Stage 22 정상 cadence (0.2 signals/day) 복귀**.
+
+
 
 ## ⚠️ 실제 프로젝트 위치
 이 폴더는 **모노레포 wrapper**. 실제 작업 디렉토리는 한 단계 아래:
@@ -59,11 +87,11 @@ E:\claude\telegram_game_project\telegram-trading-game\
 ## 마지막 5 commits
 | commit | 내용 |
 |---|---|
-| `87a3663` | fix: bump signal MTF fetch limit so SMA200 survives dropInProgress (Stage 22.1 hotfix) |
+| `dc4da3b` | test: pin drawdown brake idempotency contract |
+| `9c2c3c0` | fix: retry + audit-row when MTF fetch returns null mid-tick (XRP visibility) |
+| `7523783` | fix: unblock drawdown brake stuck on stale pre-Stage-22 losses (migration 16) |
+| `87a3663` | fix: bump signal MTF fetch limit so SMA200 survives dropInProgress (Stage 22.1) |
 | `94df05e` | docs: restore PROGRESS.md handoff index for Stage 22 next session |
-| `0867a8e` | Stage 22: signal pipeline rewrite (PF 0.195→2.17, 21 files) |
-| `0044694` | fix: classify Telegram send errors + debounce sentinel false positives |
-| `05914d7` | fix: bot DMs default to English with ko opt-in |
 
 ## 첫 액션 (다음 세션)
 **작업 디렉토리 이동 필수**:
