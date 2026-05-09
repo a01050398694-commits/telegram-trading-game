@@ -1,6 +1,63 @@
-# PROGRESS
+# PROGRESS — Handoff Index
 
 _Last updated: 2026-05-09_
+
+## ⚠️ 실제 프로젝트 위치
+이 폴더는 **모노레포 wrapper**. 실제 작업 디렉토리는 한 단계 아래:
+
+```
+E:\claude\telegram_game_project\telegram-trading-game\
+```
+
+## 다음 세션이 첫 30초에 읽어야 할 파일 (이 순서)
+
+1. `E:\claude\.claude\CLAUDE.md` — 글로벌 비서실장 지침 (페르소나/스코프/완료기준/라우팅)
+2. `E:\claude\telegram_game_project\telegram-trading-game\CLAUDE.md` — 프로젝트 규칙
+3. `E:\claude\telegram_game_project\telegram-trading-game\PROGRESS.md` — **이번 세션 컨텍스트 (Stage 22 LIVE 인계)**
+4. `E:\claude\telegram_game_project\telegram-trading-game\GOTCHAS.md` — 누적 MUST/MUST NOT (Stage 22 시그널 검증 패턴 추가됨)
+5. `E:\claude\telegram_game_project\telegram-trading-game\docs\specs\SIGNAL_REWRITE_PLAN.md` — Stage 22 마스터 플랜 + Self-Review
+
+## 한 줄 현재 상태 (2026-05-09 종료 시점)
+**Stage 22 LIVE — 시그널 파이프라인 전수 재작성. PF 0.195 → 2.17 (백테스트 60일). 8 hard gates + structure dedup + 정직한 view + /stats 명령. 21 파일 변경, 2 commits 푸시 완료, 회귀 0 (123/123 tests).**
+
+## 인프라 (LIVE)
+- **Bot**: Render `https://telegram-trading-bot-o9r7.onrender.com` (Stage 22 자동 배포 진행 중)
+- **미니앱**: Vercel `https://telegram-trading-game.vercel.app`
+- **DB**: Supabase `jvigsfcrlrmsdbdpnayr` (마이그레이션 15개 적용 — Stage 22 의 15 추가됨, `v_signal_performance_30d` 뷰 신규)
+- **봇**: `@Tradergames_bot`
+- **CEO admin Telegram ID**: `7626898903`
+
+## 마지막 5 commits
+| commit | 내용 |
+|---|---|
+| `0867a8e` | Stage 22: signal pipeline rewrite (PF 0.195→2.17, 21 files) |
+| `0044694` | fix: classify Telegram send errors + debounce sentinel false positives |
+| `05914d7` | fix: bot DMs default to English with ko opt-in |
+| `8410478` | Revert "fix: hide PayPal toggle by default" |
+| `7e4f29d` | fix: hide PayPal toggle by default |
+
+## 첫 액션 (다음 세션)
+**작업 디렉토리 이동 필수**:
+```bash
+cd "E:/claude/telegram_game_project/telegram-trading-game"
+```
+
+이후 위 5개 파일 정독 → CEO 의 다음 지시 대기.
+
+**확인 가능한 라이브 상태** (CEO 가 텔레그램에서 직접):
+- `/diag` → 봇 환경 자가진단 (DRY_RUN false / priceCache 살아있음 / SIGNAL_SYMBOLS)
+- `/stats` → 30일 정직 성과 뷰 (PF / expectancy / true wins/losses)
+- `/signal_now` → admin 강제 tick (validator + dedup 통과해야 broadcast)
+
+## CEO 결정 대기 중인 항목
+1. **Stage 22 라이브 24-48h shadow 결과 검토** — 첫 시그널 나오면 entry/TP 방향 시각 확인
+2. **XRP 양산형 -2.26R / 2 trades** — 영구 제외 vs 더 큰 표본 대기
+3. **SHORT 신호 0건** (60d 표본) — 강세 종속 vs validator 추가 보정
+4. **백테스트 데이터 90→120일 확장** — n>=30 도달 시 Sortino/Calmar 강제 게이트 활성화
+5. **`/stats` 공개 채널 weekly 자동 게시** 여부
+6. **Stage 17 잔여**: CEO 본인 reset / askbit $160K 정리 / 사업자등록 / Cross 진짜 구현 / Stop 별도 진입 UX / 디자인 리프레시 / i18n cleanup / bundle 절감
+
+---
 
 ## Latest Session — 2026-05-09 (Stage 22: Signal Pipeline Rewrite — fake 87.5% WR → real PF 2.17)
 
