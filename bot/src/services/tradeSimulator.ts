@@ -36,6 +36,22 @@ export function simulateTrade(signal: TradeSignal, futureCandles: OhlcCandle[]):
     };
   }
 
+  // Stage 22 — defense-in-depth: refuse to "simulate" a malformed signal.
+  // A LONG with TP at-or-below entry would instantly fire `c.high >= tp` on candle 1
+  // and label "tp hit" with a NEGATIVE pnlR (literal incident 2026-05-06). Validator
+  // catches this upstream now, but if a future engine refactor drops the validator on
+  // any path, this assertion makes the corruption loud instead of silent.
+  if (signal.direction === 'long' && (signal.tp1 <= signal.entry || signal.tp2 <= signal.entry)) {
+    throw new Error(
+      `simulateTrade: malformed long signal — tp1=${signal.tp1} or tp2=${signal.tp2} <= entry=${signal.entry}`,
+    );
+  }
+  if (signal.direction === 'short' && (signal.tp1 >= signal.entry || signal.tp2 >= signal.entry)) {
+    throw new Error(
+      `simulateTrade: malformed short signal — tp1=${signal.tp1} or tp2=${signal.tp2} >= entry=${signal.entry}`,
+    );
+  }
+
   const timeoutAt = signal.entryTime + TIMEOUT_HOURS * 3_600_000;
 
   for (const c of futureCandles) {

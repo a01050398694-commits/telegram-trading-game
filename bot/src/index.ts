@@ -108,6 +108,44 @@ async function main(): Promise<void> {
     await ctx.reply(lines.join('\n'));
   });
 
+  // Stage 22 — honest performance command. Reads v_signal_performance_30d which
+  //   computes profit factor / expectancy / win-rate-honest from realized pnl_r_net
+  //   (NOT from the misleading `hit` label). 30-day rolling window.
+  bot.command('stats', async (ctx) => {
+    if (!isAdminTg(ctx.from?.id)) return;
+    try {
+      const supabase = createSupabase();
+      const { data, error } = await supabase
+        .from('v_signal_performance_30d')
+        .select('*')
+        .single();
+      if (error || !data) {
+        await ctx.reply(`❌ /stats query failed: ${error?.message ?? 'no data'}`);
+        return;
+      }
+      const lines = [
+        '📊 Signal performance — 30 day rolling',
+        '',
+        `Broadcast count:   ${data.broadcast_count ?? 0}`,
+        `Closed:            ${data.total_closed ?? 0}`,
+        `Skipped (engine):  ${data.skipped ?? 0}`,
+        `Deduped:           ${data.deduped ?? 0}`,
+        `Invalid (gates):   ${data.invalid ?? 0}`,
+        '',
+        `Win rate (honest): ${data.win_rate_honest != null ? (Number(data.win_rate_honest) * 100).toFixed(1) + '%' : 'n/a'}`,
+        `Expectancy (R):    ${data.expectancy_r ?? 'n/a'}`,
+        `Profit factor:     ${data.profit_factor ?? 'n/a'}`,
+        `Total realized R:  ${data.total_pnl_r ?? 'n/a'}`,
+        '',
+        `True wins:         ${data.true_wins ?? 0}`,
+        `True losses:       ${data.true_losses ?? 0}`,
+      ];
+      await ctx.reply(lines.join('\n'));
+    } catch (err) {
+      await ctx.reply(`❌ /stats threw: ${(err as Error).message}`);
+    }
+  });
+
   // Stage 21 — boot self-check. Verifies:
   //   1. The community chat is reachable (bot is still a member with send rights).
   //   2. priceCache will populate (binance WS not silently rejected).

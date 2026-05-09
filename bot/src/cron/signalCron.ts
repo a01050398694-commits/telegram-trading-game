@@ -6,6 +6,7 @@ import type { PriceCache } from '../priceCache.js';
 import {
   fetchMultiTimeframeKlines,
   type FuturesSymbol,
+  type MultiTimeframeKlines,
 } from '../services/marketData.js';
 import {
   computeRSI,
@@ -29,7 +30,12 @@ import { getFullMacroSnapshot } from '../services/macroBundle.js';
 import { detectRegime, applyRegimeFilter } from '../services/marketRegime.js';
 import { isInCooldown } from '../services/drawdownBrake.js';
 import { formatTradePlan } from '../services/tradePlan.js';
-import { trackSignalOutcome } from '../services/signalOutcome.js';
+import { trackSignalOutcome, recordNonBroadcast } from '../services/signalOutcome.js';
+// Stage 22 imports — validator + dedup
+import { validateSignal } from '../services/signalValidator.js';
+import { setupHash, checkDuplicate } from '../services/signalDedup.js';
+import { dropInProgress } from '../services/marketData.js';
+import { createSupabase } from '../db/supabase.js';
 
 interface SignalPreset {
   style: SignalStyle;
@@ -51,8 +57,10 @@ function shuffleAndAssign(symbols: readonly string[]): Map<string, SignalPreset>
   return map;
 }
 
-// Stage 20 — env-driven configuration. Default: 3 symbols (BTC/ETH/SOL), 83-min tick,
-// no entry/skip cooldown so every tick fires for every symbol.
+// Stage 22 — env-driven configuration with restored cooldowns + boot-tick gate.
+//   COOLDOWN_MS / SKIP_COOLDOWN_MS were 0 pre-Stage-22 → same setup fired 5× in 2h on
+//   2026-05-06 because Render restarts replayed the boot tick. Restored to 60min/15min;
+//   the DB-backed setupHash check (G5) catches semantic duplicates within 6h regardless.
 const SUPPORTED_SYMBOLS = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT'] as const;
 const SIGNAL_SYMBOLS = (env.SIGNAL_SYMBOLS as readonly string[])
   .map((s) => s.toUpperCase())
@@ -60,13 +68,16 @@ const SIGNAL_SYMBOLS = (env.SIGNAL_SYMBOLS as readonly string[])
     (SUPPORTED_SYMBOLS as readonly string[]).includes(s)
   );
 const DISCLAIMER = '';
-const COOLDOWN_MS = 0;
-const SKIP_COOLDOWN_MS = 0;
+const COOLDOWN_MS = 60 * 60_000;
+const SKIP_COOLDOWN_MS = 15 * 60_000;
 const HOURLY_CAP = 8;
-// Stage 20 — DAILY_CAP raised 50→60: every-83-min × 3 symbols ≈ 51/day, leaves headroom.
 const DAILY_CAP = 60;
 const TICK_INTERVAL_MS = env.SIGNAL_TICK_INTERVAL_MIN * 60_000;
 const SYMBOL_SPACING_MS = 1500;
+// Boot-tick gate: skip the immediate-on-boot tick if any broadcast happened within
+// this window. Why: Render free-plan restart loop pre-Stage-22 fired 5 boot ticks in
+// 3 hours. Even with dedup, this avoids the cost of running buildSignal for nothing.
+const BOOT_TICK_GATE_MS = 30 * 60_000;
 
 /**
  * Compute the full TAIndicators bag from raw OHLC arrays.
@@ -125,6 +136,35 @@ export class SignalCron {
     console.log(
       `[signalCron] start — interval=${TICK_INTERVAL_MS / 60_000}min, dryRun=${env.SIGNAL_CRON_DRY_RUN}`
     );
+    // Stage 22 — boot-tick gate. Render free-plan restart loops would otherwise
+    //   replay the boot tick on every redeploy. If a broadcast happened in the last
+    //   30 minutes, defer to the regular schedule.
+    void this.maybeBootTick();
+  }
+
+  private async maybeBootTick(): Promise<void> {
+    try {
+      const supabase = createSupabase();
+      const { data, error } = await supabase
+        .from('signal_outcomes')
+        .select('broadcast_at')
+        .in('status', ['open', 'closed'])
+        .order('broadcast_at', { ascending: false })
+        .limit(1);
+      if (!error && data && data.length > 0) {
+        const lastTs = new Date(data[0]!.broadcast_at as string).getTime();
+        const ageMs = Date.now() - lastTs;
+        if (ageMs >= 0 && ageMs < BOOT_TICK_GATE_MS) {
+          console.log(
+            `[signalCron] skipping boot tick — last broadcast ${Math.round(ageMs / 60_000)}min ago, < ${BOOT_TICK_GATE_MS / 60_000}min gate`,
+          );
+          this.scheduleNext();
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('[signalCron] boot-tick gate check failed, proceeding:', err instanceof Error ? err.message : err);
+    }
     console.log('[signalCron] firing immediate first tick on boot');
     void this.tick().finally(() => this.scheduleNext());
   }
@@ -203,9 +243,6 @@ export class SignalCron {
           break;
         }
 
-        const lastPosted = this.lastPostedAt.get(symbol) ?? 0;
-        if (Date.now() - lastPosted < COOLDOWN_MS) continue;
-
         const mtf = await fetchMultiTimeframeKlines(symbol as FuturesSymbol);
         if (!mtf) {
           console.warn(`[signalCron] fetchMultiTimeframeKlines null for ${symbol}, skipping`);
@@ -216,10 +253,19 @@ export class SignalCron {
         const lastClose = mtf.h1.closes.at(-1) ?? mtf.d1.closes.at(-1) ?? 0;
         const currentPrice = livePrice ?? lastClose;
 
+        // Stage 22 — closed-candle-only TA. fetchKlines returns the live in-progress
+        //   candle as the last element; we drop it before computing TA so RSI/MACD/
+        //   structure don't repaint as the candle evolves.
+        const closedMtf: MultiTimeframeKlines = {
+          m15: dropInProgress(mtf.m15),
+          h1: dropInProgress(mtf.h1),
+          h4: dropInProgress(mtf.h4),
+          d1: dropInProgress(mtf.d1),
+        };
         const signal = buildSignal({
           symbol: symbol as FuturesSymbol,
           currentPrice,
-          klines: mtf,
+          klines: closedMtf,
         });
 
         // Stage 20 — regime filter (BTC.D + DXY + FGI). Suppress alt-LONG in btc-strong, etc.
@@ -239,13 +285,80 @@ export class SignalCron {
           );
         }
 
+        // Stage 22 — engine produced a skip → record it so operators can see ticks are alive.
         if (signal.direction === 'skip') {
           const lastSkip = this.lastSkipPostedAt.get(symbol) ?? 0;
-          if (Date.now() - lastSkip < SKIP_COOLDOWN_MS) continue;
+          if (Date.now() - lastSkip < SKIP_COOLDOWN_MS) {
+            // even cooldown-suppressed skip is recorded so the audit trail is complete
+            await recordNonBroadcast({
+              signal,
+              status: 'skipped',
+              validationFailedGate: null,
+            }).catch((err) => console.warn('[signalCron] skipped insert err:', err));
+            continue;
+          }
+          await recordNonBroadcast({
+            signal,
+            status: 'skipped',
+            validationFailedGate: null,
+          }).catch((err) => console.warn('[signalCron] skipped insert err:', err));
+          this.lastSkipPostedAt.set(symbol, Date.now());
+          continue;
+        }
+
+        // Stage 22 — validator gate (G1..G7, G9). G5 dedup runs after.
+        const atr1h = computeATR(
+          closedMtf.h1.highs,
+          closedMtf.h1.lows,
+          closedMtf.h1.closes,
+          14,
+        );
+        const validation = validateSignal(signal, { atr1h, macro, now: Date.now() });
+        if (!validation.ok && validation.failure) {
+          signal.rationale.push(`validator: ${validation.failure.gate} — ${validation.failure.reason}`);
+          await recordNonBroadcast({
+            signal,
+            status: 'invalid',
+            validationFailedGate: validation.failure.gate,
+          }).catch((err) => console.warn('[signalCron] invalid insert err:', err));
+          console.log(
+            `[signalCron] ${symbol} ${signal.direction} rejected by ${validation.failure.gate}: ${validation.failure.reason}`,
+          );
+          continue;
+        }
+
+        // Stage 22 — dedup gate (G5).
+        const hash = setupHash(signal);
+        const dup = await checkDuplicate(signal);
+        if (dup.isDuplicate) {
+          signal.rationale.push(
+            `dedup: setup_hash=${hash} matched within ${dup.windowHours}h${dup.matchedAt ? ` (last broadcast ${dup.matchedAt})` : ''}`,
+          );
+          await recordNonBroadcast({
+            signal,
+            status: 'deduped',
+            setupHash: hash,
+            dedupWindowHours: dup.windowHours,
+          }).catch((err) => console.warn('[signalCron] deduped insert err:', err));
+          console.log(`[signalCron] ${symbol} ${signal.direction} deduped: ${hash}`);
+          continue;
+        }
+
+        // Stage 22 — entry cooldown final guard (per-symbol 60min, in addition to dedup hash).
+        const lastPosted = this.lastPostedAt.get(symbol) ?? 0;
+        if (Date.now() - lastPosted < COOLDOWN_MS) {
+          await recordNonBroadcast({
+            signal,
+            status: 'deduped',
+            setupHash: hash,
+            dedupWindowHours: COOLDOWN_MS / 3600_000,
+          }).catch((err) => console.warn('[signalCron] cooldown insert err:', err));
+          console.log(`[signalCron] ${symbol} symbol cooldown active, skipping`);
+          continue;
         }
 
         if (isDryRun) {
-          console.log('[signalCron][DRY]', JSON.stringify(signal));
+          console.log('[signalCron][DRY]', JSON.stringify({ ...signal, setupHash: hash }));
         } else {
           // Stage 20 — env flag drives commentary mode. Default: trade-plan (no AI fluff).
           const useAi = env.SIGNAL_AI_COMMENTARY === 'true';
@@ -268,24 +381,21 @@ export class SignalCron {
               : { reply_markup: kb }
           );
           console.log(
-            `[signalCron] posted ${signal.direction} ${symbol} score=${signal.score} regime=${regime} mode=${useAi ? 'ai' : 'plan'}`
+            `[signalCron] posted ${signal.direction} ${symbol} score=${signal.score} regime=${regime} mode=${useAi ? 'ai' : 'plan'} hash=${hash}`
           );
 
           // Stage 20 — fire-and-forget outcome tracking. Errors logged inside trackSignalOutcome.
-          if (env.SIGNAL_OUTCOME_TRACKING === 'true' && signal.direction !== 'skip') {
+          if (env.SIGNAL_OUTCOME_TRACKING === 'true') {
             void trackSignalOutcome({
               signal,
               entryTime: Date.now(),
               entryPrice: signal.entry,
+              setupHash: hash,
             }).catch((err) => console.error('[signalCron] outcome track error:', err));
           }
         }
 
-        if (signal.direction === 'skip') {
-          this.lastSkipPostedAt.set(symbol, Date.now());
-        } else {
-          this.lastPostedAt.set(symbol, Date.now());
-        }
+        this.lastPostedAt.set(symbol, Date.now());
         this.hourlyCount++;
         this.dailyCount++;
 

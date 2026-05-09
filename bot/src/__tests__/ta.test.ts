@@ -132,10 +132,22 @@ describe('findNearestSupportResistance', () => {
     expect(result.nearestSupport).toBe(95);
   });
 
-  it('falls back when no swing on a side', () => {
+  it('returns null on each side when no swing exists there (Stage 22 — no fabrication)', () => {
     const result = findNearestSupportResistance(100, [], []);
-    expect(result.nearestResistance).toBeGreaterThan(100);
-    expect(result.nearestSupport).toBeLessThan(100);
+    expect(result.nearestResistance).toBeNull();
+    expect(result.nearestSupport).toBeNull();
+  });
+
+  it('returns null for resistance when all swing highs are below current price (breakout territory)', () => {
+    // Regression: 2026-05-06 BTC LONG had entry $81,401 with all swingHighs <= $79,143.
+    // Pre-fix returned $79,143 as "resistance" → tp1 below entry → -EV signal.
+    // Post-fix returns null and signalEngine treats it as a skip.
+    const swingHighs = [
+      { index: 1, value: 79143 },
+      { index: 5, value: 78920 },
+    ];
+    const result = findNearestSupportResistance(81401, swingHighs, []);
+    expect(result.nearestResistance).toBeNull();
   });
 });
 

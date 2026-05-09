@@ -45,6 +45,15 @@ export interface OverallStats {
   totalPnlR: number;
   maxConsecutiveLosses: number;
   maxDrawdownR: number;
+  // Stage 22 — quality metrics matching the SIGNAL_REWRITE_PLAN acceptance gates.
+  // Why: win rate + total R alone hides the 2026-05-06 regime where 87.5% wins
+  //   were mostly tp2-mislabel + small win cancelling huge losses. PF and expectancy
+  //   surface that immediately.
+  profitFactor: number; // sum(wins) / abs(sum(losses)). >1.2 = credible, >1.4 = proud.
+  expectancyR: number; // alias of avgPnlR for naming clarity (avg R per closed trade).
+  sortino: number; // mean / downside-stddev. Penalizes losses, ignores upside vol.
+  calmar: number; // annualized return / max DD. >1.5 = professional.
+  longestLossStreak: number; // alias of maxConsecutiveLosses for naming clarity.
   perSymbol: SymbolStats[];
   perDirection: { long: BucketStats; short: BucketStats };
   perConfidence: Record<string, BucketStats>;
@@ -119,7 +128,50 @@ function computeStreaks(entries: BacktestResult[]): { maxLossStreak: number; max
   return { maxLossStreak, maxDrawdownR: maxDrawdown };
 }
 
-export function computeStatistics(results: BacktestResult[]): OverallStats {
+/**
+ * Profit factor = sum of winning R / |sum of losing R|. Industry threshold:
+ *   <1.0 net negative, 1.0-1.2 weak, 1.2-1.5 credible, >1.5 strong.
+ *   Returns Infinity if no losses exist (all wins) — caller can clamp.
+ */
+function computeProfitFactor(entries: BacktestResult[]): number {
+  let grossWin = 0;
+  let grossLoss = 0;
+  for (const r of entries) {
+    const p = pnlR(r);
+    if (p > 0) grossWin += p;
+    else if (p < 0) grossLoss += Math.abs(p);
+  }
+  if (grossLoss === 0) return grossWin > 0 ? Number.POSITIVE_INFINITY : 0;
+  return grossWin / grossLoss;
+}
+
+/**
+ * Sortino ratio = mean(R) / downside-stddev(R). Penalizes losses, ignores upside vol.
+ * Why: Sharpe over-penalizes large wins. Sortino is the right metric for
+ *   asymmetric strategies (which signal services aspire to be).
+ */
+function computeSortino(entries: BacktestResult[]): number {
+  if (entries.length === 0) return 0;
+  const rs = entries.map(pnlR);
+  const mean = rs.reduce((a, b) => a + b, 0) / rs.length;
+  const downside = rs.filter((r) => r < 0);
+  if (downside.length === 0) return mean > 0 ? Number.POSITIVE_INFINITY : 0;
+  const downsideVar = downside.reduce((s, r) => s + r * r, 0) / downside.length;
+  const downsideStd = Math.sqrt(downsideVar);
+  if (downsideStd === 0) return mean > 0 ? Number.POSITIVE_INFINITY : 0;
+  return mean / downsideStd;
+}
+
+/**
+ * Calmar ratio = annualized R / max drawdown R. Days param normalizes to year.
+ */
+function computeCalmar(totalPnlR: number, maxDrawdownR: number, days: number): number {
+  if (days <= 0 || maxDrawdownR <= 0) return 0;
+  const annualized = (totalPnlR / days) * 365;
+  return annualized / maxDrawdownR;
+}
+
+export function computeStatistics(results: BacktestResult[], days: number = 30): OverallStats {
   const entries = results.filter(isEntry);
   const skips = results.filter((r) => !isEntry(r));
 
@@ -127,6 +179,9 @@ export function computeStatistics(results: BacktestResult[]): OverallStats {
   const totalWins = entries.filter(isWin).length;
   const totalPnlR = entries.reduce((sum, r) => sum + pnlR(r), 0);
   const overallStreaks = computeStreaks(entries);
+  const profitFactor = computeProfitFactor(entries);
+  const sortino = computeSortino(entries);
+  const calmar = computeCalmar(totalPnlR, overallStreaks.maxDrawdownR, days);
 
   const symbolMap = new Map<string, BacktestResult[]>();
   for (const r of results) {
@@ -190,14 +245,20 @@ export function computeStatistics(results: BacktestResult[]): OverallStats {
   for (const k of Object.keys(perConfidence)) bucketFinalize(perConfidence[k]!);
   for (const k of Object.keys(perAlignment)) bucketFinalize(perAlignment[k]!);
 
+  const avgPnlR = safeDiv(totalPnlR, totalEntries);
   return {
     totalEntries,
     totalSkips: skips.length,
     winRate: safeDiv(totalWins, totalEntries),
-    avgPnlR: safeDiv(totalPnlR, totalEntries),
+    avgPnlR,
     totalPnlR,
     maxConsecutiveLosses: overallStreaks.maxLossStreak,
     maxDrawdownR: overallStreaks.maxDrawdownR,
+    profitFactor,
+    expectancyR: avgPnlR,
+    sortino,
+    calmar,
+    longestLossStreak: overallStreaks.maxLossStreak,
     perSymbol,
     perDirection,
     perConfidence,
@@ -213,16 +274,24 @@ function rstr(n: number): string {
   return n >= 0 ? `+${n.toFixed(2)}R` : `${n.toFixed(2)}R`;
 }
 
+function fmtRatio(n: number): string {
+  if (!Number.isFinite(n)) return '∞';
+  return n.toFixed(2);
+}
+
 export function printTable(stats: OverallStats, days: number): void {
   const longCount = stats.perDirection.long.count;
   const shortCount = stats.perDirection.short.count;
-  console.log(`\n=== Stage 19 Backtest — ${days} days ===`);
+  console.log(`\n=== Stage 22 Backtest — ${days} days ===`);
   console.log(`Total signals: ${stats.totalEntries + stats.totalSkips} (long ${longCount}, short ${shortCount}, skip ${stats.totalSkips})`);
   console.log(`Win rate: ${pct(stats.winRate)}`);
-  console.log(`Avg pnl per trade: ${rstr(stats.avgPnlR)}`);
+  console.log(`Expectancy (avg R): ${rstr(stats.expectancyR)}  ← gate ≥ +0.20R`);
+  console.log(`Profit factor:      ${fmtRatio(stats.profitFactor)}  ← gate ≥ 1.20`);
+  console.log(`Sortino:            ${fmtRatio(stats.sortino)}  ← gate ≥ 1.50`);
+  console.log(`Calmar:             ${fmtRatio(stats.calmar)}  ← gate ≥ 1.50`);
   console.log(`Total pnl: ${rstr(stats.totalPnlR)}`);
-  console.log(`Max consecutive losses: ${stats.maxConsecutiveLosses}`);
-  console.log(`Max drawdown: ${rstr(-stats.maxDrawdownR)}`);
+  console.log(`Longest losing streak: ${stats.longestLossStreak}  ← gate ≤ 7`);
+  console.log(`Max drawdown: ${rstr(-stats.maxDrawdownR)}  ← gate ≤ 30R abs`);
 
   console.log('\n=== Per-symbol ===');
   for (const s of stats.perSymbol) {

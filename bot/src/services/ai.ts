@@ -140,8 +140,8 @@ interface SignalCommentaryInput {
     bosDetected: boolean;
   };
   keyLevels?: {
-    nearestResistance: number;
-    nearestSupport: number;
+    nearestResistance: number | null;
+    nearestSupport: number | null;
     pivot: number;
   };
   divergence?: { bullish: boolean; bearish: boolean };

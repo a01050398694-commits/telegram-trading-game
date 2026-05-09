@@ -1,8 +1,61 @@
 # PROGRESS
 
-_Last updated: 2026-05-05_
+_Last updated: 2026-05-09_
 
-## Latest Session — 2026-05-05 (Stage 17 LIVE — Binance Futures 7기능 + Polish + Cleanup)
+## Latest Session — 2026-05-09 (Stage 22: Signal Pipeline Rewrite — fake 87.5% WR → real PF 2.17)
+
+### 결론
+**Pre-Stage-22 라이브 시그널의 -EV (PF 0.195, true WR 25%, total -8.97R) 를 root-cause-fix 후 백테스트 PF 2.17 / expectancy +0.44R / total +5.29R 로 전환. 모든 수용 게이트 통과. 21개 결함 카탈로그 → 13 파일 변경 + 1 migration + 새 view + /stats 명령.**
+
+### 핵심 root cause (incident 2026-05-06)
+`bot/src/lib/ta.ts:447-450` 의 `findNearestSupportResistance` fallback 이 "현재가가 모든 swing high 위에 있을 때" (=clean breakout) 가장 최근 swing high (=현재가 *아래*) 을 resistance 로 반환 → LONG 시 TP1 < entry → 8 시그널 중 5개가 -EV 로 broadcast.
+
+### Stage 22 수정 사항 (1 PR, 6 신규 파일 + 7 수정 + migration 15)
+- **`lib/ta.ts`**: `findNearestSupportResistance` 가 swing 부재 시 `null` 반환 (가짜 fallback 제거)
+- **`services/marketData.ts`**: `dropInProgress(klines)` 헬퍼 — 라이브 in-progress 봉 1개 drop
+- **`services/signalEngine.ts`**: 부호 R:R, null S/R → skip, divergence-vs-direction → hard skip
+- **`services/signalValidator.ts` (NEW)**: 8 게이트 (G1-G7, G9). G1=TP방향, G2=R:R≥1.5, G3=SL>0.75ATR, G4=TP<10ATR, G6=MTF≥3/4, G7=발산반대차단, G9=FOMC/CPI/주말/BTC.D>65 정지
+- **`services/signalDedup.ts` (NEW)**: structure-based 해시 (`SYM|DIR|swingHigh|swingLow`) + 6h 윈도우
+- **`services/eventCalendar.ts` (NEW)**: 2026 FOMC/CPI 일정 하드코딩 + 주말 윈도우
+- **`services/signalOutcome.ts`**: `recordNonBroadcast` 신설 → skipped/deduped/invalid 도 DB 영속
+- **`services/tradeSimulator.ts`**: TP < entry (long) 진입 시 throw (defense-in-depth)
+- **`cron/signalCron.ts`**: validator + dedup + cooldowns 복원 (60min/15min) + boot-tick DB gate (30min)
+- **`migrations/15_signal_outcomes_status_expand.sql`**: status enum 확장 + setup_hash 컬럼 + `v_signal_performance_30d` 뷰 + 8개 잘못된 라벨 백필
+- **`bot/src/index.ts`**: `/stats` admin 커맨드 (정직한 30d 성과 view 조회)
+- **테스트**: 38개 신규 (validator 25 + dedup 8 + ta 2 + 기존 보정) — 총 123개 grren
+
+### 백테스트 (60일 시뮬, BTC/ETH/SOL/XRP, 1h tick)
+| 지표 | Before live | After backtest |
+|---|---|---|
+| Profit factor | 0.195 | **2.17** |
+| Expectancy R | -1.12 | **+0.44** |
+| Win rate (정직) | 25% | **66.7%** |
+| Total R | -8.97 | **+5.29** |
+| Max drawdown | n/a | 2.89R |
+| Loss streak | n/a | 2 |
+| TP-below-entry | 5/8 | **0** |
+
+### Iteration log
+- **iter1** G6=3/4 → 12 entries, PF 2.16 ✅
+- **iter2** G6=2/4 (loosened) → 81 entries, PF 0.53, total -27.96R ❌
+- **iter3** G6=3/4 (revert) → 동일 12 entries, 모든 적용 게이트 통과 ✅
+
+품질 > 양: G6 완화로 신호 빈도 7배 늘렸더니 quality collapse. 0.2/day cadence는 "프로 표준 (Cornix-style)" 으로 수용.
+
+### 인프라 (변동)
+- **DB**: Supabase 마이그레이션 15 추가 (`signal_outcomes` status expand + setup_hash + view)
+- **/stats 명령**: 어드민 DM `/stats` → `v_signal_performance_30d` 30일 롤링 뷰 응답
+
+### CEO 결정 대기 (다음 세션)
+1. 라이브 24h shadow 모니터링 결과 검토 (signalCron 첫 실행 결과)
+2. XRP 양산형 -2.26R/2 trades — 영구 제외 vs 더 큰 표본 대기
+3. SHORT 신호 0건 (60d 표본) — 강세장 종속 vs validator 개선 필요
+4. 90일 데이터 → 120일 확장 (n>=30 도달 위해 simulation 기간 늘릴지)
+5. /stats 공개 채널 weekly 자동 게시 여부
+
+---
+
+## Previous Session — 2026-05-05 (Stage 17 LIVE — Binance Futures 7기능 + Polish + Cleanup)
 
 ### 결론
 **Stage 17 마스터 플랜 (Phase F → G → H) 완전 자동 실행 → 5 commits LIVE → CEO 손 0번. 7 기능 (Limit / SL·TP / OpenOrders / OrderHistory / 부분청산 / Cross·Isolated 토글 / 6 timeframe + MA20·Volume + 10단 호가 + 큰체결 강조) 모두 작동. 회귀 0.**

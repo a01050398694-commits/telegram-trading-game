@@ -19,8 +19,11 @@ import {
 } from '../lib/ta.js';
 import type { FuturesSymbol, KlineSeries, MultiTimeframeKlines } from './marketData.js';
 
-// Stage 19 — R:R Hardening
-// Why: live 03:03 BTC LONG R:R 0.14 — TP too close, SL too far. Gate blocks unprofitable signals.
+// Stage 19/22 — R:R Hardening with signed math.
+// Why: prior gate used Math.abs(tp - entry) so a LONG with tp BELOW entry passed the gate
+//   with a positive R:R value. The 5/8 broken signals on 2026-05-06 all had rr1=2.0+ recorded
+//   while pnlR was -1.9. Stage 22 uses signed deltas — wrong-direction TPs now produce a
+//   negative R:R and are rejected by the engine immediately (not just by the validator).
 const MIN_TP1_RR_RATIO = 1.0;
 const MIN_TP2_RR_RATIO = 1.5;
 const MAX_SL_ATR_MULT = 2.5;
@@ -66,8 +69,8 @@ export interface SignalStructure {
 }
 
 export interface SignalKeyLevels {
-  nearestResistance: number;
-  nearestSupport: number;
+  nearestResistance: number | null;
+  nearestSupport: number | null;
   pivot: number;
 }
 
@@ -144,10 +147,19 @@ function pickDominant(trends: TFTrend[]): { dominant: 'bullish' | 'bearish' | nu
 export function buildSignal(input: BuildSignalInput): Signal {
   const { symbol, currentPrice, klines } = input;
 
-  const tfM15 = evaluateTimeframe(klines.m15);
-  const tfH1 = evaluateTimeframe(klines.h1);
-  const tfH4 = evaluateTimeframe(klines.h4);
-  const tfD1 = evaluateTimeframe(klines.d1);
+  // Stage 22 — buildSignal assumes klines contain only CLOSED candles. The live signalCron
+  //   runs marketData.dropInProgress() before calling here; backtest already slices to
+  //   closed bars. Doing it again inside buildSignal would silently drop real data
+  //   from backtest and made every signal skip during the first iteration. Caller's job.
+  const m15Closed = klines.m15;
+  const h1Closed = klines.h1;
+  const h4Closed = klines.h4;
+  const d1Closed = klines.d1;
+
+  const tfM15 = evaluateTimeframe(m15Closed);
+  const tfH1 = evaluateTimeframe(h1Closed);
+  const tfH4 = evaluateTimeframe(h4Closed);
+  const tfD1 = evaluateTimeframe(d1Closed);
 
   const trends: TFTrend[] = [tfM15.trend, tfH1.trend, tfH4.trend, tfD1.trend];
   const { dominant, count } = pickDominant(trends);
@@ -199,8 +211,8 @@ export function buildSignal(input: BuildSignalInput): Signal {
 
   // e. Volume (10 max) — 1h volume confirms move direction.
   const volumeConfirm = detectVolumeConfirmation(
-    klines.h1.closes,
-    klines.h1.volumes,
+    h1Closed.closes,
+    h1Closed.volumes,
     intent ?? 'skip'
   );
   let volumePoints = 0;
@@ -208,17 +220,17 @@ export function buildSignal(input: BuildSignalInput): Signal {
   else if (volumeConfirm === 'weak') volumePoints = 5;
 
   // f. Key level proximity (5 max) — price near major S/R aligning with direction.
-  const swings4h = detectSwingHighsLows(klines.h4.highs, klines.h4.lows);
+  const swings4h = detectSwingHighsLows(h4Closed.highs, h4Closed.lows);
   const keyLevels = findNearestSupportResistance(
     currentPrice,
     swings4h.swingHighs,
     swings4h.swingLows
   );
   let keyLevelPoints = 0;
-  if (dominant === 'bullish' && currentPrice > 0) {
+  if (dominant === 'bullish' && currentPrice > 0 && keyLevels.nearestSupport !== null) {
     const distSupport = (currentPrice - keyLevels.nearestSupport) / currentPrice;
     if (distSupport >= 0 && distSupport < 0.02) keyLevelPoints = 5;
-  } else if (dominant === 'bearish' && currentPrice > 0) {
+  } else if (dominant === 'bearish' && currentPrice > 0 && keyLevels.nearestResistance !== null) {
     const distResistance = (keyLevels.nearestResistance - currentPrice) / currentPrice;
     if (distResistance >= 0 && distResistance < 0.02) keyLevelPoints = 5;
   }
@@ -241,6 +253,19 @@ export function buildSignal(input: BuildSignalInput): Signal {
     direction = 'skip';
   }
 
+  // Stage 22 — divergence-vs-direction hard skip.
+  // Why: bearish divergence on h1 or h4 + LONG entry is contraindicated by every TA
+  //   playbook we surveyed (Cornix, Signal Pilot, Freqtrade). Pre-fix, 5/8 broadcast
+  //   signals had "divergence bearish on h1/h4" in rationale yet still fired LONG —
+  //   "no points awarded" is not enough; the conflict must be a hard skip.
+  const divH1 = tfH1.divergence;
+  const divH4 = tfH4.divergence;
+  if (direction === 'long' && (divH1.bearish || divH4.bearish)) {
+    direction = 'skip';
+  } else if (direction === 'short' && (divH1.bullish || divH4.bullish)) {
+    direction = 'skip';
+  }
+
   // Confidence tiers — Stage 20: Stage 19 backtest produced only 2 high-confidence signals
   //   under the old 75/55/30 thresholds. Loosened to 65/45/30 so 'high' becomes meaningfully populated.
   let confidence: Confidence;
@@ -250,11 +275,11 @@ export function buildSignal(input: BuildSignalInput): Signal {
   else confidence = 'none';
 
   // Daily pivot from the most recently closed day candle.
-  const dHighs = klines.d1.highs;
-  const dLows = klines.d1.lows;
-  const dCloses = klines.d1.closes;
+  const dHighs = d1Closed.highs;
+  const dLows = d1Closed.lows;
+  const dCloses = d1Closed.closes;
   let pivot = currentPrice;
-  const lastDayIdx = dHighs.length - 2;
+  const lastDayIdx = dHighs.length - 1;
   if (
     lastDayIdx >= 0 &&
     dHighs[lastDayIdx] != null &&
@@ -266,39 +291,57 @@ export function buildSignal(input: BuildSignalInput): Signal {
   }
 
   // ATR-based volatility for leverage cap.
-  const atr1h = computeATR(klines.h1.highs, klines.h1.lows, klines.h1.closes, 14);
+  const atr1h = computeATR(h1Closed.highs, h1Closed.lows, h1Closed.closes, 14);
   const atrPct = atr1h != null && currentPrice > 0 ? (atr1h / currentPrice) * 100 : 1.5;
 
   // Entry/SL/TP — based on H4 swings + nearest key levels.
+  // Stage 22 — null S/R (price in clean breakout territory) → skip with rationale.
+  //   The pre-Stage-22 fallback fabricated a level on the wrong side of price; that was
+  //   the literal root cause of the 2026-05-06 BTC LONG-with-TP-below-entry incident.
+  //   No fabrication — if there is no overhead resistance, we don't pretend there is.
   const recentSwingHigh = tfH4.structure.recentSwingHigh;
   const recentSwingLow = tfH4.structure.recentSwingLow;
   let entry = 0;
   let stopLoss = 0;
   let tp1 = 0;
   let tp2 = 0;
+  let breakoutSkip = false;
   if (direction === 'long') {
-    entry = currentPrice;
-    stopLoss = recentSwingLow * 0.997;
-    tp1 = keyLevels.nearestResistance;
-    const deeperResistances = swings4h.swingHighs
-      .map((s) => s.value)
-      .filter((v) => v > tp1)
-      .sort((a, b) => a - b);
-    tp2 = deeperResistances[0] ?? tp1 * 1.03;
+    if (keyLevels.nearestResistance === null || recentSwingLow <= 0) {
+      breakoutSkip = true;
+    } else {
+      entry = currentPrice;
+      stopLoss = recentSwingLow * 0.997;
+      tp1 = keyLevels.nearestResistance;
+      const deeperResistances = swings4h.swingHighs
+        .map((s) => s.value)
+        .filter((v) => v > tp1)
+        .sort((a, b) => a - b);
+      tp2 = deeperResistances[0] ?? tp1 * 1.03;
+    }
   } else if (direction === 'short') {
-    entry = currentPrice;
-    stopLoss = recentSwingHigh * 1.003;
-    tp1 = keyLevels.nearestSupport;
-    const deeperSupports = swings4h.swingLows
-      .map((s) => s.value)
-      .filter((v) => v < tp1)
-      .sort((a, b) => b - a);
-    tp2 = deeperSupports[0] ?? tp1 * 0.97;
+    if (keyLevels.nearestSupport === null || recentSwingHigh <= 0) {
+      breakoutSkip = true;
+    } else {
+      entry = currentPrice;
+      stopLoss = recentSwingHigh * 1.003;
+      tp1 = keyLevels.nearestSupport;
+      const deeperSupports = swings4h.swingLows
+        .map((s) => s.value)
+        .filter((v) => v < tp1)
+        .sort((a, b) => b - a);
+      tp2 = deeperSupports[0] ?? tp1 * 0.97;
+    }
+  }
+  if (breakoutSkip) {
+    direction = 'skip';
   }
 
-  // Stage 19 R:R Hardening — SL distance cap + R:R Gate.
+  // Stage 19/22 R:R Hardening — SL distance cap + signed R:R gate.
   // Why: H4 swings are sometimes very far (BTC 78k entry, swing-low 74.6k → SL -4.7%, TP +0.7%).
-  //   Cap SL at ATR×2.5 (or 2.5% if ATR missing), then reject any signal where TP is too close.
+  //   Cap SL at ATR×2.5 (or 2.5% if ATR missing). The R:R gate uses SIGNED deltas — wrong-direction
+  //   TP produces a NEGATIVE rr value, so the < MIN_RR_RATIO check naturally fails. Pre-Stage-22
+  //   used Math.abs which masked direction bugs.
   let rrTp1 = 0;
   let rrTp2 = 0;
   if (direction === 'long' || direction === 'short') {
@@ -315,8 +358,13 @@ export function buildSignal(input: BuildSignalInput): Signal {
 
     const finalSlDistance = Math.abs(entry - stopLoss);
     if (finalSlDistance > 0) {
-      rrTp1 = Math.abs(tp1 - entry) / finalSlDistance;
-      rrTp2 = Math.abs(tp2 - entry) / finalSlDistance;
+      // Signed R:R — positive means TP is in the profitable direction.
+      rrTp1 = direction === 'long'
+        ? (tp1 - entry) / finalSlDistance
+        : (entry - tp1) / finalSlDistance;
+      rrTp2 = direction === 'long'
+        ? (tp2 - entry) / finalSlDistance
+        : (entry - tp2) / finalSlDistance;
     }
 
     if (rrTp1 < MIN_TP1_RR_RATIO || rrTp2 < MIN_TP2_RR_RATIO) {
@@ -361,9 +409,14 @@ export function buildSignal(input: BuildSignalInput): Signal {
   if (divDir) {
     rationale.push(`divergence ${divDir} on h1/h4`);
   }
+  const supportStr = keyLevels.nearestSupport !== null ? keyLevels.nearestSupport.toFixed(2) : 'none';
+  const resistStr = keyLevels.nearestResistance !== null ? keyLevels.nearestResistance.toFixed(2) : 'none';
   rationale.push(
-    `keyLevels nearestSupport=${keyLevels.nearestSupport.toFixed(2)}, nearestResistance=${keyLevels.nearestResistance.toFixed(2)}, pivot=${pivot.toFixed(2)}`
+    `keyLevels nearestSupport=${supportStr}, nearestResistance=${resistStr}, pivot=${pivot.toFixed(2)}`
   );
+  if (breakoutSkip) {
+    rationale.push('breakoutSkip: no overhead resistance / underlying support — clean breakout territory, deferring entry');
+  }
   rationale.push(`volume ${volumeConfirm}`);
 
   // Stage 19 — R:R evidence layer (always recorded, even on skip — explains WHY skipping).

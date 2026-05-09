@@ -14,6 +14,25 @@ export interface KlineSeries {
   volumes: number[];
 }
 
+/**
+ * Stage 22 — drop the trailing in-progress candle from a kline series.
+ * Why: Binance returns the live (still-forming) candle as the last element. Computing
+ *   RSI / MACD / structure on it introduces lookahead bias — the indicator value can
+ *   change as the candle's high/low/close evolve until the candle closes. Pro signal
+ *   pipelines compute TA only on closed bars and validate on the bar AFTER signal-fire.
+ *   Backtest already does this implicitly because historical fetches return only closed
+ *   bars; live path needs the explicit drop.
+ */
+export function dropInProgress(series: KlineSeries): KlineSeries {
+  if (series.closes.length === 0) return series;
+  return {
+    closes: series.closes.slice(0, -1),
+    highs: series.highs.slice(0, -1),
+    lows: series.lows.slice(0, -1),
+    volumes: series.volumes.slice(0, -1),
+  };
+}
+
 export interface MultiTimeframeKlines {
   m15: KlineSeries;
   h1: KlineSeries;

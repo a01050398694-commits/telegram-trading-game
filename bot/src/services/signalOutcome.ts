@@ -9,6 +9,7 @@ import { fetchKlinesWithTime, type FuturesSymbol } from './marketData.js';
 import { simulateTrade, type TradeSignal, type TradeOutcome } from './tradeSimulator.js';
 import { recordOutcome as recordToBrake } from './drawdownBrake.js';
 import type { Signal } from './signalEngine.js';
+import type { GateId } from './signalValidator.js';
 
 const supabase = createSupabase();
 
@@ -18,7 +19,7 @@ const MAX_DURATION_MS = 48 * 3_600_000;
 // Why: Binance taker fee 0.04% × 2 sides + 0.05% × 2 slippage ≈ 0.18% round trip.
 //   Translated to R-multiple as a flat 0.13R deduction (rough but conservative average across
 //   typical 1-3% SL distances).
-const FEE_R_DEDUCTION = 0.13;
+export const FEE_R_DEDUCTION = 0.13;
 
 let insertFailureCount = 0;
 
@@ -30,10 +31,50 @@ interface OutcomeContext {
   signal: Signal;
   entryTime: number;
   entryPrice: number;
+  setupHash?: string;
+}
+
+// Stage 22 — record a non-broadcast outcome (skipped / deduped / invalid).
+//   Why: 96% of pre-Stage-22 ticks were invisible because only broadcast outcomes hit
+//   the DB. This blinded operators to whether the cron was healthy or dead. Now every
+//   tick produces exactly one row (broadcast OR skipped/deduped/invalid).
+export interface NonBroadcastRecord {
+  signal: Signal;
+  status: 'skipped' | 'deduped' | 'invalid';
+  validationFailedGate?: GateId | null;
+  setupHash?: string | null;
+  dedupWindowHours?: number | null;
+  broadcastAt?: number;
+}
+
+export async function recordNonBroadcast(rec: NonBroadcastRecord): Promise<void> {
+  const ts = rec.broadcastAt ?? Date.now();
+  const isBroadcastClassPrice = false; // these statuses don't have a real broadcast price
+  const { error } = await supabase.from('signal_outcomes').insert({
+    symbol: rec.signal.symbol,
+    direction: rec.signal.direction,
+    entry_price: rec.signal.entry > 0 ? rec.signal.entry : null,
+    sl_price: isBroadcastClassPrice ? rec.signal.stopLoss : null,
+    tp1_price: isBroadcastClassPrice ? rec.signal.tp1 : null,
+    tp2_price: isBroadcastClassPrice ? rec.signal.tp2 : null,
+    leverage: rec.signal.leverage,
+    confidence: rec.signal.confidence,
+    score: rec.signal.score,
+    rationale: rec.signal.rationale,
+    broadcast_at: new Date(ts).toISOString(),
+    status: rec.status,
+    setup_hash: rec.setupHash ?? null,
+    validation_failed_gate: rec.validationFailedGate ?? null,
+    dedup_window_hours: rec.dedupWindowHours ?? null,
+  });
+  if (error) {
+    console.warn(`[signalOutcome] non-broadcast insert (${rec.status}) failed:`, error.message);
+    insertFailureCount++;
+  }
 }
 
 export async function trackSignalOutcome(ctx: OutcomeContext): Promise<void> {
-  const { signal, entryTime, entryPrice } = ctx;
+  const { signal, entryTime, entryPrice, setupHash } = ctx;
   if (signal.direction === 'skip') return;
 
   const insertResult = await supabase
@@ -51,6 +92,7 @@ export async function trackSignalOutcome(ctx: OutcomeContext): Promise<void> {
       rationale: signal.rationale,
       broadcast_at: new Date(entryTime).toISOString(),
       status: 'open',
+      setup_hash: setupHash ?? null,
     })
     .select('id')
     .single();

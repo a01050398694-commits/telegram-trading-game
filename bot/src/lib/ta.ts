@@ -255,9 +255,15 @@ export interface MarketStructure {
   bosDetected: boolean;
 }
 
+// Stage 22 — null indicates "no level on the relevant side of price".
+// Why: pre-Stage-22 fallback returned the last known swing in absolute terms even when
+//   currentPrice was already above (long-side) or below (short-side) all swings. That
+//   produced LONG signals with TP < entry when price was in clean breakout territory.
+//   Returning null forces the signal engine to mark such candidates as 'skip' with a
+//   rationale, instead of inventing a meaningless level.
 export interface KeyLevels {
-  nearestResistance: number;
-  nearestSupport: number;
+  nearestResistance: number | null;
+  nearestSupport: number | null;
 }
 
 /**
@@ -422,35 +428,30 @@ export function detectRSIDivergence(
 }
 
 /**
- * Closest swing high above price (resistance) and closest swing low below price (support).
- * Falls back to extreme swing if no swing on the relevant side.
+ * Closest swing high *above* current price (resistance) and closest swing low *below*
+ * current price (support). Returns null when no qualifying swing exists on the relevant
+ * side — caller treats null as "no level found, breakout/breakdown territory".
+ *
+ * Why: prior version fell back to the last absolute swing even when it was on the wrong
+ * side of price, producing LONG signals with tp1 < entry. See incident 2026-05-06.
  */
 export function findNearestSupportResistance(
   currentPrice: number,
   swingHighs: SwingPoint[],
   swingLows: SwingPoint[]
 ): KeyLevels {
-  let nearestResistance = Infinity;
-  let nearestSupport = 0;
+  let nearestResistance: number | null = null;
+  let nearestSupport: number | null = null;
 
   for (const h of swingHighs) {
-    if (h.value > currentPrice && h.value < nearestResistance) {
+    if (h.value > currentPrice && (nearestResistance === null || h.value < nearestResistance)) {
       nearestResistance = h.value;
     }
   }
   for (const l of swingLows) {
-    if (l.value < currentPrice && l.value > nearestSupport) {
+    if (l.value < currentPrice && (nearestSupport === null || l.value > nearestSupport)) {
       nearestSupport = l.value;
     }
-  }
-
-  if (!Number.isFinite(nearestResistance)) {
-    nearestResistance =
-      swingHighs.length > 0 ? swingHighs[swingHighs.length - 1]!.value : currentPrice * 1.05;
-  }
-  if (nearestSupport === 0) {
-    nearestSupport =
-      swingLows.length > 0 ? swingLows[swingLows.length - 1]!.value : currentPrice * 0.95;
   }
 
   return { nearestResistance, nearestSupport };
