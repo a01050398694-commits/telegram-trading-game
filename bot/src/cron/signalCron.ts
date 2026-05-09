@@ -243,9 +243,46 @@ export class SignalCron {
           break;
         }
 
-        const mtf = await fetchMultiTimeframeKlines(symbol as FuturesSymbol);
+        // Why: XRPUSDT specifically went missing across 4 consecutive ticks on
+        //   2026-05-09 — Binance.US occasionally returns transient errors for that
+        //   symbol from Render's Oregon IP. Without a retry the symbol is invisible
+        //   for hours; without a DB-row fallback there's no audit trail. One retry
+        //   after a 1.5s backoff catches the common case; on persistent failure we
+        //   still emit an "audit-only" signal_outcomes row so operators can see WHY
+        //   that symbol is silent.
+        let mtf = await fetchMultiTimeframeKlines(symbol as FuturesSymbol);
         if (!mtf) {
-          console.warn(`[signalCron] fetchMultiTimeframeKlines null for ${symbol}, skipping`);
+          console.warn(`[signalCron] fetchMultiTimeframeKlines null for ${symbol}, retrying once after 1.5s`);
+          await new Promise((r) => setTimeout(r, 1500));
+          mtf = await fetchMultiTimeframeKlines(symbol as FuturesSymbol);
+        }
+        if (!mtf) {
+          console.warn(`[signalCron] fetchMultiTimeframeKlines persistently null for ${symbol}, recording audit row and skipping`);
+          // Audit-only row so the missing symbol is visible in /stats and signal_outcomes.
+          //   Uses the existing 'skipped' status + a rationale that makes the cause
+          //   greppable. No price fields, no setup hash — just the trace.
+          await recordNonBroadcast({
+            signal: {
+              symbol: symbol as FuturesSymbol,
+              direction: 'skip',
+              score: 0,
+              confidence: 'none',
+              currentPrice: 0,
+              entry: 0,
+              stopLoss: 0,
+              tp1: 0,
+              tp2: 0,
+              leverage: 0,
+              rationale: [`fetchMultiTimeframeKlines returned null after retry (Binance.US transient or rate-limited for ${symbol})`],
+              multiTimeframeAlignment: { m15: 'neutral', h1: 'neutral', h4: 'neutral', d1: 'neutral', alignmentScore: 0 },
+              structure: { trend: 'ranging', recentSwingHigh: 0, recentSwingLow: 0, bosDetected: false },
+              keyLevels: { nearestResistance: null, nearestSupport: null, pivot: 0 },
+              divergence: { bullish: false, bearish: false },
+              volumeConfirmation: 'none',
+            },
+            status: 'skipped',
+            validationFailedGate: null,
+          }).catch((err) => console.warn('[signalCron] fetch-null audit insert err:', err));
           continue;
         }
 
