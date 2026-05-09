@@ -1,6 +1,35 @@
 # PROGRESS — Handoff Index
 
-_Last updated: 2026-05-09_
+_Last updated: 2026-05-10_
+
+## 🔥 2026-05-10 — Stage 22.1 hotfix: signal pipeline 2단 차단 해제
+
+**Stage 22.1 hotfix: signal pipeline data starvation**
+
+
+**Problem (autonomous CEO escalation)**: 시그널방에 신호 안 들어옴. DB 뒤져보니 2026-05-06 이후 `closed`/`open` 상태 row 0건. 같은 기간 `skipped` 상태로 `alignment 0/4 (모든 TF=neutral)` row만 12건. 4일 이상 broadcast 0.
+
+**Root cause**: Stage 22 의 `dropInProgress()` 가 200-bar fetch 의 마지막 in-progress 캔들을 떨어뜨리면 199 closed bar 남음. `computeSMA(closes, 200)` 은 `closes.length >= 200` 요구 → 항상 `null`. 모든 TF trend `neutral` → `pickDominant`=null → `direction='skip'` 강제 → broadcast 0. cron 자체는 살아있어서 silent.
+
+**Fix (commit `87a3663`)**:
+- `bot/src/services/marketData.ts` — `MTF_FETCH_LIMIT=250` 신규 상수, `fetchMultiTimeframeKlines` 가 4 TF 모두 250 봉 패치 (=> drop 후 249 closed, SMA200 항상 작동)
+- `bot/src/cron/signalCron.ts` — `closed-bar starvation` warning: 만약 향후 다시 200 미만이 되면 Render 로그에 큰 글씨 경고
+- `bot/scripts/verify-signal-fix.ts` — 라이브 Binance.US 검증 하네스 (실 사용: `npx tsx bot/scripts/verify-signal-fix.ts`)
+- `GOTCHAS.md` — Stage 22.1 MUST/MUST NOT 추가 (TA window + 1 미만으로 fetch 금지)
+
+**검증**:
+- typecheck OK · 123/123 tests green
+- 라이브 실 데이터: BTC/ETH/SOL/XRP 4종 모두 closed bar 249개, SMA200 not-null 확인
+- BTCUSDT 첫 LONG 신호 score=48 medium 생성 확인 (skip 아님)
+- Render 자동 배포 트리거됨 (push 87a3663 → main)
+
+**2단 차단 해제: drawdownBrake 무한 cooldown 루프**
+
+- 첫 deploy 후 16:55 UTC tick: BTC alignment 3/4, R:R OK 였으나 `drawdown brake: cooldown until 20:55Z` 로 강제 skip → `bot/src/services/drawdownBrake.ts` 가 매 reconcile (10분) 마다 동일한 5건의 broken pre-Stage-22 BTC 손실 (2026-05-06 SL 5연속) 을 발견 → `cooldownUntil` 을 "now+4h" 로 무한 재설정. 4시간 흘러도 재발동 → 영구 LOCK.
+- 데이터 fix: `supabase/migrations/16_drawdown_brake_unblock.sql` — 5개 broken BTC 신호의 status를 `invalid` (`validation_failed_gate='G1_TP_DIRECTION_LEGACY'`) 로 백필. v_signal_performance_30d 에서도 자동 제외됨 (`status='closed'` 만 집계).
+- 코드 fix: `drawdownBrake.ts` 에 `lastTriggerLossExitAt` 추적자 추가. 다음 reconcile 이 같은 손실 묶음을 봐도 더 새 손실이 있을 때만 재발동. 향후 같은 deadlock 재발 방지.
+- 검증: 123/123 tests green · live DB closed=3 (BTC TP1 / SOL SL / ETH TP1) → 연속 손실 0 → 다음 부팅 시 cooldown 0.
+
 
 ## ⚠️ 실제 프로젝트 위치
 이 폴더는 **모노레포 wrapper**. 실제 작업 디렉토리는 한 단계 아래:
@@ -30,11 +59,11 @@ E:\claude\telegram_game_project\telegram-trading-game\
 ## 마지막 5 commits
 | commit | 내용 |
 |---|---|
+| `87a3663` | fix: bump signal MTF fetch limit so SMA200 survives dropInProgress (Stage 22.1 hotfix) |
+| `94df05e` | docs: restore PROGRESS.md handoff index for Stage 22 next session |
 | `0867a8e` | Stage 22: signal pipeline rewrite (PF 0.195→2.17, 21 files) |
 | `0044694` | fix: classify Telegram send errors + debounce sentinel false positives |
 | `05914d7` | fix: bot DMs default to English with ko opt-in |
-| `8410478` | Revert "fix: hide PayPal toggle by default" |
-| `7e4f29d` | fix: hide PayPal toggle by default |
 
 ## 첫 액션 (다음 세션)
 **작업 디렉토리 이동 필수**:
