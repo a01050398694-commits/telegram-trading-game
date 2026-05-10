@@ -2,6 +2,21 @@
 
 누적되는 MUST / MUST NOT 규칙. 실수 반복 방지.
 
+## Stage 22.1 Production Tuning — Live Broadcast Restored (2026-05-10)
+
+### Why
+After the SMA200 starvation root-cause fix, the engine produced real BTC LONG candidates every tick — but THREE Stage 22 gates that were valid in backtest blocked them in the actual 2026-05-10 regime (low ATR, weekend, weak volume). Pipeline alive, broadcasts still 0. This section records the gate retunings.
+
+### MUST
+- **MUST** keep engine `TP2_ATR_CEILING_MULT` strictly under validator `TP2_CEILING_ATR_MULT` (currently 8 < 15). The engine should never ask the validator to admit a target it would reject on G4 grounds — that produced the entire 2026-05-09 / 2026-05-10 broadcast drought after SMA200 was fixed.
+- **MUST** weight G6 volume vote (`confirmed=1.0 / weak=0.5 / none=0`) with `MIN_MTF_CONFLUENCE=2.5`. The binary `confirmed-only` vote at threshold 3 was BLOCKING every alignment-3-trend setup whenever volume was weak. iter2 catastrophe (2 trends + zero volume, PF 0.53) is still rejected at 2.0 < 2.5.
+- **MUST** keep `SIGNAL_BLOCK_WEEKEND` env-gated and default OFF for retail crypto. Crypto liquidity Sat = 60-80% of weekday on Binance, and the audience IS most engaged on weekends. Stage 22's institutional-FX-borrowed weekend block was wrong for this product.
+
+### MUST NOT
+- **MUST NOT** raise `MIN_MTF_CONFLUENCE` back to integer 3 with the binary vote — that re-creates the live blackout pattern in any low-volume regime.
+- **MUST NOT** pin G4 ceilings back to 10/12 ATR. They were sized for the higher-ATR Stage 22 backtest era; in regime-compressed periods (live ATR_1h ~206 vs backtest ~380) the swing-based TP1=nearestResistance starts failing 10*ATR by tens of dollars and signals never broadcast. 12/15 still rejects "absurd" targets while letting normal swing-trade R:R structure through.
+- **MUST NOT** re-enable weekend block without explicit operator decision. Set `SIGNAL_BLOCK_WEEKEND=true` env if product targeting changes (e.g., institutional desks, US retail M-F focus).
+
 ## Stage 22.1 Signal Pipeline Data Starvation (2026-05-10 incident)
 
 ### MUST

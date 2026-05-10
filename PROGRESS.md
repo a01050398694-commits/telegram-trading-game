@@ -57,6 +57,43 @@ _Last updated: 2026-05-10_
 
 **Stage 22 정상 cadence (0.2 signals/day) 복귀**.
 
+---
+
+**4단 차단 해제: Live broadcast 실제 송출 (2026-05-10 12:31 KST)**
+
+CEO 재보고: "아직도 작동제대로 안함". root-cause SMA200 fix + drawdown brake unblock 후에도 broadcast 0건이 지속됨. 분석 결과 Stage 22의 3개 gate가 현재 라이브 regime에서 모든 후보를 차단하고 있었음:
+
+- **G4 (ceiling)**: ATR_1h 가 backtest ~380 → live ~206 으로 압축 → swing-based TP1 (nearestResistance) 가 10*ATR 천장을 초과. Stage 22의 10/12 ATR은 high-ATR regime 가정.
+- **G6 (MTF confluence)**: binary `volume='confirmed'` 투표가 weak volume regime에서 항상 0표. d1=bearish + h4/h1=bullish + vol=weak = 2/4 < 3 영구 차단.
+- **G9 (weekend)**: institutional FX 관행 차용한 Fri22:00–Sun16:00 차단이 한국 retail crypto의 메인 engagement 시간을 죽였음.
+
+**4단 fix (commit `3c75560`)**:
+1. `signalEngine.ts` — `TP2_ATR_CEILING_MULT=8` 추가. Engine이 validator G4 한계 안에서 TP2 선택 (min(swing, entry+8*ATR))
+2. `signalValidator.ts` G4 — 10/12 → **12/15** ATR (regime-compression 대응)
+3. `signalValidator.ts` G6 — binary `confirmed=1` → **weighted (confirmed=1, weak=0.5, none=0)** + MIN=2.5. iter2 disaster (2 trends + zero vol, PF 0.53) 여전히 차단 (2.0 < 2.5)
+4. `eventCalendar.ts` G9 weekend — 기본 OFF (`SIGNAL_BLOCK_WEEKEND=true` env로 opt-in). 크립토는 24/7, 한국 retail은 주말이 메인.
+
+**라이브 검증 (2026-05-10 12:31 KST)**:
+- BTCUSDT direction=long score=45 status=**open** (channel에 실 broadcast됨, validation_failed_gate=null)
+- ETH/SOL: engine skip (정당)
+- 3 commit 시퀀스 후 첫 PASS_ALL_GATES → 4일 silence 종료, 사용자 텔레그램 community 채널에 BTC LONG trade plan 메시지 송출됨
+
+**최종 5 commits 시퀀스**:
+| commit | 효과 |
+|---|---|
+| `87a3663` | SMA200 starvation fix |
+| `7523783` | drawdown brake idempotency + migration 16 |
+| `9c2c3c0` | XRP retry + audit-row fallback |
+| `dc4da3b` | drawdown brake idempotency regression test |
+| `3c75560` | **4단 gate tuning → live broadcast 실 송출** |
+
+**검증 게이트 (CLAUDE.md §3 준수)**:
+- typecheck OK · 127/127 tests green
+- 라이브 Binance.US 4종 SMA200 작동 확인
+- 라이브 DB: status='open' BTC LONG row 확인 = 실 sendMessage 성공
+- 6 Render auto-deploy 성공
+
+
 
 
 ## ⚠️ 실제 프로젝트 위치
@@ -87,11 +124,11 @@ E:\claude\telegram_game_project\telegram-trading-game\
 ## 마지막 5 commits
 | commit | 내용 |
 |---|---|
+| `3c75560` | fix: tune Stage 22 gates so signals actually broadcast (G4/G6/G9 + engine TP2 cap) |
 | `dc4da3b` | test: pin drawdown brake idempotency contract |
 | `9c2c3c0` | fix: retry + audit-row when MTF fetch returns null mid-tick (XRP visibility) |
 | `7523783` | fix: unblock drawdown brake stuck on stale pre-Stage-22 losses (migration 16) |
 | `87a3663` | fix: bump signal MTF fetch limit so SMA200 survives dropInProgress (Stage 22.1) |
-| `94df05e` | docs: restore PROGRESS.md handoff index for Stage 22 next session |
 
 ## 첫 액션 (다음 세션)
 **작업 디렉토리 이동 필수**:
