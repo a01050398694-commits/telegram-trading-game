@@ -49,16 +49,43 @@ const TP_DIR_BUFFER_PCT = 0.001; // TP must be at least 0.1% past entry
 const MIN_TP1_RR = 1.0;
 const MIN_TP2_RR = 1.5;
 const SL_NOISE_FLOOR_ATR_MULT = 0.75;
-const TP1_CEILING_ATR_MULT = 10;
-const TP2_CEILING_ATR_MULT = 12;
+// Stage 22.1 (production tuning, 2026-05-10): bumped TP1 10→12 and TP2 12→15.
+//   Stage 22 backtest used 10/12 in a higher-ATR regime. Live 2026-05-10 BTC ATR_1h
+//   compressed to ~206 USD (vs ~380 during backtest), so the swing-based TP1
+//   (nearestResistance) at 2007 USD started failing 10*ATR=2060 by tens of dollars.
+//   For a 48h swing trade, 12-15 ATR targets are still well within "realistic"
+//   territory (Stage 22's notion of "absurd" was ATR-relative without considering
+//   regime compression). Engine still caps TP2 at 8*ATR via signalEngine.ts so the
+//   tighter 15-ATR validator ceiling has plenty of headroom.
+const TP1_CEILING_ATR_MULT = 12;
+const TP2_CEILING_ATR_MULT = 15;
 // Stage 22 iteration log:
 //   iter1 G6=3/4 → 12 entries/60d, PF 2.16, expectancy +0.44R, total +5.23R ✅
 //   iter2 G6=2/4 → 81 entries/60d, PF 0.53, expectancy -0.35R, total -27.96R ❌
 //   iter3 G6=3/4 (revert) — 3/4 is the right tier; the additional 69 entries
 //                            iter2 admitted were mostly junk. Quality > quantity.
-//   ~0.2 signals/day is professional cadence (Cornix-style services average 1-3/day
-//   across multiple symbols, but only on confirmed setups).
-const MIN_MTF_CONFLUENCE = 3; // out of 4 components
+//
+// Stage 22.1 (production tuning, 2026-05-10): the strict 3/4 binary vote was
+//   broadcasting 0 signals over 4 days in a low-volume bearish-d1 regime — every
+//   BTC LONG candidate scored alignment 3/4 (m15+h1+h4 bullish, d1 bearish) with
+//   weak volume = 2/4 binary score → blocked. iter2's mistake was full 2/4 binary
+//   (allowing 2-trend + zero-volume setups, the worst quality). The right
+//   compromise is WEIGHTED volume:
+//     'confirmed' = 1.0  ('weak' surge >= 1.2× prior 10-bar avg)
+//     'weak'      = 0.5  (in-direction price move, near-average volume)
+//     'none'      = 0
+//   With MIN_MTF_CONFLUENCE = 2.5 the effective gate becomes:
+//     - 3 trends + any volume                ✓ (= iter1 baseline)
+//     - 2 trends + 'confirmed' volume        ✓ (= iter1 baseline)
+//     - 2 trends + 'weak' volume             ✓ NEW (was blocked by iter1 binary)
+//     - 2 trends + 'none' volume             ✗ (= iter2's failure mode, still blocked)
+//   This adds the "in-direction price action without a volume surge" tier — rejects
+//   the catastrophic iter2 trades (zero-volume weak setups) but admits the live
+//   BTC 2026-05-10 setups that had every other signal but volume.
+const MIN_MTF_CONFLUENCE = 2.5;
+const VOLUME_VOTE_CONFIRMED = 1.0;
+const VOLUME_VOTE_WEAK = 0.5;
+const VOLUME_VOTE_NONE = 0;
 const BTC_DOMINANCE_SUPPRESS_THRESHOLD = 65;
 
 function fail(gate: GateId, reason: string): ValidationResult {
@@ -119,10 +146,11 @@ function checkG4(s: Signal, atr1h: number | null): ValidationResult {
   return ok();
 }
 
-// G6 — Multi-timeframe confluence: at least 3 of 4 components confirm direction.
-//   Components: D1 trend, H4 trend, H1 momentum (macdAgree), volume='confirmed'.
+// G6 — Multi-timeframe confluence with weighted volume vote.
+//   Components: D1 trend, H4 trend, H1 trend (3 binary votes), volume (weighted).
 //   Why: D1 weighted heaviest because 48h timeout horizon is essentially a swing trade.
 //   Pre-Stage-22 alignment was 4 equal votes → m15 noise outvoted D1 regime.
+//   Stage 22.1 weighted-volume change: see MIN_MTF_CONFLUENCE comment above.
 function checkG6(s: Signal): ValidationResult {
   const intent = s.direction;
   if (intent !== 'long' && intent !== 'short') return ok();
@@ -132,11 +160,17 @@ function checkG6(s: Signal): ValidationResult {
   if (tf.d1 === wantTrend) score++;
   if (tf.h4 === wantTrend) score++;
   if (tf.h1 === wantTrend) score++;
-  if (s.volumeConfirmation === 'confirmed') score++;
+  const vote =
+    s.volumeConfirmation === 'confirmed'
+      ? VOLUME_VOTE_CONFIRMED
+      : s.volumeConfirmation === 'weak'
+        ? VOLUME_VOTE_WEAK
+        : VOLUME_VOTE_NONE;
+  score += vote;
   if (score < MIN_MTF_CONFLUENCE) {
     return fail(
       'G6_MTF_CONFLUENCE',
-      `MTF score ${score}/4 (d1=${tf.d1} h4=${tf.h4} h1=${tf.h1} vol=${s.volumeConfirmation})`
+      `MTF score ${score.toFixed(1)}/4 (d1=${tf.d1} h4=${tf.h4} h1=${tf.h1} vol=${s.volumeConfirmation}=${vote.toFixed(1)})`
     );
   }
   return ok();

@@ -9,7 +9,8 @@ import {
   type FuturesSymbol,
 } from '../src/services/marketData.js';
 import { buildSignal } from '../src/services/signalEngine.js';
-import { computeSMA } from '../src/lib/ta.js';
+import { computeSMA, computeATR } from '../src/lib/ta.js';
+import { validateSignal } from '../src/services/signalValidator.js';
 
 const SYMBOLS: FuturesSymbol[] = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT'];
 
@@ -46,9 +47,18 @@ async function main(): Promise<void> {
 
     const lastClose = mtf.h1.closes.at(-1) ?? 0;
     const signal = buildSignal({ symbol: sym, currentPrice: lastClose, klines: closed });
+    const atr1h = computeATR(closed.h1.highs, closed.h1.lows, closed.h1.closes, 14);
+    const validation = signal.direction === 'skip'
+      ? { ok: true as const }
+      : validateSignal(signal, { atr1h, macro: null, now: Date.now() });
+    const validatorTag = signal.direction === 'skip'
+      ? 'n/a'
+      : validation.ok
+        ? 'PASS_ALL_GATES → would broadcast'
+        : `FAIL ${validation.failure?.gate} (${validation.failure?.reason})`;
 
     console.log(
-      `[${sym}] closed=m15:${lens.m15} h1:${lens.h1} h4:${lens.h4} d1:${lens.d1} | sma200ok=${allSma200Ok} | dir=${signal.direction} score=${signal.score} alignment=m15:${signal.multiTimeframeAlignment.m15} h1:${signal.multiTimeframeAlignment.h1} h4:${signal.multiTimeframeAlignment.h4} d1:${signal.multiTimeframeAlignment.d1}`,
+      `[${sym}] closed=m15:${lens.m15} h1:${lens.h1} h4:${lens.h4} d1:${lens.d1} | sma200ok=${allSma200Ok} | dir=${signal.direction} score=${signal.score} alignment=m15:${signal.multiTimeframeAlignment.m15} h1:${signal.multiTimeframeAlignment.h1} h4:${signal.multiTimeframeAlignment.h4} d1:${signal.multiTimeframeAlignment.d1} vol=${signal.volumeConfirmation} | validator=${validatorTag}`,
     );
   }
   if (!allOk) {

@@ -28,6 +28,13 @@ const MIN_TP1_RR_RATIO = 1.0;
 const MIN_TP2_RR_RATIO = 1.5;
 const MAX_SL_ATR_MULT = 2.5;
 const SL_ATR_FALLBACK_PCT = 0.025;
+// Why: signalValidator G4 rejects when |tp - entry| > 12 × ATR(1h). When the next
+//   deeper swing high/low is much further than the current resistance, picking it
+//   blindly produces an "absurd target" rejection (BTCUSDT 2026-05-09 17:07 / 17:15
+//   / 17:17 ticks all rejected with tp2Dist=4570 vs 12*ATR≈4560). Cap TP2 selection
+//   at 8 × ATR — comfortably under the validator ceiling, still preserves a >=1.5R
+//   reward to risk on most setups, never reaches for unrealistic targets.
+const TP2_ATR_CEILING_MULT = 8;
 
 export interface RiskReward {
   rrTp1: number;
@@ -290,9 +297,13 @@ export function buildSignal(input: BuildSignalInput): Signal {
     pivot = lvl.pivot;
   }
 
-  // ATR-based volatility for leverage cap.
+  // ATR-based volatility for leverage cap. Computed before TP selection so the
+  //   TP2 cap (TP2_ATR_CEILING_MULT * atr1h) can use it.
   const atr1h = computeATR(h1Closed.highs, h1Closed.lows, h1Closed.closes, 14);
   const atrPct = atr1h != null && currentPrice > 0 ? (atr1h / currentPrice) * 100 : 1.5;
+  const tp2AbsCeiling = atr1h != null && atr1h > 0
+    ? TP2_ATR_CEILING_MULT * atr1h
+    : Number.POSITIVE_INFINITY;
 
   // Entry/SL/TP — based on H4 swings + nearest key levels.
   // Stage 22 — null S/R (price in clean breakout territory) → skip with rationale.
@@ -317,7 +328,12 @@ export function buildSignal(input: BuildSignalInput): Signal {
         .map((s) => s.value)
         .filter((v) => v > tp1)
         .sort((a, b) => a - b);
-      tp2 = deeperResistances[0] ?? tp1 * 1.03;
+      const swingTp2 = deeperResistances[0] ?? tp1 * 1.03;
+      // Cap at validator-safe distance so G4 never rejects a swing-based target.
+      const atrCappedTp2 = entry + tp2AbsCeiling;
+      tp2 = Math.min(swingTp2, atrCappedTp2);
+      // Guarantee tp2 > tp1 (cap could pull below tp1 in a low-ATR regime).
+      if (tp2 <= tp1) tp2 = tp1 * 1.01;
     }
   } else if (direction === 'short') {
     if (keyLevels.nearestSupport === null || recentSwingHigh <= 0) {
@@ -330,7 +346,10 @@ export function buildSignal(input: BuildSignalInput): Signal {
         .map((s) => s.value)
         .filter((v) => v < tp1)
         .sort((a, b) => b - a);
-      tp2 = deeperSupports[0] ?? tp1 * 0.97;
+      const swingTp2 = deeperSupports[0] ?? tp1 * 0.97;
+      const atrCappedTp2 = entry - tp2AbsCeiling;
+      tp2 = Math.max(swingTp2, atrCappedTp2);
+      if (tp2 >= tp1) tp2 = tp1 * 0.99;
     }
   }
   if (breakoutSkip) {

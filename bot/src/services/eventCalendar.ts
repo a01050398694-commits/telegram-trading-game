@@ -79,10 +79,17 @@ export function isWithinCPI(
   return isNearEvent('CPI', now, beforeMs, afterMs);
 }
 
-// Weekend low-liquidity window: Fri 22:00 UTC → Sun 16:00 UTC.
-// Why: spot+derivatives liquidity dries up; spreads widen 2-3x; whipsaw risk high.
-//   Conservative window — covers Asian-only weekend session and US Sunday-evening reopen.
+// Stage 22.1 (production tuning, 2026-05-10): weekend window disabled for retail
+//   crypto targeting. Stage 22 borrowed Fri 22:00 UTC → Sun 16:00 UTC from
+//   institutional FX desks where weekend liquidity dries up. Crypto is 24/7 with
+//   meaningfully active weekend volume (Binance Sat 24h volume routinely 60-80%
+//   of weekday). Korean retail (the primary audience) is OFF work weekends → that
+//   is the audience's PRIMARY engagement window. Killing all weekend signals to
+//   chase a marginal liquidity quality bump is exactly backwards for this product.
+//   FOMC / CPI / BTC.D suppressions remain — those are actual macro risk windows.
+//   Set SIGNAL_BLOCK_WEEKEND=true env to re-enable the institutional behavior.
 export function isWeekendWindow(now: number): boolean {
+  if (process.env.SIGNAL_BLOCK_WEEKEND !== 'true') return false;
   const d = new Date(now);
   const dow = d.getUTCDay(); // 0=Sun, 5=Fri, 6=Sat
   const hour = d.getUTCHours();

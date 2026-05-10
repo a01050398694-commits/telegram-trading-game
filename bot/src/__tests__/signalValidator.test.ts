@@ -200,23 +200,33 @@ describe('G3 — SL outside noise', () => {
   });
 });
 
-describe('G4 — TP not absurd', () => {
-  it('rejects when tp1Dist > 10 × ATR', () => {
+describe('G4 — TP not absurd (Stage 22.1: 12/15 ATR ceilings)', () => {
+  it('rejects when tp1Dist > 12 × ATR', () => {
     const s = cleanLong();
     s.entry = 80000;
-    s.tp1 = 82100; // 2100 away
-    const r = gates.checkG4(s, 200); // 10*200=2000
+    s.tp1 = 82500; // 2500 away — exceeds 12*200=2400
+    const r = gates.checkG4(s, 200);
     expect(r.ok).toBe(false);
     expect(r.failure?.gate).toBe<GateId>('G4_TP_CEILING');
   });
 
-  it('rejects when tp2Dist > 12 × ATR', () => {
+  it('rejects when tp2Dist > 15 × ATR', () => {
     const s = cleanLong();
     s.entry = 80000;
-    s.tp1 = 81000; // 1000 away — passes
-    s.tp2 = 82500; // 2500 away — exceeds 12*200=2400
+    s.tp1 = 82000; // 2000 away — passes 12*200=2400
+    s.tp2 = 83100; // 3100 away — exceeds 15*200=3000
     const r = gates.checkG4(s, 200);
     expect(r.ok).toBe(false);
+  });
+
+  it('admits the regime-compressed live BTC case (tp1Dist=2067, ATR≈206)', () => {
+    const s = cleanLong();
+    s.entry = 80800;
+    s.tp1 = 82867;
+    s.tp2 = 83635;
+    const r = gates.checkG4(s, 206);
+    // 12*206=2472 (tp1Dist 2067 ✓), 15*206=3090 (tp2Dist 2835 ✓)
+    expect(r.ok).toBe(true);
   });
 });
 
@@ -242,6 +252,26 @@ describe('G6 — MTF confluence (≥ 3/4 after iter 3 revert; 2/4 was -EV)', () 
   it('accepts when all 4 confirm', () => {
     const r = gates.checkG6(cleanLong());
     expect(r.ok).toBe(true);
+  });
+
+  // Stage 22.1 — weighted volume vote: 'weak' = 0.5
+  it('accepts 2 trends + weak volume (=2.5, the new tier)', () => {
+    const s = cleanLong();
+    s.multiTimeframeAlignment = { m15: 'bullish', h1: 'bullish', h4: 'bullish', d1: 'bearish', alignmentScore: 0.75 };
+    s.volumeConfirmation = 'weak';
+    // h4(1) + h1(1) + weak(0.5) = 2.5 → accept
+    const r = gates.checkG6(s);
+    expect(r.ok).toBe(true);
+  });
+
+  it('rejects 2 trends + no volume (=2.0, iter2 failure mode)', () => {
+    const s = cleanLong();
+    s.multiTimeframeAlignment = { m15: 'bullish', h1: 'bullish', h4: 'bullish', d1: 'bearish', alignmentScore: 0.75 };
+    s.volumeConfirmation = 'none';
+    // h4(1) + h1(1) + none(0) = 2.0 → reject (the iter2 catastrophe still blocked)
+    const r = gates.checkG6(s);
+    expect(r.ok).toBe(false);
+    expect(r.failure?.gate).toBe<GateId>('G6_MTF_CONFLUENCE');
   });
 });
 
@@ -277,12 +307,23 @@ describe('G9 — Macro suppression', () => {
     expect(r.failure?.reason).toMatch(/FOMC/);
   });
 
-  it('blocks during weekend window (Saturday)', () => {
+  it('weekend window is opt-in via SIGNAL_BLOCK_WEEKEND env (default off, on for institutional desks)', () => {
     // 2026-04-25 is a Saturday.
     const sat = Date.UTC(2026, 3, 25, 12, 0, 0, 0);
-    const r = gates.checkG9(null, sat);
-    expect(r.ok).toBe(false);
-    expect(r.failure?.reason).toMatch(/weekend/);
+    const prev = process.env.SIGNAL_BLOCK_WEEKEND;
+    try {
+      // Default off: Saturday signals admitted (Stage 22.1 — crypto is 24/7).
+      delete process.env.SIGNAL_BLOCK_WEEKEND;
+      expect(gates.checkG9(null, sat).ok).toBe(true);
+      // Opt-in: institutional behavior preserved when env enabled.
+      process.env.SIGNAL_BLOCK_WEEKEND = 'true';
+      const r = gates.checkG9(null, sat);
+      expect(r.ok).toBe(false);
+      expect(r.failure?.reason).toMatch(/weekend/);
+    } finally {
+      if (prev === undefined) delete process.env.SIGNAL_BLOCK_WEEKEND;
+      else process.env.SIGNAL_BLOCK_WEEKEND = prev;
+    }
   });
 
   it('blocks when BTC.D > 65', () => {
